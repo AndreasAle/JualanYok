@@ -1,0 +1,534 @@
+# JualanYok
+
+Platform creator-commerce Indonesia. Creator bikin halaman toko berbasis block,
+menjual produk digital/fisik/kelas/jasa/event/membership, menerima pembayaran,
+mengirim produk otomatis, menjalankan program affiliate, dan mencairkan saldo.
+
+Alur inti:
+
+```
+Creator → Storefront → Block/Product → Checkout → Payment → Fulfillment
+                                                      ↓
+                                          Ledger → Balance → Withdrawal
+```
+
+---
+
+## Stack
+
+| Bagian | Teknologi |
+| --- | --- |
+| Backend | Laravel 12, PHP 8.2+ |
+| Frontend | Inertia.js 2 + React 19 + TypeScript |
+| Styling | Tailwind CSS 4 (design tokens di `resources/css/app.css`) |
+| Build | Vite 7 |
+| Database | SQLite (default dev) / MySQL 8 |
+| Auth | Session guard + Laravel Sanctum (API token siap pakai) |
+| Queue | Database driver (Redis tinggal ganti env) |
+| Storage | Filesystem abstraction — `local` untuk file berbayar, `public` untuk gambar, `s3` untuk produksi |
+| Test | PHPUnit |
+
+---
+
+## Requirement
+
+- PHP 8.2 atau lebih baru (ekstensi: `pdo_sqlite` atau `pdo_mysql`, `mbstring`, `openssl`, `fileinfo`)
+- Composer 2
+- Node.js 20+ dan npm
+- MySQL 8 (opsional — SQLite dipakai kalau tidak diset)
+
+> **Versi Inertia harus sepadan.** Adapter PHP `inertiajs/inertia-laravel` v2
+> berpasangan dengan npm `@inertiajs/react` v2. Kalau sisi npm dinaikkan ke v3
+> tanpa menaikkan sisi PHP, halaman akan tampil **kosong total** tanpa error di
+> Laravel — v3 membaca data awal dari `<script type="application/json">`,
+> sedangkan v2 menuliskannya sebagai atribut `data-page` di `<div id="app">`.
+> `package.json` sudah dipatok ke `^2.3` untuk mencegah ini.
+
+---
+
+## Instalasi
+
+> **Windows PowerShell:** PowerShell 5.1 tidak mengenal `&&` sebagai pemisah
+> perintah. Jalankan tiap baris satu per satu, atau pakai `;` sebagai pemisah.
+> Contoh di bawah sudah aman untuk PowerShell maupun bash.
+
+Jalankan berurutan:
+
+```powershell
+composer install
+```
+
+```powershell
+npm install
+```
+
+Salin file environment — **lewati langkah ini kalau `.env` sudah ada**, karena
+menimpanya akan menghapus `APP_KEY` yang sudah di-generate:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+```powershell
+php artisan key:generate
+```
+
+```powershell
+php artisan migrate --seed
+```
+
+```powershell
+php artisan storage:link
+```
+
+> Langkah ini **wajib**. Tanpa symlink `public/storage`, semua gambar produk,
+> avatar, dan cover toko akan gagal dimuat (HTTP 403) walaupun datanya benar.
+
+```powershell
+npm run build
+```
+
+Jalankan aplikasinya:
+
+```powershell
+php artisan serve
+```
+
+Buka `http://localhost:8000`.
+
+Untuk development dengan hot reload, jalankan di terminal terpisah:
+
+```powershell
+npm run dev
+```
+
+<details>
+<summary>Versi bash / macOS / Linux (satu baris)</summary>
+
+```bash
+composer install && npm install && cp .env.example .env && php artisan key:generate && php artisan migrate --seed && php artisan storage:link && npm run build && php artisan serve
+```
+
+</details>
+
+### Mengulang dari nol
+
+Kalau ingin mereset database dan data demo:
+
+```powershell
+php artisan migrate:fresh --seed
+```
+
+### Queue worker
+
+Email struk, webhook toko, fulfilment produk, dan agregasi analitik berjalan di
+queue. Tanpa worker, pembayaran tetap tercatat dan saldo tetap benar, tapi
+produk tidak akan terkirim ke pembeli.
+
+```powershell
+php artisan queue:work
+```
+
+### Scheduler
+
+Menangani pematangan saldo, pelepasan komisi, kedaluwarsa pembayaran, dan
+ringkasan analitik harian:
+
+```powershell
+php artisan schedule:work
+```
+
+Di produksi, pasang satu cron:
+
+```
+* * * * * cd /path/ke/jualanyok && php artisan schedule:run >> /dev/null 2>&1
+```
+
+### Pakai MySQL
+
+Di `.env`:
+
+```
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=jualanyok
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+Lalu jalankan `php artisan migrate:fresh --seed`.
+
+### Login dengan Google
+
+Google OAuth sudah disiapkan menggunakan Laravel Socialite. Buat OAuth Client
+bertipe **Web application** di Google Cloud Console, lalu tambahkan authorized
+redirect URI berikut untuk development:
+
+```
+http://127.0.0.1:8000/auth/google/callback
+```
+
+Isi `.env`:
+
+```env
+GOOGLE_CLIENT_ID=client-id-dari-google
+GOOGLE_CLIENT_SECRET=client-secret-dari-google
+GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/auth/google/callback
+```
+
+Setelah mengubah environment, jalankan:
+
+```powershell
+php artisan config:clear
+```
+
+Untuk production, ganti redirect URI dengan domain HTTPS production dan
+daftarkan URI yang sama persis di Google Cloud Console.
+
+---
+
+## Akun demo
+
+Seeder demo hanya jalan kalau `DEMO_MODE=true`. **Password semuanya `password`.**
+Jangan pernah aktifkan `DEMO_MODE` di produksi.
+
+| Peran | Email | Catatan |
+| --- | --- | --- |
+| Super Admin | `admin@jualanyok.test` | Akses penuh + impersonation |
+| Finance Admin | `finance@jualanyok.test` | Hanya dia yang bisa memproses penarikan & refund |
+| Creator (produk digital + kelas) | `kreator@jualanyok.test` | Toko `/kreatorkita`, paket Creator |
+| Creator (jasa + membership + event) | `desain@jualanyok.test` | Toko `/ruangdesain`, paket Pro |
+| Creator (produk fisik + affiliate) | `fisik@jualanyok.test` | Toko `/racunstyle` |
+| Affiliate | `affiliate@jualanyok.test` | Punya link + komisi berjalan |
+| Customer | `pembeli@jualanyok.test` | Punya pembelian, download, dan kelas |
+
+Storefront demo yang bisa langsung dibuka:
+
+- `http://localhost:8000/kreatorkita`
+- `http://localhost:8000/ruangdesain`
+- `http://localhost:8000/racunstyle`
+
+Pembeli masuk ke Member Area lewat `/masuk-pembeli` (kode OTP dikirim ke email —
+di development, cek `storage/logs/laravel.log`).
+
+---
+
+## Mencoba alur pembayaran
+
+Provider `mock` aktif secara default dan berperilaku seperti gateway asli:
+membuat tagihan, memberi instruksi (VA/QRIS/e-wallet), menandatangani callback,
+dan menolak callback yang nominalnya tidak cocok.
+
+1. Buka salah satu storefront demo, klik **Beli** pada sebuah produk.
+2. Isi nama dan email, lanjut ke checkout.
+3. Pilih metode bayar, klik **Bayar Sekarang**.
+4. Di halaman status, tekan **Simulasi Bayar Sukses**.
+
+Yang terjadi setelah itu — semuanya nyata, bukan tampilan:
+
+- Order berpindah ke `PROCESSING`/`COMPLETED`
+- Stok produk fisik dipotong (reservasi dikonversi jadi pengurangan stok)
+- Ledger seller ditulis: gross, biaya platform, komisi affiliate, net
+- Komisi affiliate dibuat dengan status `PENDING`
+- Akses download / enrolment kelas / tiket dibuat
+- Struk dikirim ke email pembeli (butuh queue worker)
+- Notifikasi masuk ke dashboard creator
+
+Tombol simulasi hanya muncul kalau `DEMO_MODE=true` dan provider `mock`.
+
+---
+
+## Menjalankan test
+
+```powershell
+php artisan test
+```
+
+83 test, 261 assertion. Yang dicakup:
+
+- Registrasi, login (email/username), username unik + reserved, OTP pembeli
+- Onboarding creator + pemasangan template
+- Block CRUD, reorder, duplikasi, penjadwalan, draft vs published
+- Product CRUD, slug unik, soft delete
+- Checkout: total, kupon, idempotency, harga selalu dari database
+- Stock locking (anti oversell)
+- Payment callback: signature, idempotency, validasi nominal
+- Digital access setelah pembayaran + signed download URL + batas unduhan
+- Affiliate: atribusi, penolakan self-purchase, kalkulasi komisi, pematangan
+- Refund: clawback saldo penjual (penuh & sebagian), pembatalan komisi, pencabutan akses
+- Ledger: immutability, bucket tidak boleh negatif, rekonsiliasi
+- Withdrawal: hold, pencegahan double withdrawal, reversal, minimum, rekening terverifikasi
+- Otorisasi antar-creator, antar-customer, dan pemisahan role admin
+- Limit paket & feature gating
+- Rendering semua halaman terhadap data demo
+
+Cek tipe dan build frontend:
+
+```powershell
+npx tsc --noEmit
+```
+
+```powershell
+npm run build
+```
+
+---
+
+## Struktur utama
+
+```
+app/
+├── Enums/            Status order, payment, fulfillment, ledger, dll.
+├── Models/           Eloquent models
+├── Payments/         Abstraksi payment gateway
+│   ├── PaymentProviderInterface.php
+│   ├── PaymentManager.php
+│   └── Providers/    MockProvider, ManualTransferProvider, MidtransProvider
+├── Services/         Logika bisnis
+│   ├── LedgerService.php          ← satu-satunya penulis saldo
+│   ├── CheckoutService.php        ← pembuatan order + reservasi stok
+│   ├── PaymentService.php         ← callback, settlement, ledger
+│   ├── FulfillmentService.php     ← pengiriman produk
+│   ├── AffiliateService.php       ← atribusi & komisi
+│   ├── WithdrawalService.php      ← pencairan
+│   ├── RefundService.php          ← refund & clawback
+│   ├── PlanService.php            ← feature gating
+│   └── AnalyticsService.php       ← event & agregasi
+├── Http/Controllers/
+│   ├── PublicSite/   Landing, storefront, checkout, webhook, download
+│   ├── Auth/         Registrasi, login, OTP, onboarding
+│   ├── Creator/      Dashboard creator
+│   ├── Customer/     Member area
+│   ├── Affiliate/    Dashboard affiliate
+│   └── Admin/        Panel super admin
+resources/js/
+├── pages/            Halaman Inertia (Marketing, Auth, Storefront, Checkout,
+│                     Creator, Member, Affiliate, Admin)
+├── layouts/          MarketingLayout, AuthLayout, DashboardLayout
+└── components/       UI kit, block renderer, komponen bersama
+routes/
+├── web.php           Marketing, checkout, webhook, download
+├── auth.php          Autentikasi & onboarding
+├── creator.php       /dashboard/*
+├── member.php        /member/*
+├── affiliate.php     /affiliate/*
+├── admin.php         /admin/*
+└── storefront.php    /{username} — didaftarkan paling akhir
+```
+
+---
+
+## Alur status
+
+### Order
+
+```
+DRAFT → PENDING_PAYMENT → PAID → PROCESSING → COMPLETED
+                ↓                      ↓
+            EXPIRED              REFUND_REQUESTED → REFUNDED
+            CANCELLED                            → PARTIALLY_REFUNDED
+```
+
+Status order, status pembayaran, dan status fulfilment disimpan di tiga kolom
+terpisah supaya tidak saling menimpa.
+
+### Payment
+
+```
+PENDING → PROCESSING → PAID
+   ↓                     ↓
+EXPIRED / FAILED    REFUNDED / PARTIALLY_REFUNDED
+```
+
+### Saldo (bucket)
+
+```
+Penjualan lunas
+      ↓
+  PENDING ──(setelah masa tahan)──► AVAILABLE ──(ajukan tarik)──► HELD ──(cair)──► WITHDRAWN
+      ↑                                  ↑                          │
+      └────── refund (clawback) ─────────┘◄──── penarikan ditolak ──┘
+```
+
+### Komisi affiliate
+
+```
+PENDING ──(lewat masa refund)──► APPROVED ──► PAID
+   │                                 │
+   └────────── REVERSED ◄────────────┘   (kalau ordernya direfund)
+```
+
+### Withdrawal
+
+```
+REQUESTED → UNDER_REVIEW → APPROVED → PROCESSING → PAID
+     │            │            │           │
+     └────────────┴────────────┴───────────┴──► REJECTED / CANCELLED / FAILED
+                                                 (dana kembali ke AVAILABLE)
+```
+
+### Subscription
+
+```
+TRIALING → ACTIVE → PAST_DUE → EXPIRED
+              ↓
+          CANCELLED (aktif sampai akhir periode)
+```
+
+---
+
+## Cara kerja uang
+
+Ini bagian yang paling penting untuk dipahami sebelum mengubah apa pun.
+
+**`LedgerService` adalah satu-satunya kode yang boleh menulis saldo.** Tidak ada
+tempat lain yang menyentuh kolom balance di tabel `wallets`.
+
+- `ledger_entries` bersifat *append-only*. Model-nya melempar exception kalau
+  ada yang mencoba `update()` atau `delete()`. Koreksi selalu berupa entri baru
+  dengan tanda berlawanan.
+- Setiap penulisan mengunci baris wallet (`lockForUpdate`) dan menulis entri
+  ledger + memperbarui bucket dalam satu transaksi.
+- Bucket tidak pernah boleh negatif — ini yang membuat double withdrawal
+  mustahil: permintaan kedua menemukan dananya sudah pindah ke `HELD` dan gagal.
+- `idempotency_key` membuat callback yang diulang menjadi no-op.
+- `LedgerService::reconcile()` membandingkan saldo tersimpan dengan hasil
+  penjumlahan ledger. Test memverifikasi keduanya selalu cocok.
+
+---
+
+## Menambahkan payment provider
+
+1. Buat adapter di `app/Payments/Providers/` yang mengimplementasi
+   `PaymentProviderInterface`.
+2. Daftarkan di `PaymentManager::build()`.
+3. Tambahkan konfigurasi di `config/payments.php` dan variabel di `.env.example`.
+
+Yang wajib benar di adapter:
+
+- `verifyWebhook()` harus mengembalikan `false` untuk apa pun yang tidak bisa
+  dibuktikan secara kriptografis. Signature yang tidak valid membuat endpoint
+  membalas 401 dan tidak menyentuh saldo.
+- `parseWebhook()` harus mengembalikan `eventId` yang unik per event. Kolom
+  unik `(provider, event_id)` yang mencegah pemrosesan ganda.
+- `amount` yang dikembalikan dipakai untuk verifikasi. Kalau tidak cocok dengan
+  tagihan, `PaymentService` melempar exception dan tidak menyelesaikan order.
+
+Business logic (order, ledger, fulfilment, komisi) tidak perlu diubah sama
+sekali. `MidtransProvider` sudah tersedia sebagai contoh lengkap.
+
+## Menambahkan notification provider
+
+Notifikasi memakai channel Laravel (`mail`, `database`). Untuk WhatsApp:
+
+1. Buat channel class dengan method `send($notifiable, $notification)`.
+2. Tambahkan `toWhatsapp()` di notification yang relevan.
+3. Tambahkan nama channel ke `via()`.
+
+Saat ini WhatsApp belum punya adapter konkret — lihat bagian keterbatasan.
+
+---
+
+## Deployment checklist
+
+- [ ] `APP_ENV=production`, `APP_DEBUG=false`
+- [ ] **`DEMO_MODE=false`** — mematikan seeder demo dan tombol simulasi bayar
+- [ ] `APP_KEY` di-generate dan disimpan aman
+- [ ] `PAYMENT_MOCK_ENABLED=false`, provider asli aktif dan terisi kuncinya
+- [ ] `SESSION_SECURE_COOKIE=true`, aplikasi di belakang HTTPS
+- [ ] Database MySQL 8 dengan backup terjadwal
+- [ ] `FILESYSTEM_DISK=s3` (atau disk privat lain) untuk file produk berbayar
+- [ ] Mailer asli terkonfigurasi dan domain terverifikasi (SPF/DKIM)
+- [ ] `php artisan migrate --force`
+- [ ] `npm run build`
+- [ ] `php artisan config:cache route:cache view:cache`
+- [ ] Queue worker berjalan di bawah supervisor
+- [ ] Cron scheduler terpasang
+- [ ] Webhook gateway diarahkan ke `POST /webhooks/payments/{provider}`
+- [ ] Monitoring untuk job gagal dan webhook gagal
+
+---
+
+## Catatan keamanan
+
+- Otorisasi divalidasi di server pada setiap request. Menyembunyikan menu di
+  frontend tidak pernah dijadikan mekanisme keamanan.
+- Path file produk tidak pernah dikirim ke client. Pembeli hanya menerima signed
+  URL berumur pendek yang menunjuk ke token akses, dan syaratnya (revoked,
+  kedaluwarsa, kuota) dicek ulang saat file benar-benar diunduh.
+- Nomor rekening pencairan dan secret webhook dienkripsi di database.
+- Endpoint webhook pembayaran dikecualikan dari CSRF, tapi wajib lolos verifikasi
+  signature.
+- Integrasi pixel hanya menerima **ID**, bukan potongan script, sehingga tidak
+  ada script arbitrary yang bisa disuntikkan ke halaman toko.
+- Block `EMBED` hanya mengizinkan host yang ada di allowlist.
+- Analitik memakai hash harian dari IP + user agent + APP_KEY. Hash berganti tiap
+  hari sehingga tidak bisa dipakai melacak seseorang lintas hari atau lintas toko.
+- Endpoint OTP dan reset password memberi respons identik untuk email yang ada
+  maupun tidak, supaya tidak bisa dipakai enumerasi akun.
+- Impersonation hanya untuk super admin, menampilkan banner, dan dicatat di audit
+  log pada saat mulai maupun selesai.
+- Security header (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  HSTS saat HTTPS) dipasang lewat middleware.
+- Rate limit terpasang pada login, registrasi, OTP, checkout, webhook, dan
+  download.
+
+---
+
+## Asumsi yang diambil
+
+Beberapa detail tidak disebutkan spesifik, jadi diputuskan sebagai berikut:
+
+1. **Biaya gateway dibebankan ke pembeli**, bukan dipotong dari penjual. Harga
+   yang dilihat penjual adalah harga yang jadi dasar bagi hasil.
+2. **Biaya platform dihitung dari subtotal setelah diskon + ongkir**, sebelum
+   biaya gateway.
+3. **Komisi affiliate dipotong dari bagian penjual**, bukan ditambahkan di atas
+   harga pembeli.
+4. **Masa tahan komisi affiliate (14 hari) lebih panjang dari masa tahan saldo
+   penjual (7 hari)**, supaya refund tidak menyebabkan komisi yang sudah cair
+   harus ditarik kembali.
+5. **Atribusi affiliate memakai last valid click** dengan cookie httpOnly.
+6. **Pembeli tidak wajib punya akun.** Identitas pembeli adalah email per toko;
+   akun dibuat otomatis saat pertama kali login OTP.
+7. **Refund parsial memotong saldo penjual secara proporsional** terhadap total
+   order.
+8. **SQLite jadi default development** supaya aplikasi bisa langsung dijalankan;
+   MySQL 8 tetap didukung penuh lewat env.
+
+---
+
+## Keterbatasan yang masih ada
+
+Ditulis apa adanya supaya tidak ada kejutan:
+
+- **Adapter Midtrans belum diuji end-to-end** terhadap sandbox asli. Kodenya
+  ditulis sesuai kontrak Snap + notification yang terdokumentasi, tapi tanpa
+  kredensial sandbox di environment ini, jalannya belum pernah diverifikasi.
+  Xendit baru ada slot konfigurasinya, adapternya belum ditulis.
+- **Watermark PDF belum diimplementasikan.** Kolom `watermark_pdf` sudah ada di
+  `product_files` dan ikut ditandai di seeder, tapi belum ada job yang benar-benar
+  menempelkan nama/email pembeli ke PDF.
+- **Adapter WhatsApp belum ada.** Notifikasi berjalan lewat email dan in-app.
+  Struktur channel-nya siap, providernya belum ditulis.
+- **Email broadcast dan campaign**: tabelnya (`campaigns`, `marketing_consents`)
+  dan pencatatan consent sudah jalan, tapi UI pengiriman broadcast belum dibuat.
+- **Verifikasi custom domain**: tabel `store_domains` beserta token verifikasi
+  sudah ada dan tampil di pengaturan, tapi proses pengecekan DNS-nya belum
+  otomatis — masih perlu ditambahkan admin/support.
+- **Support ticket**: form kontak sudah membuat tiket sungguhan di database, tapi
+  panel balasan tiket untuk admin belum dibuat.
+- **Booking jasa**: slot dibuat saat order dibayar dan dilindungi unique index
+  anti double-booking, tapi UI pemilihan jadwal oleh pembeli belum ada — slot
+  saat ini diisi lewat metadata order.
+- **Team member / sub-admin**: role dan permission sudah ada di database, tapi
+  UI untuk mengundang anggota tim belum dibuat.
+- **Upload file produk digital (yang dijual) lewat UI belum ada** — file yang
+  dikirim ke pembeli masih didaftarkan lewat seeder atau tinker. Upload
+  **gambar** (foto profil toko, banner, thumbnail produk) sudah tersedia di
+  dashboard. Storage abstraction dan pengamanan download-nya sudah lengkap.
+- **Bundle JS masih satu chunk (±690 KB)**. Berfungsi, tapi sebaiknya
+  di-code-split per area sebelum produksi.
+- **Content moderation & report**: tabel `content_reports` tersedia, alur review
+  di panel admin belum dibuat.

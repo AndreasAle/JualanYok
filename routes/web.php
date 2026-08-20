@@ -1,0 +1,67 @@
+<?php
+
+use App\Http\Controllers\PublicSite\CheckoutController;
+use App\Http\Controllers\PublicSite\DownloadController;
+use App\Http\Controllers\PublicSite\LandingController;
+use App\Http\Controllers\PublicSite\PaymentWebhookController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Marketing site
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/', [LandingController::class, 'home'])->name('home');
+Route::get('/pricing', [LandingController::class, 'pricing'])->name('pricing');
+Route::get('/features', [LandingController::class, 'features'])->name('features');
+Route::get('/templates', [LandingController::class, 'templates'])->name('templates');
+Route::get('/templates/{template:slug}/demo', [LandingController::class, 'templateDemo'])
+    ->name('templates.demo');
+Route::get('/contact', [LandingController::class, 'contact'])->name('contact');
+Route::post('/contact', [LandingController::class, 'submitContact'])
+    ->middleware('throttle:5,1')
+    ->name('contact.submit');
+
+foreach (['terms', 'privacy', 'refund-policy'] as $slug) {
+    Route::get("/{$slug}", fn () => app(LandingController::class)->page($slug))
+        ->name('pages.'.str_replace('-', '.', $slug));
+}
+
+/*
+|--------------------------------------------------------------------------
+| Checkout & payments
+|--------------------------------------------------------------------------
+| Checkout lives at the top level (not under /{username}) so the URL stays
+| stable across stores and cannot be shadowed by a creator username.
+*/
+
+Route::prefix('checkout')->name('checkout.')->group(function () {
+    Route::get('/{order:number}', [CheckoutController::class, 'show'])->name('show');
+    Route::post('/{order:number}/pay', [CheckoutController::class, 'pay'])
+        ->middleware('throttle:20,1')
+        ->name('pay');
+    Route::get('/{order:number}/status', [CheckoutController::class, 'status'])->name('status');
+    Route::post('/{order:number}/retry', [CheckoutController::class, 'retry'])
+        ->middleware('throttle:10,1')
+        ->name('retry');
+});
+
+// Development-only simulator that stands in for a real gateway callback.
+Route::post('/pay/simulate/{payment}', [CheckoutController::class, 'simulate'])
+    ->middleware('throttle:30,1')
+    ->name('payment.simulate');
+
+Route::post('/webhooks/payments/{provider}', PaymentWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('webhooks.payments');
+
+/*
+|--------------------------------------------------------------------------
+| Signed downloads
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/downloads/{token}', [DownloadController::class, 'serve'])
+    ->middleware('signed')
+    ->name('downloads.serve');
