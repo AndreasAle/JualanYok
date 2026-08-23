@@ -138,11 +138,66 @@ export default function CheckoutStatus({
 
                                 {payment.instructions?.type === 'qris' && (
                                     <div className="mt-5 rounded-[var(--radius-field)] bg-surface-2 p-6 text-center">
-                                        <div className="mx-auto grid size-40 place-items-center rounded-xl bg-white p-3">
-                                            {/* Deterministic QR-ish pattern from the payload, for demo rendering */}
-                                            <QrPattern payload={String(payment.instructions.payload ?? '')} />
-                                        </div>
-                                        <p className="mt-3 text-xs text-muted">Scan pakai aplikasi e-wallet atau m-banking</p>
+                                        {payment.instructions.qr_svg ? (
+                                            <>
+                                                <img
+                                                    src={payment.instructions.qr_svg}
+                                                    alt={`Kode QRIS untuk pembayaran ${formatIDR(payment.amount)}`}
+                                                    className="mx-auto w-full max-w-[240px] rounded-xl bg-white p-3"
+                                                />
+
+                                                {payment.instructions.merchant && (
+                                                    <p className="mt-3 text-sm font-semibold">
+                                                        Pembayaran ke{' '}
+                                                        <span className="font-extrabold">
+                                                            {payment.instructions.merchant}
+                                                        </span>
+                                                    </p>
+                                                )}
+
+                                                <div className="mt-4 rounded-[var(--radius-field)] border border-line bg-surface p-4">
+                                                    <p className="text-xs font-semibold text-muted">
+                                                        Bayar tepat sejumlah
+                                                    </p>
+                                                    <p className="mt-0.5 text-2xl font-black tabular-nums text-[var(--primary)]">
+                                                        {formatIDR(payment.amount)}
+                                                    </p>
+                                                    {payment.instructions.unique_suffix != null && (
+                                                        <p className="mt-1 text-xs text-muted">
+                                                            {formatIDR(payment.instructions.base_amount)} + kode unik{' '}
+                                                            <b>{payment.instructions.unique_suffix}</b>
+                                                        </p>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => copy(String(Math.round(payment.amount)))}
+                                                        className="mt-2 text-xs font-bold text-[var(--primary)] underline"
+                                                    >
+                                                        {copied === String(Math.round(payment.amount))
+                                                            ? 'Nominal tersalin'
+                                                            : 'Salin nominal'}
+                                                    </button>
+                                                </div>
+
+                                                <Alert tone="warning">
+                                                    <span className="text-sm">
+                                                        Nominalnya sudah terkunci di QR. Tiga digit terakhir itu penanda
+                                                        pesananmu — jangan dibulatkan, nanti pembayaranmu tidak terdeteksi.
+                                                    </span>
+                                                </Alert>
+
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="mx-auto grid size-40 place-items-center rounded-xl bg-white p-3">
+                                                    {/* Simulation only: not a scannable code. */}
+                                                    <QrPattern payload={String(payment.instructions.payload ?? '')} />
+                                                </div>
+                                                <p className="mt-3 text-xs font-bold text-[var(--warning)]">
+                                                    Contoh tampilan (provider simulasi) — kode ini tidak bisa di-scan.
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
                                 )}
 

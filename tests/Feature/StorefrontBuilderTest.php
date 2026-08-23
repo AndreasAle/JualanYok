@@ -127,6 +127,30 @@ class StorefrontBuilderTest extends TestCase
             ->assertSessionHasErrors('plan');
     }
 
+    public function test_a_creator_can_apply_a_premium_background_without_changing_the_template_layout(): void
+    {
+        $store = $this->makeStore();
+        Block::create(['store_id' => $store->id, 'type' => 'TEXT', 'position' => 0]);
+        $blockIds = $store->blocks()->pluck('id')->all();
+
+        $background = 'linear-gradient(145deg, #F7F4FF 0%, #F0EDFF 52%, #FFF3F6 100%)';
+
+        $this->actingAs($store->owner)->put('/dashboard/toko/tema', [
+            'primary_color' => '#111827',
+            'accent_color' => '#7C3AED',
+            'background_type' => 'gradient',
+            'background_value' => $background,
+            'font_family' => 'jakarta',
+            'button_style' => 'rounded',
+            'card_style' => 'soft',
+            'product_layout' => 'grid',
+            'color_scheme' => 'light',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame($background, $store->theme()->firstOrFail()->background_value);
+        $this->assertSame($blockIds, $store->blocks()->pluck('id')->all());
+    }
+
     public function test_publishing_requires_at_least_one_block(): void
     {
         $store = $this->makeStore(attributes: ['is_published' => false]);

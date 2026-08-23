@@ -49,6 +49,7 @@ export interface PageProps {
         success: string | null;
         error: string | null;
         info: string | null;
+        warning: string | null;
     };
     errors: Record<string, string>;
     [key: string]: unknown;
@@ -91,8 +92,40 @@ export interface StorefrontProduct {
     is_pay_what_you_want: boolean;
     minimum_price: number | null;
     external_url: string | null;
+    external_provider?: string | null;
+    external_cta?: string | null;
     is_buyable: boolean;
+    is_cartable?: boolean;
+    requires_variant?: boolean;
     sales_count?: number;
+}
+
+export interface CartLine {
+    id: number;
+    product_id: number;
+    variant_id: number | null;
+    name: string;
+    variant_name: string | null;
+    slug: string;
+    type_label: string;
+    thumbnail_url: string | null;
+    unit_price: number;
+    quantity: number;
+    line_total: number;
+    min_quantity: number;
+    max_quantity: number;
+    available_stock: number | null;
+    /** Set when the line can no longer be bought; excluded from the subtotal. */
+    issue: string | null;
+}
+
+export interface CartPayload {
+    token: string;
+    coupon_code: string | null;
+    items: CartLine[];
+    item_count: number;
+    subtotal: number;
+    has_issue: boolean;
 }
 
 export interface StorefrontBlock {

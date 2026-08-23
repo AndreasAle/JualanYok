@@ -239,6 +239,274 @@ Tombol simulasi hanya muncul kalau `DEMO_MODE=true` dan provider `mock`.
 
 ---
 
+## Menjual produk digital
+
+File yang dijual diatur dari **Dashboard → Produk → (pilih produk) → tab File**.
+Tab ini hanya muncul untuk produk bertipe *Produk Digital*, dan baru tersedia
+setelah produknya tersimpan.
+
+Yang bisa dilakukan di sana:
+
+- Unggah file (tarik-lepas atau pilih manual), atau daftarkan **tautan eksternal**
+  kalau filenya sudah kamu hosting sendiri.
+- Atur nama yang dilihat pembeli, versi, batas jumlah unduh, dan masa berlaku akses.
+- **Ganti file** — menukar isi file tanpa mencabut akses pembeli lama, jadi semua
+  yang sudah beli otomatis dapat versi terbaru. Nomor versi naik sendiri (1.0 → 1.1).
+
+### Cara file dilindungi
+
+- File ditulis ke disk **privat** (`storage/app/private`), bukan `storage/app/public`.
+  Tidak ada URL publik yang mengarah ke sana.
+- Nama file di disk diacak, jadi tidak bisa ditebak dari nama aslinya.
+- Pembeli hanya menerima **signed URL berumur 15 menit**. Setiap kali diunduh,
+  syarat aksesnya divalidasi ulang (dicabut? kedaluwarsa? kuota habis?), sehingga
+  tautan yang bocor tetap tidak bisa dipakai melewati haknya.
+- Tipe file dibatasi lewat `config/jualanyok.uploads.file_mimes` dan diperiksa
+  berdasarkan **isi** file, bukan sekadar ekstensinya — `shell.php` yang di-rename
+  jadi `.pdf` tetap ditolak.
+
+### Produk digital tanpa file tidak bisa dijual
+
+Ini ditegakkan berlapis, supaya tidak ada pembeli yang membayar lalu tidak
+menerima apa pun:
+
+1. Produk digital tanpa file **tidak bisa diubah statusnya menjadi Aktif**.
+2. Kalaupun statusnya aktif karena data lama, produknya **disembunyikan** dari
+   storefront (`scopeDeliverable`).
+3. `CheckoutService` **menolak** order yang memuat produk tak-terkirim.
+
+Menghapus file yang sudah pernah dibeli juga ditolak — karena relasinya
+`cascadeOnDelete`, penghapusan akan mencabut akses pembeli lama secara diam-diam.
+Gunakan **Ganti file** untuk itu.
+
+> **Catatan `APP_URL`.** Signed URL ikut menandatangani host. Kalau `APP_URL`
+> tidak sama dengan origin yang benar-benar melayani permintaan (misal `APP_URL`
+> `http://localhost` tapi server jalan di `http://127.0.0.1:8000`), semua link
+> download akan ditolak dengan *Invalid signature*.
+
+---
+
+## Keranjang belanja
+
+Pembeli bisa mengumpulkan beberapa produk lalu membayarnya dalam **satu order**.
+Keranjang terikat pada satu toko — menjelajah dua kreator tidak mencampur isinya —
+dan dikenali lewat cookie `jy_cart_{store_id}` (httpOnly, 30 hari). Tamu tidak
+perlu login; kalau kemudian login, keranjang yang ada ikut menempel ke akunnya.
+
+### Yang tidak masuk keranjang
+
+Produk yang harga atau syaratnya ditentukan per pembelian tetap memakai jalur
+**Beli Sekarang** langsung:
+
+- Donasi dan produk *bayar seikhlasnya* — nominalnya diisi pembeli
+- Jasa/konsultasi — butuh pemilihan jadwal
+- Produk affiliate (`EXTERNAL`) — transaksinya di luar JualanYok
+- Produk digital tanpa file — belum bisa dikirim sama sekali
+
+### Produk bervarian
+
+Produk dengan varian aktif (ukuran, warna) **wajib dipilih varianya dulu** —
+stok disimpan per varian, jadi baris pesanan tanpa varian tidak mereservasi apa
+pun dan penjual tidak tahu harus mengirim yang mana. Karena itu:
+
+- Kartu produk di grid menampilkan tombol **Pilih Varian** yang membuka halaman
+  produk, bukan tombol keranjang (tidak ada ruang memilih opsi di kartu).
+- Halaman produk punya pemilih varian; tombol beli dan keranjang terkunci sampai
+  ada yang dipilih.
+- `CartService` dan `CheckoutService` sama-sama menolak baris tanpa varian.
+- Item yang sudah telanjur ada di keranjang sebelum penjual menambahkan varian
+  **ditandai**, tidak dihitung, dan tidak menggagalkan checkout item lain.
+
+### Aturan yang dijaga server
+
+- **Harga selalu dihitung ulang** dari katalog setiap keranjang dibaca. Snapshot
+  `cart_items.unit_price` tidak pernah menang atas harga sekarang.
+- **Item yang sudah tidak dijual tetap terlihat tapi ditandai**, tidak dihitung ke
+  subtotal, dan tidak ikut dibayar — supaya pembeli paham kenapa totalnya berubah,
+  bukan menemukan barangnya hilang diam-diam.
+- **Stok membatasi jumlah** saat menambah dan saat checkout.
+- Saat checkout dari keranjang, browser mengirim `from_cart: true` dan **tidak ada
+  daftar item sama sekali** — server menyusun ulang barisnya dari keranjang
+  tersimpan. Item yang diselipkan di request diabaikan.
+- Keranjang **baru dikosongkan setelah order berhasil dibuat**, jadi checkout yang
+  gagal tidak menghanguskan isi keranjang.
+- Halaman storefront **tidak membuat baris `carts` untuk pengunjung biasa** —
+  keranjang lahir saat item pertama ditambahkan.
+
+---
+
+## Pembayaran langganan lewat QRIS
+
+Upgrade paket dibayar dengan **scan QRIS**, lalu dikonfirmasi manual oleh admin.
+Tidak ada callback dari penyedia dompet, jadi satu-satunya penghubung antara
+transfer masuk dan pelanggan adalah **nominalnya**.
+
+### Cara kerjanya
+
+1. Creator pilih paket → sistem membuat pembayaran dengan **nominal unik**:
+   harga paket + 1..999. Contoh: Pro Rp 149.000 → **Rp 149.881**.
+2. QRIS statis milikmu diubah jadi **QRIS dinamis** (tag `01` = `12`) dengan
+   nominal terkunci di tag `54`, lalu di-render jadi QR di halaman pembayaran.
+3. Pembeli scan pakai DANA/GoPay/OVO/ShopeePay/m-banking. Nominal sudah terisi
+   otomatis dan tidak bisa diubah.
+4. Creator klik **"Saya sudah bayar"** → masuk antrean admin.
+5. Admin buka **Admin → Bayar Langganan**, cocokkan nominal dengan notifikasi
+   dompet, klik **Setujui** → paket langsung aktif.
+
+### Kenapa nominalnya dijamin unik
+
+Kalau dua orang sama-sama menunggu Rp 149.881, satu transfer masuk jadi ambigu
+dan admin bisa mengaktifkan akun yang salah. Jadi keunikannya **ditegakkan
+database**, bukan diharapkan dari angka acak:
+
+- Kolom `claimable_amount` menyimpan nominal selama pembayaran masih terbuka,
+  dan di-`NULL`-kan begitu lunas/ditolak/kedaluwarsa.
+- Kolom itu punya **unique index**. Karena MySQL dan SQLite sama-sama
+  memperlakukan `NULL` sebagai nilai berbeda, ini berarti *"maksimal satu klaim
+  terbuka per nominal"* di kedua engine — sesuatu yang tidak bisa dilakukan
+  partial index secara portabel.
+- Nominal yang sudah selesai otomatis bisa dipakai ulang pembeli berikutnya.
+
+Aturan lain yang dijaga:
+
+- Satu creator hanya boleh punya **satu pembayaran terbuka**; membuat yang baru
+  otomatis melepas yang lama.
+- Pembayaran yang **sudah dikonfirmasi pembayar tidak ikut kedaluwarsa** — dananya
+  mungkin memang sedang dalam perjalanan, dan menghapusnya dari antrean sama saja
+  menghilangkan uang orang.
+- Approve bersifat **idempoten** dan dikunci baris, jadi dua admin yang mengeklik
+  bersamaan tidak membuat dua langganan.
+- Endpoint upgrade instan **menolak paket berbayar** saat QRIS aktif, supaya
+  request buatan tangan tidak bisa mendapatkan paket gratis.
+
+### Konfigurasi
+
+```
+QRIS_ENABLED=true
+QRIS_STATIC_PAYLOAD="00020101021126570011ID.DANA..."
+QRIS_WINDOW_MINUTES=30
+```
+
+`QRIS_STATIC_PAYLOAD` adalah **teks di dalam QR statis** milik merchant kamu,
+bukan file gambarnya. Nilai ini identitas bisnis, jadi disimpan di `.env` dan
+tidak pernah masuk repositori.
+
+> **Wajib pakai tanda kutip.** Payload QRIS memuat nama kota yang biasanya
+> mengandung spasi (mis. `Kota Palembang`). Tanpa kutip, Laravel gagal membaca
+> `.env` sama sekali.
+
+QR digambar **lokal** (`bacon/bacon-qr-code`) dan ditanam sebagai data URI —
+payload pembayaran tidak pernah dikirim ke layanan pihak ketiga hanya untuk
+digambar.
+
+---
+
+## QRIS untuk checkout produk
+
+Metode yang sama juga tersedia buat pembeli produk. Aktifkan dengan:
+
+```
+QRIS_CHECKOUT_ENABLED=true
+QRIS_FEE_PERCENT=0.7
+```
+
+### Ke mana uangnya
+
+Uang masuk ke **rekening merchant pemilik platform**, bukan ke kreator — QR-nya
+QR kamu. Kreator menerima **angka di saldo aplikasi**, dan uang fisiknya baru
+berpindah saat penarikan dicairkan.
+
+Contoh nyata (pembelian e-book Rp 149.000 di paket Creator):
+
+| | |
+|---|---|
+| Pembeli bayar | **Rp 150.526** → rekening platform |
+| Biaya pembayaran (0,7%) | Rp 1.043 → platform |
+| Kode unik | Rp 483 → platform |
+| Fee platform (5%) | Rp 7.450 → platform |
+| **Saldo kreator bertambah** | **Rp 141.550** |
+
+Kreator tidak pernah dibebani biaya pembayaran maupun kode unik — keduanya
+dibayar pembeli di atas harga barang dan tetap di platform.
+
+Saldo itu masuk kantong **Pending** dan matang jadi **Available** setelah masa
+endap (`HOLDING_PERIOD_DAYS`, default 7 hari), baru bisa ditarik.
+
+### Konfirmasi manual, jalur yang sama dengan gateway
+
+**Admin → Bayar Pesanan** menampilkan antrean. Cari nominal yang masuk di
+dompet (bisa diketik `150526` atau `150.526`), klik **Konfirmasi lunas**.
+
+Konfirmasi itu memanggil `PaymentService::markPaid` — persis fungsi yang dipakai
+callback gateway. Jadi stok terpotong, ledger tertulis, komisi affiliate
+terhitung, produk terkirim, dan struk terkirim dengan cara yang identik. **Tidak
+ada jalur "manual" kedua yang lebih lemah.**
+
+### Yang dijaga
+
+- **Nominal unik dijamin database.** Kolom `payments.claimable_amount` memegang
+  nominal selama pembayaran terbuka dan di-`NULL` begitu lunas/gagal/kedaluwarsa,
+  dengan unique index di atasnya. Dua pembayaran terbuka tidak mungkin bernominal
+  sama, jadi satu transfer masuk selalu menunjuk ke satu pesanan.
+- **Checkout yang ditinggalkan mengembalikan nominalnya** saat kedaluwarsa —
+  kalau tidak, satu angka terkunci selamanya dan rentang 999 pelan-pelan habis.
+- **Kembali ke QRIS memakai QR yang sama**, bukan membuat nominal baru, supaya
+  pembeli yang sudah terlanjur scan tetap valid.
+- **Konfirmasi ganda tidak membayar penjual dua kali** — `markPaid` idempoten dan
+  mengunci baris.
+- Total yang tertulis di halaman checkout **adalah yang ditagih**. Biaya
+  pembayaran dihitung ulang saat metode dipilih, dan berganti metode tidak
+  menumpuk dua biaya.
+
+> **Catatan.** Karena uang mengalir lewat rekening platform, kamu menampung dana
+> milik orang lain. Pastikan selalu ada kas untuk membayar seluruh saldo yang
+> bisa ditarik, dan cek kewajiban perizinannya (di Indonesia aktivitas semacam
+> ini umumnya masuk ranah PJP Bank Indonesia) sebelum volumenya besar.
+
+---
+
+## Email
+
+Alur email akun sudah lengkap dan berbahasa Indonesia:
+
+| Kejadian | Email |
+|---|---|
+| Daftar biasa | Selamat datang **+** konfirmasi alamat email |
+| Daftar via Google | Selamat datang saja — alamatnya sudah dibuktikan Google |
+| Lupa password | Tautan atur ulang, berlaku 60 menit |
+| Login pembeli | Kode OTP 6 digit, berlaku 10 menit |
+| Pesanan lunas | Struk ke pembeli, notifikasi ke creator |
+
+Pengguna Google **tidak** dikirimi email verifikasi — meminta konfirmasi alamat
+yang sudah dibuktikan Google itu mubazir, dan melatih orang mengeklik tautan
+verifikasi yang tidak mereka minta.
+
+### Konfigurasi SMTP
+
+Development memakai `MAIL_MAILER=log`; semua email masuk ke
+`storage/logs/laravel.log` sehingga bisa diperiksa tanpa mengirim apa pun.
+
+Untuk produksi dengan email Hostinger:
+
+```
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.hostinger.com
+MAIL_PORT=465
+MAIL_SCHEME=smtps
+MAIL_USERNAME=mail@domainkamu.id
+MAIL_PASSWORD=            # isi sendiri, jangan pernah di-commit
+MAIL_FROM_ADDRESS=mail@domainkamu.id
+```
+
+Port 465 memakai SSL implisit (`MAIL_SCHEME=smtps`). Kalau memakai port 587,
+set `MAIL_PORT=587` dan `MAIL_SCHEME=smtp` (STARTTLS).
+
+Teks bawaan Laravel diterjemahkan lewat `lang/id.json`, jadi email tidak lagi
+mencampur bahasa — email akun yang terbaca seperti layanan lain mengundang orang
+memperlakukannya sebagai phishing. Pastikan `APP_LOCALE=id`.
+
+---
+
 ## Menjalankan test
 
 ```powershell
@@ -524,10 +792,6 @@ Ditulis apa adanya supaya tidak ada kejutan:
   saat ini diisi lewat metadata order.
 - **Team member / sub-admin**: role dan permission sudah ada di database, tapi
   UI untuk mengundang anggota tim belum dibuat.
-- **Upload file produk digital (yang dijual) lewat UI belum ada** — file yang
-  dikirim ke pembeli masih didaftarkan lewat seeder atau tinker. Upload
-  **gambar** (foto profil toko, banner, thumbnail produk) sudah tersedia di
-  dashboard. Storage abstraction dan pengamanan download-nya sudah lengkap.
 - **Bundle JS masih satu chunk (±690 KB)**. Berfungsi, tapi sebaiknya
   di-code-split per area sebelum produksi.
 - **Content moderation & report**: tabel `content_reports` tersedia, alur review

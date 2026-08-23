@@ -1,7 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     BarChart3, Bell, Blocks, Boxes, ChevronLeft, CreditCard, ExternalLink, Eye, Gauge, Gift,
-    Handshake, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, Receipt, Settings,
+    Handshake, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
     Search, ShieldCheck, ShoppingBag, Store, Ticket, UserCircle, Users, Wallet, X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -86,6 +86,8 @@ const ADMIN_NAV: { group: string; items: NavItem[] }[] = [
         group: 'Platform',
         items: [
             { label: 'Paket', href: '/admin/paket', icon: <LayoutGrid className="size-4.5" /> },
+            { label: 'Bayar Langganan', href: '/admin/pembayaran-langganan', icon: <QrCode className="size-4.5" />, primary: true },
+            { label: 'Bayar Pesanan', href: '/admin/pembayaran-qris', icon: <ShoppingBag className="size-4.5" />, primary: true },
             { label: 'Pengaturan', href: '/admin/pengaturan', icon: <Settings className="size-4.5" /> },
             { label: 'Audit Log', href: '/admin/audit', icon: <ShieldCheck className="size-4.5" /> },
         ],

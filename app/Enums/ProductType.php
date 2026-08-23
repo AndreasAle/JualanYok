@@ -23,7 +23,7 @@ enum ProductType: string
             self::Service => 'Jasa / Konsultasi',
             self::Membership => 'Membership',
             self::Donation => 'Donasi / Bayar Seikhlasnya',
-            self::External => 'Produk Affiliate',
+            self::External => 'Produk Marketplace / Affiliate',
         };
     }
 

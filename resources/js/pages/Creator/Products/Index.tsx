@@ -14,11 +14,14 @@ interface ProductRow {
     type_label: string;
     status: string;
     status_label: string;
+    needs_file: boolean;
     price: number;
     compare_at_price: number | null;
     thumbnail_url: string | null;
     sales_count: number;
     view_count: number;
+    external_clicks: number;
+    external_provider: string | null;
     affiliate_enabled: boolean;
     public_url: string;
 }
@@ -72,7 +75,7 @@ export default function ProductsIndex({
             align: 'right',
             render: (row) => (
                 <span>
-                    <span className="block font-semibold">{formatIDR(row.price)}</span>
+                    <span className="block font-semibold">{row.type === 'EXTERNAL' ? 'Ikuti marketplace' : formatIDR(row.price)}</span>
                     {row.compare_at_price && (
                         <span className="block text-xs text-muted line-through">
                             {formatIDR(row.compare_at_price)}
@@ -88,14 +91,20 @@ export default function ProductsIndex({
                 <span className="flex flex-wrap gap-1">
                     <StatusBadge status={row.status} label={row.status_label} />
                     {row.affiliate_enabled && <Badge tone="info">Affiliate</Badge>}
+                    {row.needs_file && <Badge tone="warning">Belum ada file</Badge>}
                 </span>
             ),
         },
         {
             key: 'sales',
-            header: 'Terjual',
+            header: 'Hasil',
             align: 'right',
-            render: (row) => <span className="font-semibold">{formatNumber(row.sales_count)}</span>,
+            render: (row) => (
+                <span className="font-semibold">
+                    {formatNumber(row.type === 'EXTERNAL' ? row.external_clicks : row.sales_count)}
+                    <span className="ml-1 text-[10px] font-normal text-muted">{row.type === 'EXTERNAL' ? 'klik' : 'terjual'}</span>
+                </span>
+            ),
         },
         {
             key: 'views',

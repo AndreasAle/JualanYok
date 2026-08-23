@@ -14,6 +14,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -25,6 +26,16 @@ class FulfillmentService
 {
     public function fulfil(Order $order): void
     {
+        // Everything the grant branches below touch, loaded up front. Without
+        // this the job dies outright under strict local mode, and quietly runs
+        // one query per line in production.
+        $order->loadMissing([
+            'items.product.files',
+            'items.product.course',
+            'items.product.event',
+            'items.product.service',
+        ]);
+
         DB::transaction(function () use ($order) {
             foreach ($order->items as $item) {
                 match ($item->product_type) {
@@ -50,6 +61,17 @@ class FulfillmentService
         $product = $item->product;
 
         if (! $product) {
+            return;
+        }
+
+        // Checkout refuses undeliverable products, so an empty file list here
+        // means pre-existing data. Flag it rather than completing silently.
+        if ($product->files->isEmpty()) {
+            Log::warning('Digital order fulfilled with no file attached.', [
+                'order_id' => $order->id,
+                'product_id' => $product->id,
+            ]);
+
             return;
         }
 

@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { CheckCircle2, Minus } from 'lucide-react';
 import { useState } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
@@ -12,12 +12,16 @@ export default function Subscription({
     usage,
     invoices,
     billingProvider,
+    qris,
+    openPayment,
 }: {
     current: any | null;
     plans: any[];
     usage: Record<string, { used: number; limit: number | null }>;
     invoices: any[];
     billingProvider: string;
+    qris: { enabled: boolean; merchant: string | null; window_minutes: number };
+    openPayment: { reference: string; plan_name: string; amount: number; status: string; status_label: string } | null;
 }) {
     const [yearly, setYearly] = useState(current?.interval === 'yearly');
 
@@ -28,13 +32,45 @@ export default function Subscription({
                 description="Naik paket kalau butuh limit lebih besar dan biaya transaksi lebih rendah."
             />
 
-            {billingProvider === 'mock' && (
+            {openPayment && (
                 <div className="mb-4">
-                    <Alert tone="info" title="Mode pengembangan">
-                        Pembayaran langganan diproses lewat provider simulasi. Upgrade langsung aktif tanpa
-                        tagihan sungguhan.
+                    <Alert
+                        tone={openPayment.status === 'AWAITING_REVIEW' ? 'info' : 'warning'}
+                        title={
+                            openPayment.status === 'AWAITING_REVIEW'
+                                ? 'Pembayaran sedang dicek admin'
+                                : 'Ada pembayaran yang belum selesai'
+                        }
+                    >
+                        <span className="text-sm">
+                            Paket {openPayment.plan_name} — {formatIDR(openPayment.amount)}.{' '}
+                            <Link
+                                href={`/dashboard/langganan/bayar/${openPayment.reference}`}
+                                className="font-bold underline"
+                            >
+                                Lihat detail pembayaran
+                            </Link>
+                        </span>
                     </Alert>
                 </div>
+            )}
+
+            {qris.enabled ? (
+                <div className="mb-4">
+                    <Alert tone="info" title="Pembayaran lewat QRIS">
+                        Upgrade dibayar dengan scan QRIS{qris.merchant ? ` ke ${qris.merchant}` : ''}. Paket aktif
+                        setelah admin mengonfirmasi dana masuk — biasanya cepat.
+                    </Alert>
+                </div>
+            ) : (
+                billingProvider === 'mock' && (
+                    <div className="mb-4">
+                        <Alert tone="info" title="Mode pengembangan">
+                            Pembayaran langganan diproses lewat provider simulasi. Upgrade langsung aktif tanpa
+                            tagihan sungguhan.
+                        </Alert>
+                    </div>
+                )
             )}
 
             {/* Current plan */}
@@ -187,15 +223,21 @@ export default function Subscription({
                                     message={
                                         price === 0
                                             ? 'Kamu akan turun ke paket Gratis dengan limit yang lebih kecil.'
-                                            : `Kamu akan ditagih ${formatIDR(price)} per ${yearly ? 'tahun' : 'bulan'}.`
+                                            : qris.enabled
+                                              ? `Kamu akan diarahkan ke halaman pembayaran QRIS sebesar ${formatIDR(price)}.`
+                                              : `Kamu akan ditagih ${formatIDR(price)} per ${yearly ? 'tahun' : 'bulan'}.`
                                     }
                                     confirmLabel="Ya, lanjut"
                                     variant="primary"
                                     onConfirm={() =>
-                                        router.post('/dashboard/langganan', {
-                                            plan: plan.slug,
-                                            interval: yearly ? 'yearly' : 'monthly',
-                                        })
+                                        // Paid plans go through QRIS when it is configured; free
+                                        // downgrades still switch instantly.
+                                        router.post(
+                                            qris.enabled && price > 0
+                                                ? '/dashboard/langganan/bayar'
+                                                : '/dashboard/langganan',
+                                            { plan: plan.slug, interval: yearly ? 'yearly' : 'monthly' },
+                                        )
                                     }
                                 >
                                     <Button variant={plan.slug === 'pro' ? 'gradient' : 'outline'} block className="mt-5">

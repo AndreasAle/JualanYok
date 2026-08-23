@@ -1,6 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import {
-    ArrowRight, Check, Copy, ExternalLink, Eye, Package, Plus, ShoppingBag, TrendingUp, Wallet,
+    ArrowRight, BarChart3, Blocks, Check, Copy, ExternalLink, Eye, Package, Plus, ShoppingBag, Ticket,
+    TrendingUp, Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
@@ -106,6 +107,27 @@ export default function CreatorDashboard({
                         <Button variant="ghost" size="sm" className="border border-white/10 bg-white/[.06] text-white hover:bg-white/10 hover:text-white" onClick={copyLink}>{copied ? <Check /> : <Copy />}{copied ? 'Tersalin' : 'Salin link'}</Button>
                         <a href={store.public_url} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-2 rounded-xl bg-white px-3 text-xs font-extrabold text-[#171620]"><ExternalLink className="size-3.5" /> Buka toko</a>
                     </div>
+                </div>
+            </section>
+
+            <section className="mb-6">
+                <div className="mb-3 flex items-end justify-between gap-3">
+                    <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Mulai cepat</p><h2 className="mt-1 text-lg font-black tracking-tight">Apa yang mau kamu kerjakan?</h2></div>
+                    <span className="hidden text-xs text-muted sm:block">Akses pekerjaan utama tanpa mencari menu.</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {[
+                        { href: `/dashboard/produk/create${store.products_count === 0 ? '?first=1' : ''}`, label: store.products_count === 0 ? 'Buat produk pertama' : 'Tambah produk', hint: 'Digital, fisik, jasa, atau affiliate', icon: <Plus className="size-5" />, tone: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' },
+                        { href: '/dashboard/toko', label: 'Atur tampilan', hint: 'Block, template, dan gaya toko', icon: <Blocks className="size-5" />, tone: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' },
+                        { href: '/dashboard/kupon/create', label: 'Buat promo', hint: 'Kupon untuk dorong penjualan', icon: <Ticket className="size-5" />, tone: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300' },
+                        { href: '/dashboard/analitik', label: 'Lihat performa', hint: 'Kunjungan, klik, dan konversi', icon: <BarChart3 className="size-5" />, tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
+                    ].map((action) => (
+                        <Link key={action.href} href={action.href} className="group flex min-h-28 flex-col rounded-[1.35rem] border border-line bg-surface p-4 shadow-[0_8px_24px_rgba(16,24,40,.04)] transition duration-300 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lift">
+                            <span className={`grid size-10 place-items-center rounded-xl ${action.tone}`}>{action.icon}</span>
+                            <span className="mt-4 flex items-center justify-between gap-2 text-sm font-extrabold">{action.label}<ArrowRight className="size-4 text-muted transition-transform group-hover:translate-x-1 group-hover:text-violet-600" /></span>
+                            <span className="mt-1 text-[11px] leading-4 text-muted">{action.hint}</span>
+                        </Link>
+                    ))}
                 </div>
             </section>
 

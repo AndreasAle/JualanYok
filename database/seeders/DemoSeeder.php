@@ -211,13 +211,24 @@ class DemoSeeder extends Seeder
 
         app(PlanService::class)->subscribe($owner, Plan::where('slug', Plan::PRO)->first());
 
-        $this->makeProduct($store, [
+        $bundle = $this->makeProduct($store, [
             'type' => ProductType::Digital,
             'name' => 'Bundle Template Brand Guideline',
             'short_description' => '40 halaman siap edit di Figma dan Canva.',
             'price' => 199000,
             'affiliate_enabled' => true,
         ]);
+
+        ProductFile::updateOrCreate(
+            ['product_id' => $bundle->id, 'name' => 'brand-guideline-bundle.zip'],
+            [
+                'disk' => 'local',
+                'path' => 'demo/brand-guideline-bundle.zip',
+                'mime_type' => 'application/zip',
+                'size' => 18_500_000,
+                'version' => '1.0',
+            ],
+        );
 
         $konsultasi = $this->makeProduct($store, [
             'type' => ProductType::Service,
@@ -322,7 +333,7 @@ class DemoSeeder extends Seeder
             'name' => 'Sepatu Andalan Sehari-hari (Affiliate)',
             'short_description' => 'Yang aku pakai hampir tiap hari. Beli lewat link ini ya.',
             'price' => 0,
-            'external_url' => 'https://example.com/produk-affiliate',
+            'external_url' => 'https://shopee.co.id/search?keyword=sepatu%20sneakers',
         ]);
 
         $this->enableAffiliateProgram($store, 20);

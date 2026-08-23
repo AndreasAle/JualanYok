@@ -68,8 +68,21 @@ class RefundService
             $order = Order::whereKey($refund->order_id)->lockForUpdate()->firstOrFail();
             $amount = (float) $refund->amount;
 
-            // Proportional share of the seller's net for a partial refund.
-            $ratio = (float) $order->grand_total > 0 ? $amount / (float) $order->grand_total : 1.0;
+            /*
+             * Proportional share of the seller's net for a partial refund.
+             *
+             * Measured against the goods, not the grand total: the buyer's
+             * gateway fee never reached the seller, so counting it here would
+             * shrink the ratio and let the seller keep money on a refunded item.
+             */
+            $goodsTotal = Money::round(
+                (float) $order->subtotal
+                - (float) $order->discount_total
+                + (float) $order->shipping_total
+                + (float) $order->tax_total
+            );
+
+            $ratio = $goodsTotal > 0 ? min(1.0, $amount / $goodsTotal) : 1.0;
             $sellerClawback = Money::round((float) $order->seller_net * $ratio);
 
             $wallet = $this->ledger->walletFor($order->store->owner);

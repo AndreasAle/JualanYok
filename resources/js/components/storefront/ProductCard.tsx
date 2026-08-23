@@ -1,4 +1,4 @@
-import { ArrowUpRight, BadgeCheck, ImageIcon, ShoppingBag, Star } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, ExternalLink, ImageIcon, Plus, ShoppingBag, Star } from 'lucide-react';
 import { cn, formatIDR, formatNumber } from '@/lib/utils';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
 import type { StorefrontProduct } from '@/types';
@@ -12,19 +12,35 @@ export function ProductCard({
     theme,
     layout = 'grid',
     onBuy,
+    onAddToCart,
     onOpen,
 }: {
     product: StorefrontProduct & { sales_count?: number };
     theme: StorefrontTheme;
     layout?: 'grid' | 'list';
     onBuy: () => void;
+    onAddToCart?: () => void;
     onOpen?: () => void;
 }) {
-    const external = !!product.external_url;
+    // Product type is the source of truth. The tracked URL can intentionally
+    // be absent in builder preview, and must not make an affiliate item fall
+    // through to the internal checkout flow.
+    const external = product.type === 'EXTERNAL';
+    const provider = product.external_provider || 'Marketplace';
     const soldOut = !external && !product.is_buyable;
+    // Donations, pay-what-you-want, and bookings set their own terms per
+    // purchase, so they keep the direct buy path only.
+    const needsOptions = !!product.requires_variant;
+    // A tile has no room to pick options, so those products route to the page —
+    // checkout refuses a line with no variant, and stock lives on the variant.
+    const cartable = !!onAddToCart && !!product.is_cartable && !soldOut && !needsOptions;
+    const primaryAction = external ? onBuy : needsOptions && onOpen ? onOpen : onBuy;
+    const primaryLabel = external ? (product.external_cta || `Beli di ${provider}`) : soldOut ? 'Habis' : needsOptions ? 'Pilih' : 'Beli';
     const sold = product.sales_count ?? 0;
 
-    const price = product.is_pay_what_you_want
+    const price = external
+        ? product.price > 0 ? formatIDR(product.price) : 'Cek harga terbaru'
+        : product.is_pay_what_you_want
         ? `Mulai ${formatIDR(product.minimum_price ?? 0)}`
         : formatIDR(product.price);
 
@@ -48,8 +64,8 @@ export function ProductCard({
 
                 <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex flex-wrap items-center gap-1.5">
-                        <TypePill label={product.type_label} />
-                        {sold > 0 && <span className={cn('text-[11px]', theme.muted)}>{formatNumber(sold)} terjual</span>}
+                        {external ? <MarketplacePill provider={provider} /> : <TypePill label={product.type_label} />}
+                        {!external && sold > 0 && <span className={cn('text-[11px]', theme.muted)}>{formatNumber(sold)} terjual</span>}
                     </div>
 
                     <button
@@ -69,14 +85,27 @@ export function ProductCard({
                     <div className="mt-auto flex flex-wrap items-end justify-between gap-2 pt-2">
                         <PriceBlock price={price} product={product} theme={theme} />
 
-                        <button
-                            type="button"
-                            onClick={onBuy}
-                            disabled={soldOut}
-                            className={cn(theme.btnPrimary, 'h-9 px-4 text-sm')}
-                        >
-                            {external ? 'Lihat' : soldOut ? 'Habis' : 'Beli'}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                            {cartable && (
+                                <button
+                                    type="button"
+                                    onClick={onAddToCart}
+                                    aria-label={`Masukkan ${product.name} ke keranjang`}
+                                    className="grid size-9 place-items-center rounded-xl border border-[var(--sf-line)] transition hover:border-[var(--sf-primary)] hover:text-[var(--sf-primary)]"
+                                >
+                                    <Plus className="size-4" />
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={primaryAction}
+                                disabled={soldOut}
+                                className={cn(theme.btnPrimary, 'h-9 px-4 text-sm')}
+                            >
+                                {external && <ExternalLink className="mr-1.5 size-3.5" />}
+                                {primaryLabel}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </article>
@@ -115,8 +144,8 @@ export function ProductCard({
 
             <div className="flex flex-1 flex-col p-3 @sm:p-4">
                 <div className="flex items-center justify-between gap-2">
-                    <TypePill label={product.type_label} />
-                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[var(--sf-muted)]"><BadgeCheck className="size-3 text-[var(--sf-primary)]" /> Pilihan</span>
+                    {external ? <MarketplacePill provider={provider} /> : <TypePill label={product.type_label} />}
+                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[var(--sf-muted)]"><BadgeCheck className="size-3 text-[var(--sf-primary)]" /> {external ? 'Rekomendasi' : 'Pilihan'}</span>
                 </div>
 
                 <button
@@ -135,24 +164,37 @@ export function ProductCard({
 
                 <div className={cn('mt-1.5 flex min-h-4 items-center gap-1 text-[10px] @sm:text-[11px]', theme.muted)}>
                     <Star className="size-3 fill-amber-400 text-amber-400" />
-                    <span>{sold > 0 ? `${formatNumber(sold)} terjual` : 'Produk baru'}</span>
+                    <span>{external ? `Buka di ${provider}` : sold > 0 ? `${formatNumber(sold)} terjual` : 'Produk baru'}</span>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={onBuy}
-                    disabled={soldOut}
-                    className={cn(
-                        theme.btnPrimary,
-                        'mt-3 h-10 w-full whitespace-nowrap px-2 text-[12px] shadow-sm @xs:px-3 @xs:text-sm @sm:h-11',
+                <div className="mt-3 flex items-center gap-1.5">
+                    {cartable && (
+                        <button
+                            type="button"
+                            onClick={onAddToCart}
+                            aria-label={`Masukkan ${product.name} ke keranjang`}
+                            title="Masukkan keranjang"
+                            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--sf-line)] transition hover:border-[var(--sf-primary)] hover:text-[var(--sf-primary)] @sm:h-11 @sm:w-11"
+                        >
+                            <Plus className="size-4.5" />
+                        </button>
                     )}
-                >
-                    <ShoppingBag className="size-4 shrink-0" />
-                    <span className="truncate">
-                        {external ? 'Lihat' : soldOut ? 'Habis' : 'Beli'}
-                        <span className="hidden @xs:inline">{external ? ' Produk' : soldOut ? '' : ' Sekarang'}</span>
-                    </span>
-                </button>
+                    <button
+                        type="button"
+                        onClick={primaryAction}
+                        disabled={soldOut}
+                        className={cn(
+                            theme.btnPrimary,
+                            'h-10 min-w-0 flex-1 whitespace-nowrap px-2 text-[12px] shadow-sm @xs:px-3 @xs:text-sm @sm:h-11',
+                        )}
+                    >
+                        {external ? <ExternalLink className="size-4 shrink-0" /> : <ShoppingBag className="size-4 shrink-0" />}
+                        <span className="truncate">
+                            {primaryLabel}
+                            {!external && <span className="hidden @xs:inline">{soldOut ? '' : needsOptions ? ' Varian' : ' Sekarang'}</span>}
+                        </span>
+                    </button>
+                </div>
             </div>
         </article>
     );
@@ -197,6 +239,22 @@ function TypePill({ label }: { label: string }) {
     return (
         <span className="inline-flex w-fit items-center rounded-md bg-[color-mix(in_oklab,var(--sf-primary)_12%,transparent)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--sf-primary)]">
             {label}
+        </span>
+    );
+}
+
+function MarketplacePill({ provider }: { provider: string }) {
+    const color = provider === 'Shopee'
+        ? '#EE4D2D'
+        : provider === 'Tokopedia'
+          ? '#03AC0E'
+          : provider === 'TikTok Shop'
+            ? '#111827'
+            : '#6D28D9';
+
+    return (
+        <span className="inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white" style={{ backgroundColor: color }}>
+            <ShoppingBag className="size-2.5" /> {provider}
         </span>
     );
 }

@@ -73,10 +73,11 @@ class PageRenderingTest extends TestCase
         foreach (Store::live()->get() as $store) {
             $this->get("/{$store->username}")->assertOk();
 
-            $product = $store->products()->publiclyListed()->first();
-
-            if ($product) {
-                $this->get("/{$store->username}/p/{$product->slug}")->assertOk();
+            // Every product, not just the first: variant-bearing products took a
+            // different code path and were broken while this test still passed.
+            foreach ($store->products()->publiclyListed()->get() as $product) {
+                $this->get("/{$store->username}/p/{$product->slug}")
+                    ->assertOk("Gagal render halaman produk {$product->name}");
             }
         }
     }

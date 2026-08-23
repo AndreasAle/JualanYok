@@ -52,7 +52,7 @@ class PaymentService
             throw ValidationException::withMessages(['method' => 'Metode pembayaran tidak tersedia.']);
         }
 
-        return DB::transaction(function () use ($order, $providerKey, $method, $channel) {
+        return DB::transaction(function () use ($order, $providerKey, $method, $channel, $methodConfig) {
             $existing = $order->payments()
                 ->where('provider', $providerKey)
                 ->where('method', $method)
@@ -64,6 +64,12 @@ class PaymentService
             if ($existing && $existing->isOpen()) {
                 return $existing;
             }
+
+            // The gateway fee depends on the method, which is only known now.
+            // Without this the buyer sees "Total bayar" including the fee but is
+            // charged the pre-fee total — harmless with a mock gateway, a real
+            // mismatch the moment an exact amount has to be paid.
+            $this->applyPaymentFee($order, $methodConfig);
 
             $payment = $order->payments()->create([
                 'provider' => $providerKey,
@@ -95,6 +101,33 @@ class PaymentService
 
             return $payment;
         });
+    }
+
+
+    /**
+     * Recomputes the order total for the chosen payment method.
+     *
+     * Written from the untouched components rather than by adding to the running
+     * total, so switching methods twice cannot stack two fees.
+     */
+    private function applyPaymentFee(Order $order, array $methodConfig): void
+    {
+        $beforeFee = Money::round(
+            (float) $order->subtotal
+            - (float) $order->discount_total
+            + (float) $order->shipping_total
+            + (float) $order->tax_total
+        );
+
+        $fee = Money::round(
+            $beforeFee * (float) ($methodConfig['fee_percent'] ?? 0) / 100
+            + (float) ($methodConfig['fee_fixed'] ?? 0)
+        );
+
+        $order->forceFill([
+            'payment_fee' => $fee,
+            'grand_total' => Money::round($beforeFee + $fee),
+        ])->save();
     }
 
     /**
@@ -344,7 +377,13 @@ class PaymentService
     public function markExpired(Payment $payment): Payment
     {
         return DB::transaction(function () use ($payment) {
-            $payment->update(['status' => PaymentStatus::Expired]);
+            // Releasing the claim matters for exact-amount providers like QRIS:
+            // an abandoned checkout would otherwise reserve its rupiah figure
+            // forever and slowly burn through the usable amounts.
+            $payment->forceFill([
+                'status' => PaymentStatus::Expired,
+                'claimable_amount' => null,
+            ])->save();
 
             $order = $payment->order;
 
@@ -364,7 +403,10 @@ class PaymentService
 
     public function markFailed(Payment $payment): Payment
     {
-        $payment->update(['status' => PaymentStatus::Failed]);
+        $payment->forceFill([
+            'status' => PaymentStatus::Failed,
+            'claimable_amount' => null,
+        ])->save();
 
         return $payment;
     }

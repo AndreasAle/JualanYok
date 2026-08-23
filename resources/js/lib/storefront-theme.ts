@@ -83,13 +83,22 @@ export function buildStorefrontTheme(theme: Partial<StoreTheme>): StorefrontThem
               ? 'rounded-lg'
               : 'rounded-xl';
 
-    // The creator's background choice becomes the cover band, not the page.
-    const coverBackground =
-        theme.background_type === 'image' && theme.background_value
-            ? `center / cover no-repeat url(${theme.background_value})`
+    const selectedBackground = theme.background_value?.trim();
+    const pageBackground =
+        theme.background_type === 'image' && selectedBackground
+            ? `url("${selectedBackground.replace(/"/g, '%22')}") center top / cover no-repeat fixed`
             : theme.background_type === 'gradient'
-              ? `linear-gradient(135deg, ${primary}, ${accent})`
-              : `linear-gradient(135deg, ${primary}, ${primary})`;
+              ? selectedBackground?.includes('gradient(')
+                  ? selectedBackground
+                  : `linear-gradient(145deg, color-mix(in srgb, ${primary} 8%, #F8FAFC), color-mix(in srgb, ${accent} 7%, #FFFFFF))`
+              : selectedBackground || (dark ? '#0F1115' : '#F6F7FB');
+
+    // The profile cover stays brand-forward even when the page uses a subtle
+    // background preset. A custom image is also reused as cover artwork.
+    const coverBackground =
+        theme.background_type === 'image' && selectedBackground
+            ? `url("${selectedBackground.replace(/"/g, '%22')}") center / cover no-repeat`
+            : `linear-gradient(135deg, ${primary}, ${accent})`;
 
     const surface = dark ? '#0F1115' : '#F6F7FB';
     const cardBg = dark ? '#191C23' : '#FFFFFF';
@@ -107,6 +116,7 @@ export function buildStorefrontTheme(theme: Partial<StoreTheme>): StorefrontThem
         '--sf-accent': accent,
         '--sf-on-primary': readableOn(primary),
         '--sf-card': cardBg,
+        '--sf-fg': text,
         '--sf-line': dark ? 'rgba(255,255,255,.10)' : 'rgba(16,24,40,.08)',
         '--sf-muted': dark ? 'rgba(243,244,246,.62)' : 'rgba(17,24,39,.58)',
     } as CSSProperties;
@@ -118,7 +128,7 @@ export function buildStorefrontTheme(theme: Partial<StoreTheme>): StorefrontThem
 
         pageStyle: {
             ...vars,
-            background: surface,
+            background: pageBackground || surface,
             color: text,
             fontFamily: FONT_STACKS[theme.font_family ?? 'jakarta'] ?? FONT_STACKS.jakarta,
         } as CSSProperties,

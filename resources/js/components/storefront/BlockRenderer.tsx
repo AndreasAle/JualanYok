@@ -17,8 +17,11 @@ export interface RendererContext {
     storeName?: string;
     theme: StorefrontTheme;
     productLayout: 'grid' | 'list';
+    affiliateMode?: boolean;
     isPreview: boolean;
     onBuy: (product: StorefrontProduct) => void;
+    /** Absent in the builder preview, where nothing is actually purchasable. */
+    onAddToCart?: (product: StorefrontProduct) => void;
 }
 
 /**
@@ -362,11 +365,21 @@ export function BlockRenderer({ block, ctx }: { block: StorefrontBlock; ctx: Ren
                                     trackClick();
                                     ctx.onBuy(product);
                                 }}
+                                onAddToCart={
+                                    ctx.onAddToCart
+                                        ? () => {
+                                              trackClick();
+                                              ctx.onAddToCart!(product);
+                                          }
+                                        : undefined
+                                }
                                 onOpen={() => {
                                     trackClick();
 
-                                    if (product.external_url) {
-                                        window.open(product.external_url, '_blank', 'noopener,noreferrer');
+                                    if (product.type === 'EXTERNAL') {
+                                        if (product.external_url && !ctx.isPreview) {
+                                            window.location.assign(product.external_url);
+                                        }
                                         return;
                                     }
 
@@ -469,14 +482,14 @@ export function BlockRenderer({ block, ctx }: { block: StorefrontBlock; ctx: Ren
                 <div className="mb-5 flex items-end justify-between gap-4 sm:mb-6">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[.16em] text-[var(--sf-primary)]">
-                            {PRODUCT_BLOCKS.has(block.type) ? 'Pilihan untuk kamu' : 'Dari toko ini'}
+                            {PRODUCT_BLOCKS.has(block.type) ? (ctx.affiliateMode ? 'Etalase pilihan' : 'Pilihan untuk kamu') : 'Dari toko ini'}
                         </p>
                         <h2 className="mt-1 text-xl font-black tracking-[-.025em] sm:text-2xl">{block.title}</h2>
                         {PRODUCT_BLOCKS.has(block.type) && (
-                            <p className={cn('mt-1 text-xs sm:text-sm', t.muted)}>Kurasi terbaik dari {ctx.storeName ?? `@${ctx.storeUsername}`}.</p>
+                            <p className={cn('mt-1 text-xs leading-5 sm:text-sm', t.muted)}>{ctx.affiliateMode ? `Klik produk untuk melihat harga terbaru di marketplace.` : `Kurasi terbaik dari ${ctx.storeName ?? `@${ctx.storeUsername}`}.`}</p>
                         )}
                     </div>
-                    {PRODUCT_BLOCKS.has(block.type) && <span className="hidden rounded-full border border-[var(--sf-line)] px-3 py-1.5 text-[10px] font-bold sm:inline-flex">Official selection</span>}
+                    {PRODUCT_BLOCKS.has(block.type) && <span className="hidden rounded-full border border-[var(--sf-line)] px-3 py-1.5 text-[10px] font-bold sm:inline-flex">{ctx.affiliateMode ? 'Creator picks' : 'Official selection'}</span>}
                 </div>
             )}
             {body}

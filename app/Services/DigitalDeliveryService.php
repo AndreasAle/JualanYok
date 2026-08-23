@@ -46,16 +46,28 @@ class DigitalDeliveryService
             'user_agent' => substr((string) $request->userAgent(), 0, 255),
         ]);
 
-        $filename = $this->safeFilename($file->name);
+        $filename = $this->safeFilename($file->name, $file->path);
 
         return $disk->download($file->path, $filename);
     }
 
-    /** Strips anything that could escape the download directory or a header. */
-    private function safeFilename(string $name): string
+    /**
+     * Strips anything that could escape the download directory or a header, and
+     * makes sure the buyer ends up with a file their OS can actually open — the
+     * creator is free to name it "Edisi Ketiga", but it still has to land as a
+     * .pdf.
+     */
+    private function safeFilename(string $name, ?string $path = null): string
     {
         $name = preg_replace('/[^\pL\pN\s._-]+/u', '', $name) ?? 'file';
+        $name = trim(substr($name, 0, 120)) ?: 'file';
 
-        return trim(substr($name, 0, 120)) ?: 'file';
+        $extension = $path ? pathinfo($path, PATHINFO_EXTENSION) : '';
+
+        if ($extension === '' || strcasecmp(pathinfo($name, PATHINFO_EXTENSION), $extension) === 0) {
+            return $name;
+        }
+
+        return $name.'.'.$extension;
     }
 }

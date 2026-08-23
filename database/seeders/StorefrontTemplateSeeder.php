@@ -185,7 +185,7 @@ class StorefrontTemplateSeeder extends Seeder
                     'background_value' => '#FFFBF5',
                     'button_style' => 'rounded',
                     'card_style' => 'flat',
-                    'product_layout' => 'list',
+                    'product_layout' => 'grid',
                 ],
                 'blueprint' => [
                     ['type' => 'HEADING', 'content' => ['text' => 'Racun belanja versi aku', 'size' => 'md']],

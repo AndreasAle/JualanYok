@@ -9,6 +9,7 @@ use App\Models\Inventory;
 use App\Models\PayoutMethod;
 use App\Models\Plan;
 use App\Models\Product;
+use App\Models\ProductFile;
 use App\Models\Role;
 use App\Models\Store;
 use App\Models\StoreTheme;
@@ -16,6 +17,7 @@ use App\Models\User;
 use Database\Seeders\PlanSeeder;
 use Database\Seeders\PlatformSeeder;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Str;
 
@@ -68,7 +70,10 @@ abstract class TestCase extends BaseTestCase
     {
         $name = $attributes['name'] ?? 'Produk '.Str::random(6);
         $stock = $attributes['stock'] ?? 5;
-        unset($attributes['stock']);
+        // Digital products need a file to be sellable; tests that specifically
+        // exercise the empty case opt out with 'without_files' => true.
+        $withoutFiles = (bool) ($attributes['without_files'] ?? false);
+        unset($attributes['stock'], $attributes['without_files']);
 
         $product = Product::create(array_merge([
             'store_id' => $store->id,
@@ -79,6 +84,17 @@ abstract class TestCase extends BaseTestCase
             'status' => ProductStatus::Active,
             'visibility' => 'public',
         ], $attributes));
+
+        if ($product->type === ProductType::Digital && ! $withoutFiles) {
+            ProductFile::create([
+                'product_id' => $product->id,
+                'name' => 'berkas.pdf',
+                'disk' => 'local',
+                'path' => "stores/{$store->id}/products/{$product->id}/berkas.pdf",
+                'mime_type' => 'application/pdf',
+                'size' => 1024,
+            ]);
+        }
 
         if ($product->type->tracksStock()) {
             Inventory::create([

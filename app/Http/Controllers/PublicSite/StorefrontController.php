@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers\PublicSite;
 
+use App\Enums\ProductType;
 use App\Http\Controllers\Controller;
 use App\Models\AffiliateLink;
 use App\Models\AnalyticsEvent;
 use App\Models\Block;
+use App\Models\Cart;
 use App\Models\Product;
 use App\Models\Store;
 use App\Services\AffiliateService;
 use App\Services\AnalyticsService;
+use App\Services\CartService;
 use App\Services\CheckoutService;
 use App\Support\Media;
 use Illuminate\Http\Request;
@@ -24,6 +27,7 @@ class StorefrontController extends Controller
         private readonly AnalyticsService $analytics,
         private readonly AffiliateService $affiliates,
         private readonly CheckoutService $checkout,
+        private readonly CartService $carts,
     ) {}
 
     public function show(Request $request, Store $store): Response
@@ -40,6 +44,7 @@ class StorefrontController extends Controller
             'store' => $this->storePayload($store),
             'blocks' => $this->blocksPayload($store, published: true),
             'isPreview' => false,
+            'cart' => $this->cartPayload($request, $store),
         ]);
     }
 
@@ -52,6 +57,8 @@ class StorefrontController extends Controller
             'store' => $this->storePayload($store),
             'blocks' => $this->blocksPayload($store, published: false),
             'isPreview' => true,
+            // Draft preview shows an empty basket; nothing is bought from here.
+            'cart' => null,
         ]);
     }
 
@@ -67,18 +74,49 @@ class StorefrontController extends Controller
         $this->analytics->record($store, AnalyticsEvent::PRODUCT_VIEW, $product, $context);
         $product->increment('view_count');
 
-        $product->load(['media', 'variants', 'course.sections.lessons', 'event.tickets', 'service.availabilityRules', 'membershipPlans']);
+        $product->load(['media', 'variants', 'files', 'course.sections.lessons', 'event.tickets', 'service.availabilityRules', 'membershipPlans']);
+
+        // The variants belong to the product we already have, so hand it to them
+        // rather than letting each one fetch its own copy.
+        $product->variants->each->setRelation('product', $product);
 
         return Inertia::render('Storefront/Product', [
             'store' => $this->storePayload($store),
-            'product' => $this->productPayload($product, detailed: true),
+            'product' => $this->productPayload($product, $store->username, detailed: true),
             'related' => $store->products()
                 ->publiclyListed()
                 ->whereKeyNot($product->id)
+                ->withCount(['files', 'activeVariants'])
                 ->limit(4)
                 ->get()
-                ->map(fn ($p) => $this->productPayload($p)),
+                ->map(fn ($p) => $this->productPayload($p, $store->username)),
+            'cart' => $this->cartPayload($request, $store),
         ]);
+    }
+
+    /** Track an outbound marketplace click before handing the visitor off. */
+    public function externalRedirect(Request $request, Store $store, Product $product)
+    {
+        abort_unless($store->isLive(), 404);
+        abort_unless($product->store_id === $store->id, 404);
+        abort_unless($product->type === ProductType::External, 404);
+        abort_unless($product->status->isBuyable() && $product->visibility !== 'private', 404);
+        abort_unless(filled($product->external_url), 404);
+
+        $context = $this->analytics->contextFrom($request);
+        $context['meta'] = [
+            'provider' => $product->externalProvider(),
+            'destination_host' => parse_url($product->external_url, PHP_URL_HOST),
+        ];
+
+        $this->analytics->record(
+            $store,
+            AnalyticsEvent::AFFILIATE_CLICK,
+            $product,
+            $context,
+        );
+
+        return redirect()->away($product->external_url);
     }
 
     public function trackClick(Request $request, Store $store, Block $block)
@@ -150,7 +188,10 @@ class StorefrontController extends Controller
         abort_unless($store->isLive(), 404);
 
         $data = $request->validate([
-            'items' => ['required', 'array', 'min:1'],
+            'from_cart' => ['nullable', 'boolean'],
+            // No min:1 here — a cart checkout legitimately sends an empty list,
+            // and the real emptiness check happens after the cart is rebuilt.
+            'items' => ['required_without:from_cart', 'array'],
             'items.*.product_id' => ['required', 'integer'],
             'items.*.variant_id' => ['nullable', 'integer'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
@@ -168,6 +209,20 @@ class StorefrontController extends Controller
             'idempotency_key' => ['required', 'string', 'max:64'],
         ]);
 
+        // A cart checkout never trusts the browser for what is being bought —
+        // the lines are rebuilt from the stored cart.
+        $cart = $request->boolean('from_cart') ? $this->cartFromCookie($request, $store) : null;
+
+        if ($request->boolean('from_cart')) {
+            abort_unless($cart, 419, 'Keranjang tidak ditemukan. Muat ulang halaman.');
+        }
+
+        $items = $cart ? $this->carts->checkoutLines($cart) : $data['items'];
+
+        if ($items === []) {
+            return back()->withErrors(['items' => 'Keranjang kosong atau semua item sudah tidak tersedia.']);
+        }
+
         $this->analytics->record(
             $store,
             AnalyticsEvent::BEGIN_CHECKOUT,
@@ -177,7 +232,7 @@ class StorefrontController extends Controller
 
         $order = $this->checkout->createOrder(
             $store,
-            $data['items'],
+            $items,
             [
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -198,7 +253,22 @@ class StorefrontController extends Controller
             ],
         );
 
+        // Emptied only once the order exists, so a failed checkout keeps the
+        // basket the buyer spent time filling.
+        if ($cart) {
+            $this->carts->clear($cart);
+        }
+
         return redirect()->route('checkout.show', $order->number);
+    }
+
+    private function cartFromCookie(Request $request, Store $store): ?Cart
+    {
+        $token = $request->cookie($this->carts->cookieName($store));
+
+        return $token
+            ? Cart::where('store_id', $store->id)->where('token', $token)->first()
+            : null;
     }
 
     /**
@@ -303,8 +373,9 @@ class StorefrontController extends Controller
             $products = Product::whereIn('id', $ids)
                 ->where('store_id', $store->id)
                 ->active()
+                ->withCount(['files', 'activeVariants'])
                 ->get()
-                ->map(fn ($p) => $this->productPayload($p));
+                ->map(fn ($p) => $this->productPayload($p, $store->username));
 
             $content['products'] = $products->values()->all();
         }
@@ -312,18 +383,42 @@ class StorefrontController extends Controller
         if (($block->type->value === 'FEATURED_PRODUCTS') && empty($content['products'])) {
             $content['products'] = $store->products()
                 ->publiclyListed()
+                ->withCount(['files', 'activeVariants'])
                 ->latest()
                 ->limit((int) ($content['limit'] ?? 4))
                 ->get()
-                ->map(fn ($p) => $this->productPayload($p))
+                ->map(fn ($p) => $this->productPayload($p, $store->username))
                 ->all();
         }
 
         return $content;
     }
 
-    private function productPayload(Product $product, bool $detailed = false): array
+    /**
+     * Read-only view of the basket.
+     *
+     * Deliberately does not create a cart: a storefront gets far more visitors
+     * than shoppers, and writing a row per page view would fill the table with
+     * empty carts. The cart is created on the first "add".
+     */
+    private function cartPayload(Request $request, Store $store): ?array
     {
+        $token = $request->cookie($this->carts->cookieName($store));
+
+        if (! $token) {
+            return null;
+        }
+
+        $cart = Cart::where('store_id', $store->id)->where('token', $token)->first();
+
+        return $cart ? $this->carts->payload($cart) : null;
+    }
+
+    private function productPayload(Product $product, string $storeUsername, bool $detailed = false): array
+    {
+        $isExternal = $product->type === ProductType::External && filled($product->external_url);
+        $externalProvider = $isExternal ? $product->externalProvider() : null;
+
         $base = [
             'id' => $product->id,
             'slug' => $product->slug,
@@ -337,8 +432,17 @@ class StorefrontController extends Controller
             'discount_percent' => $product->discountPercent(),
             'is_pay_what_you_want' => (bool) $product->is_pay_what_you_want,
             'minimum_price' => $product->minimum_price ? (float) $product->minimum_price : null,
-            'external_url' => $product->external_url,
+            // Never expose a raw affiliate destination. The go route records
+            // the click first, and digital delivery links remain private.
+            'external_url' => $isExternal
+                ? route('storefront.external.redirect', [$storeUsername, $product->slug])
+                : null,
+            'external_provider' => $externalProvider,
+            'external_cta' => $externalProvider ? 'Beli di '.$externalProvider : null,
             'is_buyable' => $product->isBuyable(),
+            'is_cartable' => $this->carts->isCartable($product),
+            // Options have to be picked on the product page, not from a tile.
+            'requires_variant' => $product->requiresVariant(),
             'sales_count' => (int) $product->sales_count,
         ];
 

@@ -5,6 +5,7 @@ namespace App\Payments;
 use App\Payments\Providers\ManualTransferProvider;
 use App\Payments\Providers\MidtransProvider;
 use App\Payments\Providers\MockProvider;
+use App\Payments\Providers\QrisProvider;
 use InvalidArgumentException;
 
 /**
@@ -34,6 +35,7 @@ class PaymentManager
         return match ($key) {
             'mock' => new MockProvider($config['secret'] ?? 'mock-secret'),
             'manual_transfer' => new ManualTransferProvider,
+            'qris' => new QrisProvider,
             'midtrans' => new MidtransProvider(
                 $config['server_key'] ?? '',
                 $config['client_key'] ?? '',

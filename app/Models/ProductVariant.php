@@ -30,9 +30,23 @@ class ProductVariant extends Model
         return $this->hasOne(Inventory::class);
     }
 
-    /** Variants may inherit the parent product price. */
+    /**
+     * Variants may inherit the parent product price.
+     *
+     * Resolved without touching the relation lazily: variants are almost always
+     * loaded as a collection under their product, where an implicit lazy load
+     * is both an N+1 and a hard failure under strict mode.
+     */
     public function effectivePrice(): float
     {
-        return (float) ($this->price ?? $this->product->price);
+        if ($this->price !== null) {
+            return (float) $this->price;
+        }
+
+        $product = $this->relationLoaded('product')
+            ? $this->product
+            : Product::find($this->product_id);
+
+        return (float) ($product?->price ?? 0);
     }
 }

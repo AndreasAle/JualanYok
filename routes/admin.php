@@ -9,6 +9,8 @@ use App\Http\Controllers\Admin\AdminWithdrawalController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\LedgerController;
 use App\Http\Controllers\Admin\PlanController;
+use App\Http\Controllers\Admin\PlanPaymentController;
+use App\Http\Controllers\Admin\QrisPaymentController;
 use App\Http\Controllers\Admin\PlatformSettingController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +51,22 @@ Route::middleware(['auth', 'admin'])
 
         Route::get('/paket', [PlanController::class, 'index'])->name('plans.index');
         Route::put('/paket/{plan:slug}', [PlanController::class, 'update'])->name('plans.update');
+
+        /* Manual QRIS subscription payments awaiting confirmation. */
+        Route::get('/pembayaran-langganan', [PlanPaymentController::class, 'index'])
+            ->name('plan-payments.index');
+        Route::post('/pembayaran-langganan/{payment:reference}/setujui', [PlanPaymentController::class, 'approve'])
+            ->name('plan-payments.approve');
+        Route::post('/pembayaran-langganan/{payment:reference}/tolak', [PlanPaymentController::class, 'reject'])
+            ->name('plan-payments.reject');
+
+        /* Manual QRIS payments for customer orders. */
+        Route::get('/pembayaran-qris', [QrisPaymentController::class, 'index'])
+            ->name('qris-payments.index');
+        Route::post('/pembayaran-qris/{payment}/setujui', [QrisPaymentController::class, 'approve'])
+            ->name('qris-payments.approve');
+        Route::post('/pembayaran-qris/{payment}/tolak', [QrisPaymentController::class, 'reject'])
+            ->name('qris-payments.reject');
 
         Route::get('/pengaturan', [PlatformSettingController::class, 'index'])->name('settings.index');
         Route::put('/pengaturan', [PlatformSettingController::class, 'update'])->name('settings.update');

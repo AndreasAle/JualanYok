@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PublicSite\CartController;
 use App\Http\Controllers\PublicSite\StorefrontController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +18,9 @@ Route::prefix('{store:username}')
     ->group(function () {
         Route::get('/', [StorefrontController::class, 'show'])->name('storefront.show');
         Route::get('/p/{product:slug}', [StorefrontController::class, 'product'])->name('storefront.product');
+        Route::get('/go/{product:slug}', [StorefrontController::class, 'externalRedirect'])
+            ->middleware('throttle:120,1')
+            ->name('storefront.external.redirect');
         Route::get('/preview', [StorefrontController::class, 'preview'])
             ->middleware('auth')
             ->name('storefront.preview');
@@ -32,4 +36,12 @@ Route::prefix('{store:username}')
         Route::post('/checkout', [StorefrontController::class, 'checkout'])
             ->middleware('throttle:20,1')
             ->name('storefront.checkout');
+
+        /* Basket. Guest-friendly; identified by a per-store cookie. */
+        Route::middleware('throttle:60,1')->group(function () {
+            Route::post('/keranjang', [CartController::class, 'store'])->name('storefront.cart.store');
+            Route::put('/keranjang/{item}', [CartController::class, 'update'])->name('storefront.cart.update');
+            Route::delete('/keranjang/{item}', [CartController::class, 'destroy'])->name('storefront.cart.destroy');
+            Route::delete('/keranjang', [CartController::class, 'clear'])->name('storefront.cart.clear');
+        });
     });

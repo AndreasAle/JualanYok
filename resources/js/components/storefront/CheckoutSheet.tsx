@@ -3,27 +3,36 @@ import { Minus, Plus, ShieldCheck, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { cn, formatIDR, uid } from '@/lib/utils';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
-import type { StorefrontProduct } from '@/types';
+import type { CartPayload, StorefrontProduct } from '@/types';
 
 /**
- * Buy-now sheet. Submits to the store checkout endpoint, which re-prices
- * everything server-side — amounts shown here are only a preview for the buyer.
+ * Checkout sheet for both paths: a single "buy now" product, or the whole
+ * basket. Submits to the store checkout endpoint, which re-prices everything
+ * server-side — amounts shown here are only a preview for the buyer. In cart
+ * mode the browser sends no line items at all; the server rebuilds them from
+ * the stored cart.
  */
 export function CheckoutSheet({
-    product,
+    product = null,
+    variantId = null,
+    cart = null,
     storeUsername,
     isPreview,
     theme,
     onClose,
 }: {
-    product: StorefrontProduct;
+    product?: StorefrontProduct | null;
+    /** Chosen on the product page; the server re-validates it belongs here. */
+    variantId?: number | null;
+    cart?: CartPayload | null;
     storeUsername: string;
     isPreview: boolean;
     theme: StorefrontTheme;
     onClose: () => void;
 }) {
+    const fromCart = !product;
     const [quantity, setQuantity] = useState(1);
-    const [customPrice, setCustomPrice] = useState(product.minimum_price ?? 0);
+    const [customPrice, setCustomPrice] = useState(product?.minimum_price ?? 0);
 
     const { data, setData, post, transform, processing, errors } = useForm({
         items: [] as any[],
@@ -35,10 +44,11 @@ export function CheckoutSheet({
         marketing_consent: false as boolean,
         terms: false as boolean,
         idempotency_key: uid(),
+        from_cart: false as boolean,
     });
 
-    const unitPrice = product.is_pay_what_you_want ? customPrice : product.price;
-    const subtotal = unitPrice * quantity;
+    const unitPrice = product?.is_pay_what_you_want ? customPrice : (product?.price ?? 0);
+    const subtotal = fromCart ? (cart?.subtotal ?? 0) : unitPrice * quantity;
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -47,13 +57,18 @@ export function CheckoutSheet({
 
         transform((current) => ({
             ...current,
-            items: [
-                {
-                    product_id: product.id,
-                    quantity,
-                    ...(product.is_pay_what_you_want ? { price: customPrice } : {}),
-                },
-            ],
+            ...(fromCart
+                ? { from_cart: true, items: [] as any[] }
+                : {
+                      items: [
+                          {
+                              product_id: product!.id,
+                              ...(variantId ? { variant_id: variantId } : {}),
+                              quantity,
+                              ...(product!.is_pay_what_you_want ? { price: customPrice } : {}),
+                          },
+                      ],
+                  }),
         }));
 
         post(`/${storeUsername}/checkout`);
@@ -90,7 +105,7 @@ export function CheckoutSheet({
                     <div className="min-w-0">
                         <p className={cn('text-xs font-bold uppercase tracking-wide', theme.muted)}>Langkah 1 dari 3 · Data pembeli</p>
                         <h2 id="checkout-title" className="truncate text-lg font-extrabold">
-                            {product.name}
+                            {product ? product.name : `${cart?.item_count ?? 0} item di keranjang`}
                         </h2>
                     </div>
 
@@ -115,19 +130,33 @@ export function CheckoutSheet({
                         </p>
                     )}
 
-                    {product.is_pay_what_you_want ? (
+                    {fromCart ? (
+                        <ul className={cn('space-y-2 rounded-xl border p-4', theme.line)}>
+                            {(cart?.items ?? [])
+                                .filter((line) => line.issue === null)
+                                .map((line) => (
+                                    <li key={line.id} className="flex items-start justify-between gap-3 text-sm">
+                                        <span className="min-w-0">
+                                            <span className="line-clamp-1 font-semibold">{line.name}</span>
+                                            <span className={cn('text-xs', theme.muted)}>{line.quantity}×</span>
+                                        </span>
+                                        <span className="shrink-0 font-bold tabular-nums">{formatIDR(line.line_total)}</span>
+                                    </li>
+                                ))}
+                        </ul>
+                    ) : product!.is_pay_what_you_want ? (
                         <label className="block">
                             <span className="mb-1.5 block text-sm font-semibold">Bayar seikhlasnya</span>
                             <input
                                 type="number"
-                                min={product.minimum_price ?? 0}
+                                min={product?.minimum_price ?? 0}
                                 step={1000}
                                 value={customPrice}
                                 onChange={(e) => setCustomPrice(Number(e.target.value))}
                                 className={field}
                             />
                             <span className={cn('mt-1.5 block text-xs', theme.muted)}>
-                                Minimal {formatIDR(product.minimum_price ?? 0)}
+                                Minimal {formatIDR(product?.minimum_price ?? 0)}
                             </span>
                         </label>
                     ) : (

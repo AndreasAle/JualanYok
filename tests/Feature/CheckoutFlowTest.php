@@ -9,7 +9,6 @@ use App\Models\Coupon;
 use App\Models\DigitalAccess;
 use App\Models\Inventory;
 use App\Models\Order;
-use App\Models\ProductFile;
 use App\Payments\PaymentResult;
 use App\Services\CheckoutService;
 use App\Services\LedgerService;
@@ -150,14 +149,8 @@ class CheckoutFlowTest extends TestCase
     public function test_paying_settles_the_order_grants_access_and_credits_the_ledger(): void
     {
         $store = $this->makeStore();
+        // makeProduct already attaches the one file a digital product needs.
         $product = $this->makeProduct($store, ['price' => 100000]);
-
-        ProductFile::create([
-            'product_id' => $product->id,
-            'name' => 'file.pdf',
-            'disk' => 'local',
-            'path' => 'demo/file.pdf',
-        ]);
 
         $order = app(CheckoutService::class)->createOrder(
             $store,

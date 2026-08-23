@@ -12,7 +12,9 @@ use App\Http\Controllers\Creator\LeadController;
 use App\Http\Controllers\Creator\MediaController;
 use App\Http\Controllers\Creator\OrderController;
 use App\Http\Controllers\Creator\PayoutMethodController;
+use App\Http\Controllers\Creator\PlanPaymentController;
 use App\Http\Controllers\Creator\ProductController;
+use App\Http\Controllers\Creator\ProductFileController;
 use App\Http\Controllers\Creator\StoreBuilderController;
 use App\Http\Controllers\Creator\StoreSettingsController;
 use App\Http\Controllers\Creator\SubscriptionController;
@@ -52,6 +54,19 @@ Route::middleware(['auth', 'creator'])
             ->names('products');
         Route::post('/produk/{product}/duplicate', [ProductController::class, 'duplicate'])
             ->name('products.duplicate');
+
+        /* Deliverables for digital products. Stored privately, never public. */
+        Route::prefix('/produk/{product}/files')->name('products.files.')->group(function () {
+            Route::post('/', [ProductFileController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('store');
+            Route::post('/reorder', [ProductFileController::class, 'reorder'])->name('reorder');
+            Route::post('/{file}/replace', [ProductFileController::class, 'replace'])
+                ->middleware('throttle:30,1')
+                ->name('replace');
+            Route::put('/{file}', [ProductFileController::class, 'update'])->name('update');
+            Route::delete('/{file}', [ProductFileController::class, 'destroy'])->name('destroy');
+        });
 
         /* Sales */
         Route::get('/pesanan', [OrderController::class, 'index'])->name('orders.index');
@@ -103,6 +118,18 @@ Route::middleware(['auth', 'creator'])
         Route::get('/langganan', [SubscriptionController::class, 'index'])->name('subscription');
         Route::post('/langganan', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
         Route::post('/langganan/batal', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+
+        /* Manual QRIS billing for plan upgrades. */
+        Route::post('/langganan/bayar', [PlanPaymentController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('subscription.pay.store');
+        Route::get('/langganan/bayar/{payment:reference}', [PlanPaymentController::class, 'show'])
+            ->name('subscription.pay');
+        Route::post('/langganan/bayar/{payment:reference}/konfirmasi', [PlanPaymentController::class, 'confirm'])
+            ->middleware('throttle:10,1')
+            ->name('subscription.pay.confirm');
+        Route::delete('/langganan/bayar/{payment:reference}', [PlanPaymentController::class, 'cancel'])
+            ->name('subscription.pay.cancel');
 
         Route::get('/pengaturan', [StoreSettingsController::class, 'index'])->name('settings');
     });

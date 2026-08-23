@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
@@ -64,6 +65,20 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class)->orderBy('position');
     }
 
+    /** Used with withCount() so listings do not query per product. */
+    public function activeVariants(): HasMany
+    {
+        return $this->variants()->where('is_active', true);
+    }
+
+    /** A product whose options must be chosen before it can be bought. */
+    public function requiresVariant(): bool
+    {
+        return $this->relationLoaded('variants')
+            ? $this->variants->where('is_active', true)->isNotEmpty()
+            : (int) ($this->active_variants_count ?? $this->activeVariants()->count()) > 0;
+    }
+
     public function inventories(): HasMany
     {
         return $this->hasMany(Inventory::class);
@@ -99,6 +114,11 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function analyticsEvents(): MorphMany
+    {
+        return $this->morphMany(AnalyticsEvent::class, 'subject');
+    }
+
     /* ------------------------------------------------------------------ */
 
     public function scopeActive(Builder $query): Builder
@@ -108,7 +128,45 @@ class Product extends Model
 
     public function scopePubliclyListed(Builder $query): Builder
     {
-        return $query->active()->where('visibility', 'public');
+        return $query->active()->deliverable()->where('visibility', 'public');
+    }
+
+    /**
+     * True when the product can actually deliver what it promises.
+     *
+     * A digital product with no file attached would take the buyer's money and
+     * hand back nothing, so it is treated as not sellable everywhere: it is
+     * hidden from the storefront and refused at checkout.
+     */
+    public function isDeliverable(): bool
+    {
+        if ($this->type !== ProductType::Digital) {
+            return true;
+        }
+
+        if ($this->external_url) {
+            return true;
+        }
+
+        // Prefer a count loaded by the caller; listings load it to stay flat.
+        if ($this->files_count !== null) {
+            return (int) $this->files_count > 0;
+        }
+
+        return $this->relationLoaded('files')
+            ? $this->files->isNotEmpty()
+            : $this->files()->exists();
+    }
+
+    /** Digital products without a deliverable are excluded from the storefront. */
+    public function scopeDeliverable(Builder $query): Builder
+    {
+        return $query->where(
+            fn (Builder $q) => $q
+                ->where('type', '!=', ProductType::Digital->value)
+                ->orWhereNotNull('external_url')
+                ->orWhereHas('files'),
+        );
     }
 
     /** Price actually charged today, honouring a scheduled promo price. */
@@ -159,5 +217,24 @@ class Product extends Model
     public function thumbnailUrl(): ?string
     {
         return Media::url($this->thumbnail_path);
+    }
+
+    /** Marketplace name shown on cards and outbound buttons. */
+    public function externalProvider(): ?string
+    {
+        if ($this->type !== ProductType::External || ! $this->external_url) {
+            return null;
+        }
+
+        $host = strtolower((string) parse_url($this->external_url, PHP_URL_HOST));
+
+        return match (true) {
+            str_contains($host, 'shopee') || str_contains($host, 'shp.ee') => 'Shopee',
+            str_contains($host, 'tokopedia') || str_contains($host, 'tokopedia.link') => 'Tokopedia',
+            str_contains($host, 'tiktok') => 'TikTok Shop',
+            str_contains($host, 'lazada') => 'Lazada',
+            str_contains($host, 'blibli') => 'Blibli',
+            default => 'Marketplace',
+        };
     }
 }

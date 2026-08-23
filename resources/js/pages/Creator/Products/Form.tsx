@@ -1,12 +1,14 @@
 import { router, useForm } from '@inertiajs/react';
-import { ExternalLink, Trash2 } from 'lucide-react';
+import { BadgeCheck, ExternalLink, Link2, ShoppingBag, Sparkles, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { ImageUpload } from '@/components/image-upload';
+import { ProductFiles, type ProductFileItem, type UploadLimits } from '@/components/product-files';
 import { ConfirmButton, PageHeader } from '@/components/shared';
 import {
     Alert, Button, Card, CardBody, CardHeader, CardTitle, Field, Input, Select, Switch, Textarea,
 } from '@/components/ui';
+import { detectMarketplace, marketplaceCta } from '@/lib/marketplace';
 import { formatIDR } from '@/lib/utils';
 
 interface TypeOption {
@@ -21,14 +23,16 @@ export default function ProductForm({
     types,
     categories,
     firstProduct = false,
+    uploadLimits,
 }: {
     product: any | null;
     types: TypeOption[];
     categories: { id: number; name: string }[];
     firstProduct?: boolean;
+    uploadLimits?: UploadLimits;
 }) {
     const editing = !!product;
-    const [tab, setTab] = useState<'umum' | 'harga' | 'seo' | 'lanjutan'>('umum');
+    const [tab, setTab] = useState<'umum' | 'harga' | 'file' | 'seo' | 'lanjutan'>('umum');
 
     const { data, setData, post, put, transform, processing, errors, isDirty } = useForm({
         type: product?.type ?? 'DIGITAL',
@@ -64,6 +68,8 @@ export default function ProductForm({
     const serverErrors = errors as Record<string, string | undefined>;
 
     const currentType = types.find((t) => t.value === data.type);
+    const isExternal = data.type === 'EXTERNAL';
+    const marketplace = detectMarketplace(data.external_url);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -82,9 +88,16 @@ export default function ProductForm({
         }
     };
 
+    // Files are the deliverable for digital products, so the tab only appears
+    // for that type — and only once the product exists to attach them to.
+    const showFilesTab = editing && data.type === 'DIGITAL';
+
     const TABS = [
         { key: 'umum', label: 'Umum' },
-        { key: 'harga', label: 'Harga & Stok' },
+        ...(!isExternal ? ([{ key: 'harga', label: 'Harga & Stok' }] as const) : []),
+        ...(showFilesTab
+            ? ([{ key: 'file', label: `File${product.files?.length ? ` (${product.files.length})` : ''}` }] as const)
+            : []),
         { key: 'seo', label: 'SEO & Pesan' },
         { key: 'lanjutan', label: 'Lanjutan' },
     ] as const;
@@ -166,7 +179,24 @@ export default function ProductForm({
                                         <Select
                                             id="type"
                                             value={data.type}
-                                            onChange={(e) => setData('type', e.target.value)}
+                                            onChange={(e) => {
+                                                const type = e.target.value;
+
+                                                if (type === 'EXTERNAL') {
+                                                    setData({
+                                                        ...data,
+                                                        type,
+                                                        price: 0,
+                                                        compare_at_price: '',
+                                                        is_pay_what_you_want: false,
+                                                        minimum_price: '',
+                                                        affiliate_enabled: false,
+                                                    });
+                                                    return;
+                                                }
+
+                                                setData('type', type);
+                                            }}
                                             disabled={editing}
                                         >
                                             {types.map((type) => (
@@ -182,13 +212,62 @@ export default function ProductForm({
                                         )}
                                     </Field>
 
+                                    {isExternal && (
+                                        <div className="overflow-hidden rounded-2xl border border-orange-200 bg-orange-50/70 dark:border-orange-400/20 dark:bg-orange-400/[.06]">
+                                            <div className="flex items-start gap-3 border-b border-orange-200/70 p-4 dark:border-orange-400/15">
+                                                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#EE4D2D] text-white">
+                                                    <ShoppingBag className="size-5" />
+                                                </span>
+                                                <div>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <p className="text-sm font-extrabold">Produk dari marketplace</p>
+                                                        <span className="rounded-full bg-white px-2 py-1 text-[9px] font-black uppercase tracking-wide text-[#EE4D2D] shadow-sm dark:bg-white/10">Tanpa checkout</span>
+                                                    </div>
+                                                    <p className="mt-1 text-xs leading-5 text-muted">Cocok untuk link affiliate atau produk milikmu di Shopee, Tokopedia, TikTok Shop, dan marketplace lain.</p>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-3 p-4">
+                                                <Field
+                                                    label="Link produk atau link affiliate"
+                                                    required
+                                                    error={errors.external_url}
+                                                    hint="Saat diklik, pengunjung langsung diarahkan ke marketplace."
+                                                    htmlFor="external"
+                                                >
+                                                    <div className="relative">
+                                                        <Link2 className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
+                                                        <Input
+                                                            id="external"
+                                                            type="url"
+                                                            value={data.external_url}
+                                                            onChange={(e) => setData('external_url', e.target.value)}
+                                                            className="pl-10"
+                                                            placeholder="https://shopee.co.id/... atau https://s.shopee.co.id/..."
+                                                            required
+                                                        />
+                                                    </div>
+                                                </Field>
+
+                                                {data.external_url && (
+                                                    <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3">
+                                                        <div className="flex min-w-0 items-center gap-3">
+                                                            <span className="grid size-9 shrink-0 place-items-center rounded-lg text-[10px] font-black text-white" style={{ backgroundColor: marketplace.color }}>{marketplace.shortName}</span>
+                                                            <div className="min-w-0"><p className="text-xs font-extrabold">{marketplace.name} terdeteksi</p><p className="truncate text-[10px] text-muted">Tombol toko: {marketplaceCta(marketplace.name)}</p></div>
+                                                        </div>
+                                                        <BadgeCheck className="size-5 shrink-0 text-emerald-500" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <Field label="Nama produk" required error={errors.name} htmlFor="name">
                                         <Input
                                             id="name"
                                             value={data.name}
                                             onChange={(e) => setData('name', e.target.value)}
                                             invalid={!!errors.name}
-                                            placeholder="Contoh: E-book Content Plan 30 Hari"
+                                            placeholder={isExternal ? 'Contoh: Blouse Linen Wanita Premium' : 'Contoh: E-book Content Plan 30 Hari'}
                                             required
                                         />
                                     </Field>
@@ -232,22 +311,6 @@ export default function ProductForm({
                                         </Select>
                                     </Field>
 
-                                    {data.type === 'EXTERNAL' && (
-                                        <Field
-                                            label="URL produk"
-                                            required
-                                            error={errors.external_url}
-                                            hint="Pembeli diarahkan ke link ini."
-                                            htmlFor="external"
-                                        >
-                                            <Input
-                                                id="external"
-                                                type="url"
-                                                value={data.external_url}
-                                                onChange={(e) => setData('external_url', e.target.value)}
-                                            />
-                                        </Field>
-                                    )}
                                 </CardBody>
                             </Card>
                         )}
@@ -383,6 +446,23 @@ export default function ProductForm({
                             </Card>
                         )}
 
+                        {tab === 'file' && showFilesTab && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>File yang diterima pembeli</CardTitle>
+                                </CardHeader>
+                                <CardBody>
+                                    <ProductFiles
+                                        productId={product.id}
+                                        files={(product.files ?? []) as ProductFileItem[]}
+                                        limits={uploadLimits ?? { mimes: ['pdf', 'zip'], max_kb: 204800 }}
+                                        isDeliverable={!!product.is_deliverable}
+                                        error={serverErrors.file}
+                                    />
+                                </CardBody>
+                            </Card>
+                        )}
+
                         {tab === 'seo' && (
                             <Card>
                                 <CardHeader>
@@ -461,12 +541,14 @@ export default function ProductForm({
                                         />
                                     </Field>
 
-                                    <Switch
-                                        checked={data.affiliate_enabled}
-                                        onChange={(v) => setData('affiliate_enabled', v)}
-                                        label="Izinkan affiliate"
-                                        description="Orang lain bisa promosiin produk ini dan dapat komisi."
-                                    />
+                                    {!isExternal && (
+                                        <Switch
+                                            checked={data.affiliate_enabled}
+                                            onChange={(v) => setData('affiliate_enabled', v)}
+                                            label="Izinkan affiliate JualanYok"
+                                            description="Orang lain bisa mempromosikan produk internal ini dan mendapat komisi."
+                                        />
+                                    )}
 
                                     <Field label="Visibilitas" error={errors.visibility} htmlFor="visibility">
                                         <Select
@@ -491,6 +573,21 @@ export default function ProductForm({
                                 <CardTitle>Publikasi</CardTitle>
                             </CardHeader>
                             <CardBody className="space-y-4">
+                                {showFilesTab && !product.is_deliverable && (
+                                    <Alert tone="warning" title="Belum ada file">
+                                        <span className="text-sm">
+                                            Produk disembunyikan dari toko sampai kamu mengunggah file.{' '}
+                                            <button
+                                                type="button"
+                                                onClick={() => setTab('file')}
+                                                className="font-bold underline"
+                                            >
+                                                Buka tab File
+                                            </button>
+                                        </span>
+                                    </Alert>
+                                )}
+
                                 <Field label="Status" error={errors.status} htmlFor="status">
                                     <Select
                                         id="status"
@@ -498,7 +595,7 @@ export default function ProductForm({
                                         onChange={(e) => setData('status', e.target.value)}
                                     >
                                         <option value="DRAFT">Draft — belum tampil</option>
-                                        <option value="ACTIVE">Aktif — bisa dibeli</option>
+                                        <option value="ACTIVE">{isExternal ? 'Aktif — tampil di etalase' : 'Aktif — bisa dibeli'}</option>
                                         <option value="ARCHIVED">Arsip</option>
                                     </Select>
                                 </Field>
@@ -531,28 +628,46 @@ export default function ProductForm({
                             </CardBody>
                         </Card>
 
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Preview harga</CardTitle>
-                            </CardHeader>
-                            <CardBody>
-                                <p className="text-2xl font-extrabold">
-                                    {data.is_pay_what_you_want
-                                        ? `Mulai ${formatIDR(Number(data.minimum_price) || 0)}`
-                                        : formatIDR(Number(data.price) || 0)}
-                                </p>
-                                {data.compare_at_price && (
-                                    <p className="text-sm text-muted line-through">
-                                        {formatIDR(Number(data.compare_at_price))}
+                        {isExternal ? (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Tujuan pembelian</CardTitle>
+                                </CardHeader>
+                                <CardBody>
+                                    <div className="flex items-center gap-3">
+                                        <span className="grid size-11 shrink-0 place-items-center rounded-xl text-xs font-black text-white" style={{ backgroundColor: marketplace.color }}>{marketplace.shortName}</span>
+                                        <div className="min-w-0"><p className="text-sm font-extrabold">{marketplaceCta(marketplace.name)}</p><p className="mt-0.5 text-xs text-muted">Harga mengikuti marketplace.</p></div>
+                                    </div>
+                                    <div className="mt-4 rounded-xl bg-surface-2 p-3 text-xs leading-5 text-muted">
+                                        <p className="flex items-center gap-2 font-bold text-fg"><Sparkles className="size-4 text-violet-500" /> Tidak perlu mengisi harga dan stok.</p>
+                                        <p className="mt-1">JualanYok berfungsi sebagai etalase dan mencatat klik keluar, bukan memproses pembayaran.</p>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        ) : (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Preview harga</CardTitle>
+                                </CardHeader>
+                                <CardBody>
+                                    <p className="text-2xl font-extrabold">
+                                        {data.is_pay_what_you_want
+                                            ? `Mulai ${formatIDR(Number(data.minimum_price) || 0)}`
+                                            : formatIDR(Number(data.price) || 0)}
                                     </p>
-                                )}
-                                <p className="mt-2 text-xs text-muted">
-                                    Biaya platform dipotong dari nominal ini saat pembayaran masuk.
-                                </p>
-                            </CardBody>
-                        </Card>
+                                    {data.compare_at_price && (
+                                        <p className="text-sm text-muted line-through">
+                                            {formatIDR(Number(data.compare_at_price))}
+                                        </p>
+                                    )}
+                                    <p className="mt-2 text-xs text-muted">
+                                        Biaya platform dipotong dari nominal ini saat pembayaran masuk.
+                                    </p>
+                                </CardBody>
+                            </Card>
+                        )}
 
-                        {editing && currentType && (
+                        {editing && currentType && !isExternal && (
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Pengiriman</CardTitle>

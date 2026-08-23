@@ -190,6 +190,15 @@ class CheckoutService
                 ]);
             }
 
+            // Last line of defence: never take money for a digital product that
+            // has no file behind it. The storefront already hides these, so
+            // reaching here means a stale link or a crafted request.
+            if (! $product->isDeliverable()) {
+                throw ValidationException::withMessages([
+                    'items' => sprintf('Produk "%s" belum siap dikirim. Hubungi penjual.', $product->name),
+                ]);
+            }
+
             $quantity = max(1, (int) ($line['quantity'] ?? 1));
 
             if ($quantity < $product->min_quantity) {
@@ -210,6 +219,14 @@ class CheckoutService
                     ->whereKey($line['variant_id'])
                     ->where('is_active', true)
                     ->firstOrFail();
+            }
+
+            // Stock is tracked per variant, so an order line without one would
+            // reserve nothing and leave the seller guessing what to ship.
+            if (! $variant && $product->requiresVariant()) {
+                throw ValidationException::withMessages([
+                    'items' => sprintf('Pilih varian untuk "%s" dulu.', $product->name),
+                ]);
             }
 
             $unitPrice = $variant ? $variant->effectivePrice() : $product->effectivePrice();

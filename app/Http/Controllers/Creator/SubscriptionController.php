@@ -4,15 +4,20 @@ namespace App\Http\Controllers\Creator;
 
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Services\PlanPaymentService;
 use App\Services\PlanService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SubscriptionController extends Controller
 {
-    public function __construct(private readonly PlanService $plans) {}
+    public function __construct(
+        private readonly PlanService $plans,
+        private readonly PlanPaymentService $planPayments,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -72,6 +77,20 @@ class SubscriptionController extends Controller
             // Real gateway billing is not wired up yet; upgrades settle through
             // the mock provider in development.
             'billingProvider' => config('payments.default'),
+            // When QRIS is configured, upgrades go through a manual transfer
+            // that an admin confirms instead of activating instantly.
+            'qris' => [
+                'enabled' => $this->planPayments->enabled(),
+                'merchant' => $this->planPayments->merchantName(),
+                'window_minutes' => $this->planPayments->minutesToPay(),
+            ],
+            'openPayment' => ($open = $this->planPayments->openPaymentFor($user)) ? [
+                'reference' => $open->reference,
+                'plan_name' => $open->plan->name,
+                'amount' => (int) $open->amount,
+                'status' => $open->status->value,
+                'status_label' => $open->status->label(),
+            ] : null,
         ]);
     }
 
@@ -83,6 +102,17 @@ class SubscriptionController extends Controller
         ]);
 
         $plan = Plan::where('slug', $data['plan'])->firstOrFail();
+
+        $isFree = (float) ($data['interval'] === 'yearly' ? $plan->price_yearly : $plan->price_monthly) <= 0;
+
+        // With QRIS configured, a paid plan must actually be paid for. The UI
+        // posts to the payment endpoint instead; this is the server-side guard
+        // that stops a crafted request from granting a plan for free.
+        if ($this->planPayments->enabled() && ! $isFree) {
+            throw ValidationException::withMessages([
+                'plan' => 'Paket berbayar harus lewat pembayaran QRIS.',
+            ]);
+        }
 
         $this->plans->subscribe($request->user(), $plan, $data['interval']);
 

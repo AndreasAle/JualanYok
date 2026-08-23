@@ -15,6 +15,27 @@ return [
 
     'expiry_hours' => (int) env('PAYMENT_EXPIRY_HOURS', 24),
 
+    /*
+     * Manual QRIS billing for SaaS plans — not a checkout provider, so it sits
+     * outside `providers`.
+     *
+     * The merchant's static QRIS string is a business identifier, so it lives in
+     * the environment and never in the repository. Each payment turns it into a
+     * single-use dynamic code with the amount locked in. There is no callback
+     * from the wallet: an admin matches the incoming amount and approves.
+     * See PlanPaymentService.
+     */
+    'qris' => [
+        'enabled' => (bool) env('QRIS_ENABLED', false),
+        'static_payload' => env('QRIS_STATIC_PAYLOAD'),
+        'window_minutes' => (int) env('QRIS_WINDOW_MINUTES', 30),
+
+        // Charged to the buyer on top of the order, mirroring what the wallet
+        // provider deducts from the merchant. Zero means the platform absorbs it.
+        'fee_percent' => (float) env('QRIS_FEE_PERCENT', 0.7),
+        'fee_fixed' => (float) env('QRIS_FEE_FIXED', 0),
+    ],
+
     'providers' => [
 
         'mock' => [
@@ -24,6 +45,14 @@ return [
 
         'manual_transfer' => [
             'enabled' => (bool) env('PAYMENT_MANUAL_ENABLED', true),
+        ],
+
+        /*
+         * QRIS for product checkout. Shares the merchant code configured under
+         * the top-level `qris` key, and is only selectable once that code is set.
+         */
+        'qris' => [
+            'enabled' => (bool) env('QRIS_CHECKOUT_ENABLED', false),
         ],
 
         'midtrans' => [

@@ -1,7 +1,10 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
-    CheckCircle2, ChevronDown, ChevronUp, Copy, ExternalLink, Eye, GripVertical, Loader2, Monitor, Plus,
-    LayoutTemplate, PartyPopper, Rocket, Save, Smartphone, Tablet, Trash2, X,
+    BadgeDollarSign, CheckCircle2, ChevronDown, ChevronUp, CircleHelp, Code2, Copy, ExternalLink, Eye,
+    FileText, GalleryHorizontal, GripVertical, Heading1, Image as ImageIcon, LayoutGrid, LayoutTemplate,
+    Link2, Loader2, Megaphone, MessageCircle, MessageSquareQuote, Monitor, MoveVertical, Package,
+    Paintbrush, Palette, PartyPopper, Plus, Rocket, Save, Share2, ShoppingBag, Smartphone, Sparkles,
+    Tablet, Timer, Trash2, Type, Video, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
@@ -14,7 +17,7 @@ import {
 } from '@/components/ui';
 import { EMBED_PROVIDERS, toEmbedUrl } from '@/lib/embed';
 import { cn } from '@/lib/utils';
-import type { StorefrontBlock } from '@/types';
+import type { StorefrontBlock, StoreTheme } from '@/types';
 
 interface BuilderBlock {
     id: number;
@@ -37,6 +40,44 @@ interface BuilderBlock {
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
+type ThemeDraft = Pick<StoreTheme,
+    'primary_color' | 'accent_color' | 'background_type' | 'background_value' |
+    'font_family' | 'button_style' | 'card_style' | 'product_layout' | 'color_scheme'
+>;
+
+interface StylePreset {
+    id: string;
+    name: string;
+    description: string;
+    primary: string;
+    accent: string;
+    background: string;
+    scheme: 'light' | 'dark';
+}
+
+const STYLE_PRESETS: StylePreset[] = [
+    { id: 'signature', name: 'JualanYok Signature', description: 'Lilac lembut dengan sentuhan rose.', primary: '#111827', accent: '#7C3AED', background: 'linear-gradient(145deg, #F7F4FF 0%, #F0EDFF 52%, #FFF3F6 100%)', scheme: 'light' },
+    { id: 'editorial', name: 'Editorial Cream', description: 'Hangat, bersih, dan terasa butik.', primary: '#292524', accent: '#C2410C', background: 'linear-gradient(145deg, #FFFCF5 0%, #F8F1E6 55%, #FFF8EF 100%)', scheme: 'light' },
+    { id: 'coastal', name: 'Coastal Studio', description: 'Biru muda untuk katalog modern.', primary: '#172554', accent: '#0284C7', background: 'linear-gradient(145deg, #F5FAFF 0%, #EAF5FF 52%, #F2FBFA 100%)', scheme: 'light' },
+    { id: 'sakura', name: 'Sakura Milk', description: 'Soft pink yang tetap profesional.', primary: '#4C1D2F', accent: '#DB2777', background: 'linear-gradient(145deg, #FFF8FB 0%, #FCEEF5 52%, #FFF7F2 100%)', scheme: 'light' },
+    { id: 'matcha', name: 'Matcha Atelier', description: 'Natural dan premium untuk lifestyle.', primary: '#173B2C', accent: '#15803D', background: 'linear-gradient(145deg, #F7FAF5 0%, #EDF5EA 52%, #F6F3E8 100%)', scheme: 'light' },
+    { id: 'obsidian', name: 'Obsidian Night', description: 'Kontras gelap untuk brand yang berani.', primary: '#111827', accent: '#A78BFA', background: 'linear-gradient(145deg, #0B1020 0%, #161A2B 52%, #21162E 100%)', scheme: 'dark' },
+];
+
+function normalizeTheme(theme: Partial<StoreTheme> | null | undefined): ThemeDraft {
+    return {
+        primary_color: theme?.primary_color ?? '#111827',
+        accent_color: theme?.accent_color ?? '#7C3AED',
+        background_type: theme?.background_type ?? 'solid',
+        background_value: theme?.background_value ?? '#F6F7FB',
+        font_family: theme?.font_family ?? 'jakarta',
+        button_style: theme?.button_style ?? 'rounded',
+        card_style: theme?.card_style ?? 'soft',
+        product_layout: theme?.product_layout ?? 'grid',
+        color_scheme: theme?.color_scheme ?? 'light',
+    };
+}
+
 export default function Builder({
     store, theme, blocks: initialBlocks, blockTypes, products, templates, limits,
 }: {
@@ -53,18 +94,37 @@ export default function Builder({
     const [device, setDevice] = useState<'mobile' | 'tablet' | 'desktop'>('mobile');
     const [pickerOpen, setPickerOpen] = useState(false);
     const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+    const [appearanceOpen, setAppearanceOpen] = useState(false);
     const [mobileTab, setMobileTab] = useState<'blocks' | 'edit' | 'preview'>('blocks');
     const [saveState, setSaveState] = useState<SaveState>('idle');
+    const [themeSaveState, setThemeSaveState] = useState<SaveState>('idle');
+    const [themeDraft, setThemeDraft] = useState<ThemeDraft>(() => normalizeTheme(theme));
     const pageUrl = usePage().url;
     const firstProductReady = pageUrl.includes('first_product=1');
     const justPublished = pageUrl.includes('published=1');
 
     useEffect(() => setBlocks(initialBlocks), [initialBlocks]);
+    useEffect(() => setThemeDraft(normalizeTheme(theme)), [theme]);
 
     const active = blocks.find((b) => b.id === activeId) ?? null;
     const activeTemplate = templates.find((t: any) => t.id === store.storefront_template_id) ?? null;
 
     const atLimit = limits.blocks !== null && limits.blocks_used >= limits.blocks;
+
+    const saveTheme = () => {
+        if (themeDraft.background_type === 'image' && !themeDraft.background_value.trim()) return;
+
+        setThemeSaveState('saving');
+        router.put('/dashboard/toko/tema', themeDraft, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                setThemeSaveState('saved');
+                setAppearanceOpen(false);
+            },
+            onError: () => setThemeSaveState('error'),
+        });
+    };
 
     /* ----------------------------------------------------------------- */
 
@@ -326,6 +386,29 @@ export default function Builder({
                         )}
                     </Card>
 
+                    {/* Store appearance */}
+                    <Card className="mt-3 overflow-hidden p-0">
+                        <div
+                            className="relative h-24 overflow-hidden border-b border-line"
+                            style={{ background: themeDraft.background_type === 'image' ? `center / cover url("${themeDraft.background_value}")` : themeDraft.background_type === 'gradient' && !themeDraft.background_value.includes('gradient(') ? `linear-gradient(145deg, ${themeDraft.primary_color}18, ${themeDraft.accent_color}22)` : themeDraft.background_value }}
+                        >
+                            <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 rounded-xl border border-white/60 bg-white/85 p-2 shadow-sm backdrop-blur-md">
+                                <span className="size-7 rounded-lg shadow-sm" style={{ background: themeDraft.primary_color }} />
+                                <span className="size-7 rounded-lg shadow-sm" style={{ background: themeDraft.accent_color }} />
+                                <span className="ml-auto text-[10px] font-black uppercase tracking-[.12em] text-slate-700">Gaya aktif</span>
+                            </div>
+                        </div>
+                        <div className="p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><Paintbrush className="size-4" /></span>
+                                <div><p className="text-sm font-bold">Desain toko</p><p className="mt-0.5 text-xs leading-5 text-muted">Background, warna, font, tombol, dan kartu.</p></div>
+                            </div>
+                            <Button variant="outline" block className="mt-3" onClick={() => setAppearanceOpen(true)}>
+                                <Palette className="size-4" /> Sesuaikan gaya
+                            </Button>
+                        </div>
+                    </Card>
+
                     {/* Templates */}
                     <Card className="mt-3 p-4">
                         <div className="flex items-start justify-between gap-2">
@@ -414,7 +497,7 @@ export default function Builder({
                         </div>
 
                         <DevicePreview device={device}>
-                            <LivePreview store={store} theme={theme} blocks={previewBlocks} />
+                            <LivePreview store={store} theme={themeDraft} blocks={previewBlocks} />
                         </DevicePreview>
 
                         <p className="mt-2 text-center text-xs text-muted">
@@ -436,6 +519,23 @@ export default function Builder({
                     onClose={() => setTemplatePickerOpen(false)}
                 />
             )}
+
+            {appearanceOpen && (
+                <AppearanceStudio
+                    value={themeDraft}
+                    saveState={themeSaveState}
+                    onChange={(patch) => {
+                        setThemeSaveState('idle');
+                        setThemeDraft((current) => ({ ...current, ...patch }));
+                    }}
+                    onSave={saveTheme}
+                    onClose={() => {
+                        setThemeDraft(normalizeTheme(theme));
+                        setThemeSaveState('idle');
+                        setAppearanceOpen(false);
+                    }}
+                />
+            )}
         </DashboardLayout>
     );
 }
@@ -444,6 +544,129 @@ export default function Builder({
 
 const DEVICE_WIDTHS = { mobile: 375, tablet: 768, desktop: 1280 } as const;
 const DEVICE_HEIGHTS = { mobile: 720, tablet: 780, desktop: 800 } as const;
+
+function AppearanceStudio({
+    value,
+    saveState,
+    onChange,
+    onSave,
+    onClose,
+}: {
+    value: ThemeDraft;
+    saveState: SaveState;
+    onChange: (patch: Partial<ThemeDraft>) => void;
+    onSave: () => void;
+    onClose: () => void;
+}) {
+    const activePreset = STYLE_PRESETS.find((preset) =>
+        preset.background === value.background_value
+        && preset.primary === value.primary_color
+        && preset.accent === value.accent_color,
+    );
+    const backgroundPreview = value.background_type === 'image' && value.background_value
+        ? `center / cover no-repeat url("${value.background_value}")`
+        : value.background_type === 'gradient' && !value.background_value.includes('gradient(')
+          ? `linear-gradient(145deg, ${value.primary_color}18, ${value.accent_color}22)`
+          : value.background_value;
+
+    const chooseBackgroundType = (type: ThemeDraft['background_type']) => {
+        if (type === 'solid') onChange({ background_type: type, background_value: '#F6F7FB' });
+        if (type === 'gradient') onChange({ background_type: type, background_value: 'brand-gradient' });
+        if (type === 'image') onChange({ background_type: type, background_value: '' });
+    };
+
+    return (
+        <div className="fixed inset-0 z-[95] overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
+            <div className="mx-auto w-full max-w-6xl overflow-hidden rounded-[1.75rem] border border-white/20 bg-surface shadow-2xl">
+                <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-7 sm:py-5">
+                    <div className="flex items-start gap-3">
+                        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><Sparkles className="size-5" /></span>
+                        <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-[var(--primary)]">JualanYok Style Studio</p><h2 id="appearance-title" className="mt-1 text-xl font-black tracking-tight">Buat tokomu punya karakter</h2><p className="mt-1 text-sm text-muted">Struktur template tetap aman. Kamu hanya mengubah identitas visualnya.</p></div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={onClose} aria-label="Tutup pengaturan tampilan"><X className="size-5" /></Button>
+                </div>
+
+                <div className="grid lg:grid-cols-[1fr_340px]">
+                    <div className="space-y-7 p-5 sm:p-7">
+                        <section>
+                            <div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="font-extrabold">Background premium</h3><p className="mt-0.5 text-xs text-muted">Preset dibuat lembut agar produk tetap menjadi fokus utama.</p></div><Badge tone="brand">6 pilihan</Badge></div>
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                {STYLE_PRESETS.map((preset) => {
+                                    const active = activePreset?.id === preset.id;
+                                    return (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            onClick={() => onChange({ primary_color: preset.primary, accent_color: preset.accent, background_type: 'gradient', background_value: preset.background, color_scheme: preset.scheme })}
+                                            className={cn('overflow-hidden rounded-2xl border bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-lift', active ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/20' : 'border-line')}
+                                        >
+                                            <span className="relative block h-20" style={{ background: preset.background }}><span className="absolute bottom-2 left-2 size-5 rounded-full border-2 border-white shadow-sm" style={{ background: preset.primary }} /><span className="absolute bottom-2 left-6 size-5 rounded-full border-2 border-white shadow-sm" style={{ background: preset.accent }} />{active && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-slate-950 text-white"><CheckCircle2 className="size-4" /></span>}</span>
+                                            <span className="block p-3"><b className="block text-xs">{preset.name}</b><small className="mt-1 block text-[10px] leading-4 text-muted">{preset.description}</small></span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </section>
+
+                        <section className="border-t border-line pt-6">
+                            <div className="mb-4"><h3 className="font-extrabold">Buat gaya sendiri</h3><p className="mt-0.5 text-xs text-muted">Atur detail tanpa mengubah susunan block dari template.</p></div>
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="mb-2 text-xs font-bold">Jenis background</p>
+                                        <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-2 p-1">
+                                            {([['solid', <Palette className="size-3.5" />, 'Warna'], ['gradient', <Sparkles className="size-3.5" />, 'Gradien'], ['image', <ImageIcon className="size-3.5" />, 'Gambar']] as const).map(([type, icon, label]) => <button key={type} type="button" onClick={() => chooseBackgroundType(type)} className={cn('flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-bold transition', value.background_type === type ? 'bg-surface text-fg shadow-sm' : 'text-muted')}>{icon}{label}</button>)}
+                                        </div>
+                                    </div>
+
+                                    {value.background_type === 'solid' && <ColorControl label="Warna background" value={/^#[0-9A-F]{6}$/i.test(value.background_value) ? value.background_value : '#F6F7FB'} onChange={(background_value) => onChange({ background_value })} />}
+                                    {value.background_type === 'gradient' && <div className="rounded-xl border border-line bg-surface-2 p-3 text-xs leading-5 text-muted"><Sparkles className="mb-2 size-4 text-[var(--primary)]" />Gradien khusus otomatis mengikuti warna utama dan aksen. Kamu juga bisa memilih preset di atas.</div>}
+                                    {value.background_type === 'image' && <MediaPicker label="Gambar background" value={value.background_value} onChange={(background_value) => onChange({ background_value })} hint="Pilih gambar vertikal atau tekstur ringan. Maksimal 4 MB." />}
+
+                                    <div className="grid grid-cols-2 gap-3"><ColorControl label="Warna utama" value={value.primary_color} onChange={(primary_color) => onChange({ primary_color })} /><ColorControl label="Warna aksen" value={value.accent_color} onChange={(accent_color) => onChange({ accent_color })} /></div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <Field label="Font toko"><Select value={value.font_family} onChange={(event) => onChange({ font_family: event.target.value })}><option value="jakarta">Plus Jakarta Sans</option><option value="inter">Inter</option><option value="poppins">Poppins</option><option value="nunito">Nunito</option><option value="space">Space Grotesk</option></Select></Field>
+                                    <ChoiceControl icon={<Paintbrush className="size-4" />} label="Bentuk tombol" value={value.button_style} options={[['rounded', 'Modern'], ['pill', 'Pill'], ['square', 'Tegas']]} onChange={(button_style) => onChange({ button_style: button_style as ThemeDraft['button_style'] })} />
+                                    <ChoiceControl icon={<Type className="size-4" />} label="Gaya kartu" value={value.card_style} options={[['soft', 'Soft'], ['outline', 'Garis'], ['flat', 'Flat']]} onChange={(card_style) => onChange({ card_style: card_style as ThemeDraft['card_style'] })} />
+                                    <ChoiceControl icon={<Eye className="size-4" />} label="Mode warna" value={value.color_scheme} options={[['light', 'Terang'], ['dark', 'Gelap']]} onChange={(color_scheme) => onChange({ color_scheme: color_scheme as ThemeDraft['color_scheme'] })} />
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <aside className="border-t border-line bg-surface-2 p-5 lg:border-l lg:border-t-0 lg:p-6">
+                        <div className="lg:sticky lg:top-6">
+                            <p className="text-xs font-black uppercase tracking-[.16em] text-muted">Preview gaya</p>
+                            <div className="mt-3 overflow-hidden rounded-[1.5rem] border-4 border-slate-900 shadow-lift" style={{ background: backgroundPreview || '#F6F7FB' }}>
+                                <div className="h-28 p-4" style={{ background: `linear-gradient(135deg, ${value.primary_color}, ${value.accent_color})` }}><div className="h-2 w-20 rounded-full bg-white/80" /><div className="mt-3 h-2 w-32 rounded-full bg-white/40" /></div>
+                                <div className="space-y-3 p-4">
+                                    <div className={cn('bg-white p-4 dark:bg-slate-900', value.card_style === 'soft' ? 'rounded-2xl shadow-lg' : value.card_style === 'outline' ? 'rounded-2xl border border-slate-300' : 'rounded-2xl')}><div className="h-3 w-28 rounded-full bg-slate-900 dark:bg-white" /><div className="mt-2 h-2 w-full rounded-full bg-slate-300 dark:bg-slate-700" /><div className="mt-1.5 h-2 w-2/3 rounded-full bg-slate-200 dark:bg-slate-800" /><div className={cn('mt-4 h-9', value.button_style === 'pill' ? 'rounded-full' : value.button_style === 'square' ? 'rounded-lg' : 'rounded-xl')} style={{ background: value.primary_color }} /></div>
+                                    <div className="grid grid-cols-2 gap-2"><div className="h-24 rounded-xl bg-white/80 shadow-sm dark:bg-slate-900/80" /><div className="h-24 rounded-xl bg-white/80 shadow-sm dark:bg-slate-900/80" /></div>
+                                </div>
+                            </div>
+                            <div className="mt-4 rounded-xl border border-line bg-surface p-3 text-xs leading-5 text-muted"><b className="text-fg">Layout tidak berubah.</b> Produk, urutan block, dan isi tokomu tetap aman saat mengganti gaya.</div>
+                        </div>
+                    </aside>
+                </div>
+
+                <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-line bg-surface/95 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                    <SaveIndicator state={saveState} />
+                    <div className="flex gap-2 sm:ml-auto"><Button variant="outline" onClick={onClose}>Batal</Button><Button variant="gradient" onClick={onSave} disabled={saveState === 'saving' || (value.background_type === 'image' && !value.background_value)}>{saveState === 'saving' ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Simpan gaya</Button></div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ColorControl({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+    return <label className="block"><span className="mb-2 block text-xs font-bold">{label}</span><span className="flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-2"><input type="color" value={value} onChange={(event) => onChange(event.target.value.toUpperCase())} className="size-7 cursor-pointer rounded-lg border-0 bg-transparent p-0" /><span className="text-xs font-semibold uppercase text-muted">{value}</span></span></label>;
+}
+
+function ChoiceControl({ icon, label, value, options, onChange }: { icon: ReactNode; label: string; value: string; options: [string, string][]; onChange: (value: string) => void }) {
+    return <div><p className="mb-2 flex items-center gap-2 text-xs font-bold">{icon}{label}</p><div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-2 p-1">{options.map(([key, text]) => <button key={key} type="button" onClick={() => onChange(key)} className={cn('rounded-lg px-2 py-2 text-[11px] font-bold transition', value === key ? 'bg-surface text-fg shadow-sm' : 'text-muted')}>{text}</button>)}</div></div>;
+}
 
 /**
  * Renders the storefront at the device's real pixel width, then scales the
@@ -667,6 +890,37 @@ function TemplatePicker({
 }
 
 
+const BLOCK_VISUALS: Record<string, { description: string; icon: ReactNode; tone: string }> = {
+    HEADING: { description: 'Judul untuk membuka sebuah bagian.', icon: <Heading1 className="size-5" />, tone: 'violet' },
+    TEXT: { description: 'Paragraf, deskripsi, atau cerita brand.', icon: <Type className="size-5" />, tone: 'violet' },
+    LINK_BUTTON: { description: 'Arahkan pengunjung ke tautan tertentu.', icon: <Link2 className="size-5" />, tone: 'slate' },
+    SOCIAL_LINKS: { description: 'Hubungkan semua akun sosialmu.', icon: <Share2 className="size-5" />, tone: 'slate' },
+    IMAGE: { description: 'Tampilkan satu visual unggulan.', icon: <ImageIcon className="size-5" />, tone: 'violet' },
+    GALLERY: { description: 'Susun beberapa gambar dalam galeri.', icon: <GalleryHorizontal className="size-5" />, tone: 'violet' },
+    VIDEO: { description: 'Sematkan video dari YouTube.', icon: <Video className="size-5" />, tone: 'violet' },
+    DIVIDER: { description: 'Pisahkan bagian dengan garis rapi.', icon: <MoveVertical className="size-5" />, tone: 'slate' },
+    SPACER: { description: 'Beri ruang antarbagian halaman.', icon: <MoveVertical className="size-5" />, tone: 'slate' },
+    FAQ: { description: 'Jawab pertanyaan umum calon pembeli.', icon: <CircleHelp className="size-5" />, tone: 'slate' },
+    TESTIMONIAL: { description: 'Bangun kepercayaan lewat ulasan.', icon: <MessageSquareQuote className="size-5" />, tone: 'slate' },
+    COUNTDOWN: { description: 'Ciptakan urgensi untuk promo.', icon: <Timer className="size-5" />, tone: 'rose' },
+    PROMO_BANNER: { description: 'Sorot penawaran atau pengumuman.', icon: <Megaphone className="size-5" />, tone: 'rose' },
+    LEAD_FORM: { description: 'Kumpulkan email dan kontak audiens.', icon: <FileText className="size-5" />, tone: 'rose' },
+    WHATSAPP_CTA: { description: 'Buka percakapan WhatsApp langsung.', icon: <MessageCircle className="size-5" />, tone: 'rose' },
+    PRODUCT: { description: 'Tampilkan satu produk secara fokus.', icon: <Package className="size-5" />, tone: 'emerald' },
+    PRODUCT_COLLECTION: { description: 'Bangun etalase beberapa produk.', icon: <LayoutGrid className="size-5" />, tone: 'emerald' },
+    FEATURED_PRODUCTS: { description: 'Sorot produk pilihan atau terlaris.', icon: <ShoppingBag className="size-5" />, tone: 'emerald' },
+    AFFILIATE_PRODUCT: { description: 'Rekomendasikan produk marketplace.', icon: <BadgeDollarSign className="size-5" />, tone: 'emerald' },
+    ARTICLE: { description: 'Bagikan artikel atau insight singkat.', icon: <FileText className="size-5" />, tone: 'violet' },
+    EMBED: { description: 'Sematkan konten dari platform lain.', icon: <Code2 className="size-5" />, tone: 'slate' },
+};
+
+const BLOCK_TONES: Record<string, string> = {
+    violet: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+    rose: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+    slate: 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300',
+};
+
 function BlockPicker({
     groups,
     onPick,
@@ -676,6 +930,10 @@ function BlockPicker({
     onPick: (type: string) => void;
     onClose: () => void;
 }) {
+    const [activeGroup, setActiveGroup] = useState('Semua');
+    const entries = Object.entries(groups);
+    const visibleGroups = activeGroup === 'Semua' ? entries : entries.filter(([group]) => group === activeGroup);
+
     return (
         <div
             className="fixed inset-0 z-[90] grid place-items-center bg-black/50 p-4 backdrop-blur-sm"
@@ -684,31 +942,28 @@ function BlockPicker({
             aria-labelledby="picker-title"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-            <Card className="max-h-[85vh] w-full max-w-2xl animate-rise overflow-y-auto">
-                <div className="sticky top-0 flex items-center justify-between border-b border-line bg-surface p-5">
-                    <h2 id="picker-title" className="font-bold">
-                        Pilih jenis block
-                    </h2>
+            <Card className="max-h-[88vh] w-full max-w-3xl animate-rise overflow-y-auto">
+                <div className="sticky top-0 z-10 border-b border-line bg-surface/95 p-5 backdrop-blur-xl sm:p-6">
+                    <div className="flex items-start justify-between gap-4">
+                    <div><p className="text-[10px] font-black uppercase tracking-[.17em] text-violet-600">Koleksi block</p><h2 id="picker-title" className="mt-1 text-xl font-black tracking-tight">Tambahkan bagian baru</h2><p className="mt-1 text-sm text-muted">Pilih berdasarkan tujuan. Isinya bisa kamu ubah setelah ditambahkan.</p></div>
                     <Button variant="ghost" size="icon" onClick={onClose} aria-label="Tutup">
                         <X className="size-5" />
                     </Button>
+                    </div>
+                    <div className="mt-5 flex gap-1 overflow-x-auto rounded-xl bg-surface-2 p-1 [scrollbar-width:none]">
+                        {['Semua', ...entries.map(([group]) => group)].map((group) => <button key={group} type="button" onClick={() => setActiveGroup(group)} className={cn('shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition', activeGroup === group ? 'bg-surface text-fg shadow-sm' : 'text-muted hover:text-fg')}>{group}</button>)}
+                    </div>
                 </div>
 
-                <div className="space-y-5 p-5">
-                    {Object.entries(groups).map(([group, items]) => (
+                <div className="space-y-7 p-5 sm:p-6">
+                    {visibleGroups.map(([group, items]) => (
                         <div key={group}>
-                            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">{group}</p>
-                            <div className="grid gap-2 sm:grid-cols-3">
-                                {items.map((item) => (
-                                    <button
-                                        key={item.value}
-                                        type="button"
-                                        onClick={() => onPick(item.value)}
-                                        className="rounded-[var(--radius-field)] border border-line p-3 text-left text-sm font-semibold transition-colors hover:border-[var(--primary)] hover:bg-surface-2"
-                                    >
-                                        {item.label}
-                                    </button>
-                                ))}
+                            <div className="mb-3 flex items-center justify-between"><p className="text-xs font-black uppercase tracking-[.15em] text-muted">{group}</p><span className="text-[10px] font-bold text-muted">{items.length} pilihan</span></div>
+                            <div className="grid gap-2.5 sm:grid-cols-2">
+                                {items.map((item) => {
+                                    const visual = BLOCK_VISUALS[item.value] ?? { description: 'Tambahkan bagian baru ke tokomu.', icon: <Plus className="size-5" />, tone: 'slate' };
+                                    return <button key={item.value} type="button" onClick={() => onPick(item.value)} className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-3.5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-[0_10px_28px_rgba(16,24,40,.08)]"><span className={cn('grid size-11 shrink-0 place-items-center rounded-xl', BLOCK_TONES[visual.tone])}>{visual.icon}</span><span className="min-w-0 flex-1"><b className="flex items-center justify-between gap-2 text-sm">{item.label}<Plus className="size-4 text-muted transition group-hover:rotate-90 group-hover:text-violet-600" /></b><small className="mt-1 block text-xs font-normal leading-5 text-muted">{visual.description}</small></span></button>;
+                                })}
                             </div>
                         </div>
                     ))}
