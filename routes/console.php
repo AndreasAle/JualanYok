@@ -4,6 +4,7 @@ use App\Models\Store;
 use App\Services\AffiliateService;
 use App\Services\AnalyticsService;
 use App\Services\PaymentService;
+use App\Services\PlanPaymentService;
 use App\Services\PlanService;
 use App\Services\WithdrawalService;
 use Illuminate\Support\Facades\Schedule;
@@ -35,6 +36,16 @@ Schedule::call(fn () => app(AffiliateService::class)->releaseMatured())
 Schedule::call(fn () => app(PlanService::class)->expireLapsed())
     ->daily()
     ->name('subscriptions:expire');
+
+/*
+ * Releases the unique amounts held by abandoned plan payments. Without this the
+ * figures are only freed when an admin happens to open the queue, so a quiet
+ * week would leave dozens of rupiah amounts reserved for nobody.
+ */
+Schedule::call(fn () => app(PlanPaymentService::class)->expireLapsed())
+    ->everyTenMinutes()
+    ->name('plan-payments:expire-stale')
+    ->withoutOverlapping();
 
 // Rolls yesterday's raw events into the per-day summary the dashboards read.
 Schedule::call(function () {
