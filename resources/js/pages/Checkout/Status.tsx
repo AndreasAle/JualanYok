@@ -17,6 +17,7 @@ interface Payment {
     redirect_url: string | null;
     expires_at: string | null;
     is_open: boolean;
+    error: string | null;
 }
 
 export default function CheckoutStatus({
@@ -106,6 +107,17 @@ export default function CheckoutStatus({
                                         {formatIDR(payment.amount)}
                                     </span>
                                 </div>
+
+                                {payment.status === 'FAILED' && (
+                                    <div className="mt-5">
+                                        <Alert tone="danger" title="Tagihan gagal dibuat">
+                                            <span className="text-sm">
+                                                {payment.error ??
+                                                    'Gateway belum berhasil membuat tagihan. Pilih ulang metode pembayaran untuk mencoba lagi.'}
+                                            </span>
+                                        </Alert>
+                                    </div>
+                                )}
 
                                 {payment.expires_at && payment.is_open && (
                                     <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">

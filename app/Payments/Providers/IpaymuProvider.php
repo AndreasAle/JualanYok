@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Payments\PaymentProviderInterface;
 use App\Payments\PaymentResult;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -112,14 +113,17 @@ class IpaymuProvider implements PaymentProviderInterface
         }
 
         try {
-            $body = json_encode($payload, JSON_THROW_ON_ERROR);
+            // iPaymu calculates its signature from JSON_UNESCAPED_SLASHES.
+            // This is especially important here because the payload contains
+            // notify/success/cancel URLs: `\/` and `/` produce different hashes.
+            $body = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
             $timestamp = now('Asia/Jakarta')->format('YmdHis');
             $signature = $this->requestSignature('POST', $body);
 
             $response = $this->client()
                 ->withHeaders([
                     'Content-Type' => 'application/json',
-                    'va' => $this->va,
+                    'va' => trim($this->va),
                     'signature' => $signature,
                     'timestamp' => $timestamp,
                 ])
@@ -151,7 +155,7 @@ class IpaymuProvider implements PaymentProviderInterface
                 'error' => $e->getMessage(),
             ]);
 
-            return new PaymentResult(status: PaymentStatus::Failed, error: $e->getMessage());
+            return new PaymentResult(status: PaymentStatus::Failed, error: $this->publicError($e));
         }
     }
 
@@ -247,9 +251,26 @@ class IpaymuProvider implements PaymentProviderInterface
     private function requestSignature(string $method, string $body): string
     {
         $bodyHash = strtolower(hash('sha256', $body));
-        $stringToSign = strtoupper($method).':'.$this->va.':'.$bodyHash.':'.$this->apiKey;
+        $va = trim($this->va);
+        $apiKey = trim($this->apiKey);
+        $stringToSign = strtoupper($method).':'.$va.':'.$bodyHash.':'.$apiKey;
 
-        return hash_hmac('sha256', $stringToSign, $this->apiKey);
+        return hash_hmac('sha256', $stringToSign, $apiKey);
+    }
+
+    private function publicError(Throwable $error): string
+    {
+        $message = $error instanceof RequestException
+            ? (string) ($error->response->json('Message') ?: $error->response->json('message'))
+            : $error->getMessage();
+
+        if (str_contains(strtolower($message), 'unauthorized signature')) {
+            return 'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.';
+        }
+
+        return filled($message)
+            ? 'iPaymu menolak pembayaran: '.str($message)->squish()->limit(160)
+            : 'Tagihan belum berhasil dibuat oleh iPaymu. Silakan pilih ulang metode pembayaran.';
     }
 
     private function normaliseCallback(array $data): array

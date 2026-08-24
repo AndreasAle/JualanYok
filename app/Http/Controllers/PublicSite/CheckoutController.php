@@ -127,6 +127,10 @@ class CheckoutController extends Controller
 
     private function paymentPayload(Payment $payment): array
     {
+        $latestError = $payment->status === PaymentStatus::Failed
+            ? $payment->attempts()->where('action', 'create')->latest('id')->value('error')
+            : null;
+
         return [
             'id' => $payment->id,
             'provider' => $payment->provider,
@@ -139,6 +143,7 @@ class CheckoutController extends Controller
             'redirect_url' => $payment->redirect_url,
             'expires_at' => $payment->expires_at?->toIso8601String(),
             'is_open' => $payment->isOpen(),
+            'error' => $latestError,
         ];
     }
 }

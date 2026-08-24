@@ -85,8 +85,36 @@ class IpaymuPaymentTest extends TestCase
                 && $payload['feeDirection'] === 'MERCHANT'
                 && $payload['notifyUrl'] === route('webhooks.payments', ['provider' => 'ipaymu'])
                 && $payload['successUrl'] === route('checkout.status', $order->number)
+                && ! str_contains($body, '\\/')
                 && ! str_contains($body, self::API_KEY);
         });
+    }
+
+    public function test_failed_signature_response_is_stored_as_a_safe_checkout_error(): void
+    {
+        Http::fake([
+            'sandbox.ipaymu.com/*' => Http::response([
+                'Status' => 401,
+                'Success' => false,
+                'Message' => 'unauthorized signature',
+                'Data' => null,
+            ], 401),
+        ]);
+
+        $order = $this->makeOrder();
+        $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'va', 'bca');
+
+        $this->assertSame(PaymentStatus::Failed, $payment->status);
+        $this->assertSame(
+            'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.',
+            $payment->attempts()->latest('id')->value('error'),
+        );
+
+        $this->get(route('checkout.status', $order->number))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('payment.status', PaymentStatus::Failed->value)
+                ->where('payment.error', 'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.'));
     }
 
     public function test_verified_callback_settles_once_and_replay_is_idempotent(): void
