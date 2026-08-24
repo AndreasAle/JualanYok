@@ -119,6 +119,31 @@ class IpaymuPaymentTest extends TestCase
                 ->where('payment.error', 'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.'));
     }
 
+    public function test_suspicious_buyer_response_is_presented_as_actionable_checkout_message(): void
+    {
+        Http::fake([
+            'sandbox.ipaymu.com/*' => Http::response([
+                'Status' => 400,
+                'Success' => false,
+                'Message' => 'Suspicious buyer',
+                'Data' => null,
+            ], 400),
+        ]);
+
+        $order = $this->makeOrder();
+        $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'qris', 'mpm');
+        $safeMessage = 'Pembayaran belum dapat diproses oleh pemeriksaan keamanan penyedia. Periksa kembali data pembeli, tunggu beberapa saat, atau gunakan metode pembayaran lain.';
+
+        $this->assertSame(PaymentStatus::Failed, $payment->status);
+        $this->assertSame($safeMessage, $payment->attempts()->latest('id')->value('error'));
+
+        $this->get(route('checkout.status', $order->number))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('payment.status', PaymentStatus::Failed->value)
+                ->where('payment.error', $safeMessage));
+    }
+
     public function test_live_style_list_response_renders_a_real_qris_payload(): void
     {
         Http::fake(function (ClientRequest $request) {

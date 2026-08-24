@@ -32,6 +32,7 @@ export default function CheckoutStatus({
     purchase: { url: string; requires_login: boolean };
 }) {
     const paid = order.payment_status === 'PAID';
+    const failed = payment?.status === 'FAILED';
     const [copied, setCopied] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
     const canSync = Boolean(
@@ -81,8 +82,8 @@ export default function CheckoutStatus({
             <header className="border-b border-line bg-app">
                 <div className="mx-auto flex h-16 max-w-2xl items-center justify-between px-4 sm:px-6">
                     <Logo />
-                    <Badge tone={paid ? 'success' : statusTone(order.status)}>
-                        {paid ? 'Pembayaran berhasil' : order.status_label}
+                    <Badge tone={paid ? 'success' : failed ? 'danger' : statusTone(order.status)}>
+                        {paid ? 'Pembayaran berhasil' : failed ? 'Perlu dicoba ulang' : order.status_label}
                     </Badge>
                 </div>
             </header>
@@ -132,7 +133,11 @@ export default function CheckoutStatus({
                     <>
                         <div className="mb-5 text-center">
                             <h1 className="text-2xl font-extrabold tracking-tight">
-                                {payment?.is_open ? 'Tinggal bayar aja' : 'Pembayaran belum selesai'}
+                                {failed
+                                    ? 'Pembayaran belum dapat diproses'
+                                    : payment?.is_open
+                                      ? 'Tinggal bayar aja'
+                                      : 'Pembayaran belum selesai'}
                             </h1>
                             <p className="mt-1 text-sm text-muted">Pesanan {order.number}</p>
                         </div>
@@ -148,7 +153,7 @@ export default function CheckoutStatus({
 
                                 {payment.status === 'FAILED' && (
                                     <div className="mt-5">
-                                        <Alert tone="danger" title="Tagihan gagal dibuat">
+                                        <Alert tone="danger" title="Coba lagi dengan data atau metode lain">
                                             <span className="text-sm">
                                                 {payment.error ??
                                                     'Gateway belum berhasil membuat tagihan. Pilih ulang metode pembayaran untuk mencoba lagi.'}
@@ -292,19 +297,24 @@ export default function CheckoutStatus({
                                 )}
 
                                 <div className="mt-6 flex flex-wrap gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={syncStatus}
-                                        disabled={syncing}
-                                    >
-                                        <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
-                                        {syncing ? 'Mengecek iPaymu…' : 'Cek Status'}
-                                    </Button>
+                                    {canSync && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={syncStatus}
+                                            disabled={syncing}
+                                        >
+                                            <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
+                                            {syncing ? 'Mengecek iPaymu…' : 'Cek Status'}
+                                        </Button>
+                                    )}
 
                                     {order.is_payable && (
-                                        <ButtonLink href={`/checkout/${order.number}`} variant="ghost">
-                                            Ganti Metode
+                                        <ButtonLink
+                                            href={`/checkout/${order.number}`}
+                                            variant={failed ? 'gradient' : 'ghost'}
+                                        >
+                                            {failed ? 'Coba metode pembayaran lain' : 'Ganti Metode'}
                                         </ButtonLink>
                                     )}
                                 </div>

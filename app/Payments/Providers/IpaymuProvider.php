@@ -352,8 +352,14 @@ class IpaymuProvider implements PaymentProviderInterface
             ? (string) ($error->response->json('Message') ?: $error->response->json('message'))
             : $error->getMessage();
 
-        if (str_contains(strtolower($message), 'unauthorized signature')) {
+        $normalisedMessage = strtolower($message);
+
+        if (str_contains($normalisedMessage, 'unauthorized signature')) {
             return 'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.';
+        }
+
+        if (str_contains($normalisedMessage, 'suspicious buyer')) {
+            return 'Pembayaran belum dapat diproses oleh pemeriksaan keamanan penyedia. Periksa kembali data pembeli, tunggu beberapa saat, atau gunakan metode pembayaran lain.';
         }
 
         return filled($message)
