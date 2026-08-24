@@ -367,9 +367,16 @@ export default function Settings({
                                     >
                                         <option value="jakarta">Plus Jakarta Sans</option>
                                         <option value="inter">Inter</option>
+                                        <option value="manrope">Manrope</option>
+                                        <option value="dm-sans">DM Sans</option>
+                                        <option value="outfit">Outfit</option>
+                                        <option value="sora">Sora</option>
                                         <option value="poppins">Poppins</option>
                                         <option value="nunito">Nunito</option>
                                         <option value="space">Space Grotesk</option>
+                                        <option value="playfair">Playfair Display</option>
+                                        <option value="lora">Lora</option>
+                                        <option value="system">System UI</option>
                                     </Select>
                                 </Field>
 

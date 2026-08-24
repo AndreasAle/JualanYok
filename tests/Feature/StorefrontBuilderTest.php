@@ -145,9 +145,20 @@ class StorefrontBuilderTest extends TestCase
             'card_style' => 'soft',
             'product_layout' => 'grid',
             'color_scheme' => 'light',
+            'extras' => [
+                'surface_color' => '#FFFDF8',
+                'badge_background_color' => '#F3E8FF',
+                'badge_text_color' => '#6B21A8',
+                'contact_button_color' => '#0F766E',
+                'spacing' => 'airy',
+            ],
         ])->assertSessionHasNoErrors();
 
-        $this->assertSame($background, $store->theme()->firstOrFail()->background_value);
+        $theme = $store->theme()->firstOrFail();
+        $this->assertSame($background, $theme->background_value);
+        $this->assertSame('#F3E8FF', $theme->extras['badge_background_color']);
+        $this->assertSame('#0F766E', $theme->extras['contact_button_color']);
+        $this->assertSame('airy', $theme->extras['spacing']);
         $this->assertSame($blockIds, $store->blocks()->pluck('id')->all());
     }
 

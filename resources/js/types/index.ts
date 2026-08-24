@@ -76,6 +76,13 @@ export interface StoreTheme {
     card_style: 'soft' | 'outline' | 'flat';
     product_layout: 'grid' | 'list';
     color_scheme: 'light' | 'dark' | 'auto';
+    extras?: {
+        surface_color?: string;
+        badge_background_color?: string;
+        badge_text_color?: string;
+        contact_button_color?: string;
+        spacing?: 'compact' | 'balanced' | 'airy';
+    };
 }
 
 export interface StorefrontProduct {

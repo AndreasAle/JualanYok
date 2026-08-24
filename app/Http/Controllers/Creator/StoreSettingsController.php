@@ -116,12 +116,21 @@ class StoreSettingsController extends Controller
             'primary_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'accent_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'background_type' => ['required', Rule::in(['solid', 'gradient', 'image'])],
-            'background_value' => ['required', 'string', 'max:200'],
-            'font_family' => ['required', Rule::in(['jakarta', 'inter', 'poppins', 'nunito', 'space'])],
+            'background_value' => ['required', 'string', 'max:255'],
+            'font_family' => ['required', Rule::in([
+                'jakarta', 'inter', 'poppins', 'nunito', 'space', 'manrope',
+                'dm-sans', 'outfit', 'sora', 'playfair', 'lora', 'system',
+            ])],
             'button_style' => ['required', Rule::in(['rounded', 'pill', 'square'])],
             'card_style' => ['required', Rule::in(['soft', 'outline', 'flat'])],
             'product_layout' => ['required', Rule::in(['grid', 'list'])],
             'color_scheme' => ['required', Rule::in(['light', 'dark', 'auto'])],
+            'extras' => ['sometimes', 'array'],
+            'extras.surface_color' => ['required_with:extras', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'extras.badge_background_color' => ['required_with:extras', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'extras.badge_text_color' => ['required_with:extras', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'extras.contact_button_color' => ['required_with:extras', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'extras.spacing' => ['required_with:extras', Rule::in(['compact', 'balanced', 'airy'])],
         ]);
 
         $request->user()->store->theme()->updateOrCreate([], $data);

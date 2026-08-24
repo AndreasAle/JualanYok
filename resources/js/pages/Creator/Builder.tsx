@@ -43,7 +43,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 type ThemeDraft = Pick<StoreTheme,
     'primary_color' | 'accent_color' | 'background_type' | 'background_value' |
     'font_family' | 'button_style' | 'card_style' | 'product_layout' | 'color_scheme'
->;
+> & { extras: Required<NonNullable<StoreTheme['extras']>> };
 
 interface StylePreset {
     id: string;
@@ -53,16 +53,48 @@ interface StylePreset {
     accent: string;
     background: string;
     scheme: 'light' | 'dark';
+    surface: string;
+    badge: string;
+    badgeText: string;
+    contact: string;
+    spacing: ThemeDraft['extras']['spacing'];
 }
 
 const STYLE_PRESETS: StylePreset[] = [
-    { id: 'signature', name: 'JualanYok Signature', description: 'Lilac lembut dengan sentuhan rose.', primary: '#111827', accent: '#7C3AED', background: 'linear-gradient(145deg, #F7F4FF 0%, #F0EDFF 52%, #FFF3F6 100%)', scheme: 'light' },
-    { id: 'editorial', name: 'Editorial Cream', description: 'Hangat, bersih, dan terasa butik.', primary: '#292524', accent: '#C2410C', background: 'linear-gradient(145deg, #FFFCF5 0%, #F8F1E6 55%, #FFF8EF 100%)', scheme: 'light' },
-    { id: 'coastal', name: 'Coastal Studio', description: 'Biru muda untuk katalog modern.', primary: '#172554', accent: '#0284C7', background: 'linear-gradient(145deg, #F5FAFF 0%, #EAF5FF 52%, #F2FBFA 100%)', scheme: 'light' },
-    { id: 'sakura', name: 'Sakura Milk', description: 'Soft pink yang tetap profesional.', primary: '#4C1D2F', accent: '#DB2777', background: 'linear-gradient(145deg, #FFF8FB 0%, #FCEEF5 52%, #FFF7F2 100%)', scheme: 'light' },
-    { id: 'matcha', name: 'Matcha Atelier', description: 'Natural dan premium untuk lifestyle.', primary: '#173B2C', accent: '#15803D', background: 'linear-gradient(145deg, #F7FAF5 0%, #EDF5EA 52%, #F6F3E8 100%)', scheme: 'light' },
-    { id: 'obsidian', name: 'Obsidian Night', description: 'Kontras gelap untuk brand yang berani.', primary: '#111827', accent: '#A78BFA', background: 'linear-gradient(145deg, #0B1020 0%, #161A2B 52%, #21162E 100%)', scheme: 'dark' },
+    { id: 'signature', name: 'JualanYok Signature', description: 'Lilac lembut dengan sentuhan rose.', primary: '#111827', accent: '#7C3AED', background: 'linear-gradient(145deg,#F7F4FF 0%,#F0EDFF 52%,#FFF3F6 100%)', scheme: 'light', surface: '#FFFFFF', badge: '#F3EEFF', badgeText: '#6D28D9', contact: '#7C3AED', spacing: 'balanced' },
+    { id: 'editorial', name: 'Editorial Cream', description: 'Hangat, bersih, dan terasa butik.', primary: '#292524', accent: '#C2410C', background: 'linear-gradient(145deg,#FFFCF5 0%,#F8F1E6 55%,#FFF8EF 100%)', scheme: 'light', surface: '#FFFEFB', badge: '#F7EBDD', badgeText: '#9A3412', contact: '#C2410C', spacing: 'airy' },
+    { id: 'coastal', name: 'Coastal Studio', description: 'Biru muda untuk katalog modern.', primary: '#172554', accent: '#0284C7', background: 'linear-gradient(145deg,#F5FAFF 0%,#EAF5FF 52%,#F2FBFA 100%)', scheme: 'light', surface: '#FFFFFF', badge: '#E0F2FE', badgeText: '#0369A1', contact: '#0284C7', spacing: 'balanced' },
+    { id: 'sakura', name: 'Sakura Milk', description: 'Soft pink yang tetap profesional.', primary: '#4C1D2F', accent: '#DB2777', background: 'linear-gradient(145deg,#FFF8FB 0%,#FCEEF5 52%,#FFF7F2 100%)', scheme: 'light', surface: '#FFFFFF', badge: '#FCE7F3', badgeText: '#BE185D', contact: '#DB2777', spacing: 'balanced' },
+    { id: 'matcha', name: 'Matcha Atelier', description: 'Natural dan premium untuk lifestyle.', primary: '#173B2C', accent: '#15803D', background: 'linear-gradient(145deg,#F7FAF5 0%,#EDF5EA 52%,#F6F3E8 100%)', scheme: 'light', surface: '#FFFEFA', badge: '#DCFCE7', badgeText: '#166534', contact: '#15803D', spacing: 'airy' },
+    { id: 'peach', name: 'Peach Sorbet', description: 'Hangat dan cerah untuk F&B serta beauty.', primary: '#431407', accent: '#F97316', background: 'radial-gradient(circle at 15% 10%,#FED7AA 0,transparent 38%),linear-gradient(145deg,#FFF7ED,#FFF1F2)', scheme: 'light', surface: '#FFFFFF', badge: '#FFEDD5', badgeText: '#C2410C', contact: '#EA580C', spacing: 'balanced' },
+    { id: 'lavender-grid', name: 'Lavender Grid', description: 'Studio digital dengan tekstur modern.', primary: '#24104F', accent: '#8B5CF6', background: 'linear-gradient(#8B5CF60D 1px,transparent 1px),linear-gradient(90deg,#8B5CF60D 1px,transparent 1px),#F8F7FF', scheme: 'light', surface: '#FFFFFF', badge: '#EDE9FE', badgeText: '#6D28D9', contact: '#7C3AED', spacing: 'compact' },
+    { id: 'nordic', name: 'Nordic Ice', description: 'Minimal, tenang, dan terasa editorial.', primary: '#0F172A', accent: '#475569', background: 'radial-gradient(circle at 85% 5%,#DBEAFE 0,transparent 34%),linear-gradient(145deg,#FFFFFF,#F1F5F9)', scheme: 'light', surface: '#FFFFFF', badge: '#E2E8F0', badgeText: '#334155', contact: '#0F172A', spacing: 'airy' },
+    { id: 'mocha', name: 'Mocha Paper', description: 'Nuansa craft premium dan personal.', primary: '#3F2D25', accent: '#A16207', background: 'linear-gradient(135deg,#F5F0E8 25%,#FAF7F2 25%,#FAF7F2 50%,#F5F0E8 50%,#F5F0E8 75%,#FAF7F2 75%)', scheme: 'light', surface: '#FFFCF7', badge: '#EDE0D1', badgeText: '#713F12', contact: '#92400E', spacing: 'balanced' },
+    { id: 'citrus', name: 'Citrus Pop', description: 'Segar untuk kampanye dan produk muda.', primary: '#18332A', accent: '#65A30D', background: 'radial-gradient(circle at 12% 15%,#D9F99D 0,transparent 32%),linear-gradient(145deg,#FAFFF3,#F0FDFA)', scheme: 'light', surface: '#FFFFFF', badge: '#ECFCCB', badgeText: '#3F6212', contact: '#4D7C0F', spacing: 'compact' },
+    { id: 'mono', name: 'Mono Gallery', description: 'Hitam-putih modern untuk portofolio.', primary: '#111111', accent: '#525252', background: 'linear-gradient(145deg,#FAFAFA,#EEEEEE)', scheme: 'light', surface: '#FFFFFF', badge: '#E5E5E5', badgeText: '#171717', contact: '#171717', spacing: 'airy' },
+    { id: 'candy', name: 'Candy Mesh', description: 'Playful tanpa kehilangan kesan premium.', primary: '#3B0764', accent: '#C026D3', background: 'radial-gradient(circle at 15% 20%,#F5D0FE 0,transparent 34%),radial-gradient(circle at 85% 5%,#C4B5FD 0,transparent 36%),#FFF7FD', scheme: 'light', surface: '#FFFFFF', badge: '#FAE8FF', badgeText: '#A21CAF', contact: '#C026D3', spacing: 'balanced' },
 ];
+
+const FONT_PREVIEW_STACKS: Record<string, string> = {
+    jakarta: '"Plus Jakarta Sans", sans-serif',
+    inter: 'Inter, sans-serif',
+    manrope: 'Manrope, sans-serif',
+    'dm-sans': '"DM Sans", sans-serif',
+    outfit: 'Outfit, sans-serif',
+    sora: 'Sora, sans-serif',
+    space: '"Space Grotesk", sans-serif',
+    poppins: 'Poppins, sans-serif',
+    nunito: 'Nunito, sans-serif',
+    playfair: '"Playfair Display", Georgia, serif',
+    lora: 'Lora, Georgia, serif',
+    system: 'ui-sans-serif, system-ui, sans-serif',
+};
+
+function readablePreview(hex: string): string {
+    const rgb = [1, 3, 5].map((end) => Number.parseInt(hex.slice(end, end + 2), 16));
+    const brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
+    return brightness > 150 ? '#111827' : '#FFFFFF';
+}
 
 function normalizeTheme(theme: Partial<StoreTheme> | null | undefined): ThemeDraft {
     return {
@@ -75,6 +107,13 @@ function normalizeTheme(theme: Partial<StoreTheme> | null | undefined): ThemeDra
         card_style: theme?.card_style ?? 'soft',
         product_layout: theme?.product_layout ?? 'grid',
         color_scheme: theme?.color_scheme ?? 'light',
+        extras: {
+            surface_color: theme?.extras?.surface_color ?? (theme?.color_scheme === 'dark' ? '#191C23' : '#FFFFFF'),
+            badge_background_color: theme?.extras?.badge_background_color ?? '#F5F3FF',
+            badge_text_color: theme?.extras?.badge_text_color ?? theme?.primary_color ?? '#7C3AED',
+            contact_button_color: theme?.extras?.contact_button_color ?? '#25D366',
+            spacing: theme?.extras?.spacing ?? 'balanced',
+        },
     };
 }
 
@@ -589,7 +628,7 @@ function AppearanceStudio({
                 <div className="grid lg:grid-cols-[1fr_340px]">
                     <div className="space-y-7 p-5 sm:p-7">
                         <section>
-                            <div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="font-extrabold">Background premium</h3><p className="mt-0.5 text-xs text-muted">Preset dibuat lembut agar produk tetap menjadi fokus utama.</p></div><Badge tone="brand">6 pilihan</Badge></div>
+                            <div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="font-extrabold">Background premium</h3><p className="mt-0.5 text-xs text-muted">Satu klik mengatur background, kartu, badge, tombol, dan ritme yang sudah dikurasi.</p></div><Badge tone="brand">12 pilihan</Badge></div>
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                 {STYLE_PRESETS.map((preset) => {
                                     const active = activePreset?.id === preset.id;
@@ -597,7 +636,20 @@ function AppearanceStudio({
                                         <button
                                             key={preset.id}
                                             type="button"
-                                            onClick={() => onChange({ primary_color: preset.primary, accent_color: preset.accent, background_type: 'gradient', background_value: preset.background, color_scheme: preset.scheme })}
+                                            onClick={() => onChange({
+                                                primary_color: preset.primary,
+                                                accent_color: preset.accent,
+                                                background_type: 'gradient',
+                                                background_value: preset.background,
+                                                color_scheme: preset.scheme,
+                                                extras: {
+                                                    surface_color: preset.surface,
+                                                    badge_background_color: preset.badge,
+                                                    badge_text_color: preset.badgeText,
+                                                    contact_button_color: preset.contact,
+                                                    spacing: preset.spacing,
+                                                },
+                                            })}
                                             className={cn('overflow-hidden rounded-2xl border bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-lift', active ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/20' : 'border-line')}
                                         >
                                             <span className="relative block h-20" style={{ background: preset.background }}><span className="absolute bottom-2 left-2 size-5 rounded-full border-2 border-white shadow-sm" style={{ background: preset.primary }} /><span className="absolute bottom-2 left-6 size-5 rounded-full border-2 border-white shadow-sm" style={{ background: preset.accent }} />{active && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-slate-950 text-white"><CheckCircle2 className="size-4" /></span>}</span>
@@ -624,12 +676,24 @@ function AppearanceStudio({
                                     {value.background_type === 'image' && <MediaPicker label="Gambar background" value={value.background_value} onChange={(background_value) => onChange({ background_value })} hint="Pilih gambar vertikal atau tekstur ringan. Maksimal 4 MB." />}
 
                                     <div className="grid grid-cols-2 gap-3"><ColorControl label="Warna utama" value={value.primary_color} onChange={(primary_color) => onChange({ primary_color })} /><ColorControl label="Warna aksen" value={value.accent_color} onChange={(accent_color) => onChange({ accent_color })} /></div>
+
+                                    <div className="rounded-2xl border border-line bg-surface-2 p-4">
+                                        <div className="mb-3"><p className="text-xs font-extrabold">Warna komponen</p><p className="mt-0.5 text-[10px] leading-4 text-muted">Ubah kartu putih, badge informasi, dan CTA tanpa mencari menu lain.</p></div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <ColorControl label="Kartu profil" value={value.extras.surface_color} onChange={(surface_color) => onChange({ extras: { ...value.extras, surface_color } })} />
+                                            <ColorControl label="Badge" value={value.extras.badge_background_color} onChange={(badge_background_color) => onChange({ extras: { ...value.extras, badge_background_color } })} />
+                                            <ColorControl label="Teks badge" value={value.extras.badge_text_color} onChange={(badge_text_color) => onChange({ extras: { ...value.extras, badge_text_color } })} />
+                                            <ColorControl label="Hubungi Aku" value={value.extras.contact_button_color} onChange={(contact_button_color) => onChange({ extras: { ...value.extras, contact_button_color } })} />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-4">
-                                    <Field label="Font toko"><Select value={value.font_family} onChange={(event) => onChange({ font_family: event.target.value })}><option value="jakarta">Plus Jakarta Sans</option><option value="inter">Inter</option><option value="poppins">Poppins</option><option value="nunito">Nunito</option><option value="space">Space Grotesk</option></Select></Field>
+                                    <Field label="Font toko"><Select value={value.font_family} onChange={(event) => onChange({ font_family: event.target.value })}><optgroup label="Modern"><option value="jakarta">Plus Jakarta Sans</option><option value="inter">Inter</option><option value="manrope">Manrope</option><option value="dm-sans">DM Sans</option><option value="outfit">Outfit</option><option value="sora">Sora</option><option value="space">Space Grotesk</option><option value="poppins">Poppins</option><option value="nunito">Nunito</option></optgroup><optgroup label="Editorial"><option value="playfair">Playfair Display</option><option value="lora">Lora</option></optgroup><optgroup label="Cepat & universal"><option value="system">System UI</option></optgroup></Select></Field>
+                                    <div className="rounded-2xl border border-line bg-surface-2 p-4" style={{ fontFamily: FONT_PREVIEW_STACKS[value.font_family] ?? FONT_PREVIEW_STACKS.jakarta }}><p className="text-[10px] font-bold uppercase tracking-[.14em] text-muted">Contoh font</p><p className="mt-2 text-xl font-extrabold leading-tight">Tokomu, karaktermu.</p><p className="mt-1 text-xs text-muted">Produk terbaik layak tampil meyakinkan.</p></div>
                                     <ChoiceControl icon={<Paintbrush className="size-4" />} label="Bentuk tombol" value={value.button_style} options={[['rounded', 'Modern'], ['pill', 'Pill'], ['square', 'Tegas']]} onChange={(button_style) => onChange({ button_style: button_style as ThemeDraft['button_style'] })} />
                                     <ChoiceControl icon={<Type className="size-4" />} label="Gaya kartu" value={value.card_style} options={[['soft', 'Soft'], ['outline', 'Garis'], ['flat', 'Flat']]} onChange={(card_style) => onChange({ card_style: card_style as ThemeDraft['card_style'] })} />
+                                    <ChoiceControl icon={<MoveVertical className="size-4" />} label="Jarak antarbagian" value={value.extras.spacing} options={[['compact', 'Rapat'], ['balanced', 'Nyaman'], ['airy', 'Lega']]} onChange={(spacing) => onChange({ extras: { ...value.extras, spacing: spacing as ThemeDraft['extras']['spacing'] } })} />
                                     <ChoiceControl icon={<Eye className="size-4" />} label="Mode warna" value={value.color_scheme} options={[['light', 'Terang'], ['dark', 'Gelap']]} onChange={(color_scheme) => onChange({ color_scheme: color_scheme as ThemeDraft['color_scheme'] })} />
                                 </div>
                             </div>
@@ -641,9 +705,9 @@ function AppearanceStudio({
                             <p className="text-xs font-black uppercase tracking-[.16em] text-muted">Preview gaya</p>
                             <div className="mt-3 overflow-hidden rounded-[1.5rem] border-4 border-slate-900 shadow-lift" style={{ background: backgroundPreview || '#F6F7FB' }}>
                                 <div className="h-28 p-4" style={{ background: `linear-gradient(135deg, ${value.primary_color}, ${value.accent_color})` }}><div className="h-2 w-20 rounded-full bg-white/80" /><div className="mt-3 h-2 w-32 rounded-full bg-white/40" /></div>
-                                <div className="space-y-3 p-4">
-                                    <div className={cn('bg-white p-4 dark:bg-slate-900', value.card_style === 'soft' ? 'rounded-2xl shadow-lg' : value.card_style === 'outline' ? 'rounded-2xl border border-slate-300' : 'rounded-2xl')}><div className="h-3 w-28 rounded-full bg-slate-900 dark:bg-white" /><div className="mt-2 h-2 w-full rounded-full bg-slate-300 dark:bg-slate-700" /><div className="mt-1.5 h-2 w-2/3 rounded-full bg-slate-200 dark:bg-slate-800" /><div className={cn('mt-4 h-9', value.button_style === 'pill' ? 'rounded-full' : value.button_style === 'square' ? 'rounded-lg' : 'rounded-xl')} style={{ background: value.primary_color }} /></div>
-                                    <div className="grid grid-cols-2 gap-2"><div className="h-24 rounded-xl bg-white/80 shadow-sm dark:bg-slate-900/80" /><div className="h-24 rounded-xl bg-white/80 shadow-sm dark:bg-slate-900/80" /></div>
+                                <div className="p-4">
+                                    <div className={cn('p-4', value.card_style === 'soft' ? 'rounded-2xl shadow-lg' : value.card_style === 'outline' ? 'rounded-2xl border border-slate-300' : 'rounded-2xl')} style={{ background: value.extras.surface_color }}><div className="h-3 w-28 rounded-full bg-slate-900" /><div className="mt-2 h-2 w-full rounded-full bg-slate-300" /><div className="mt-1.5 h-2 w-2/3 rounded-full bg-slate-200" /><div className="mt-3 flex gap-2"><span className="rounded-full px-2 py-1 text-[8px] font-bold" style={{ background: value.extras.badge_background_color, color: value.extras.badge_text_color }}>Terverifikasi</span><span className="rounded-full px-2 py-1 text-[8px] font-bold" style={{ background: value.extras.badge_background_color, color: value.extras.badge_text_color }}>3 produk</span></div><div className={cn('mt-4 grid h-9 place-items-center text-[9px] font-bold', value.button_style === 'pill' ? 'rounded-full' : value.button_style === 'square' ? 'rounded-lg' : 'rounded-xl')} style={{ background: value.extras.contact_button_color, color: readablePreview(value.extras.contact_button_color) }}>Hubungi Aku</div></div>
+                                    <div className={cn('grid grid-cols-2 gap-2', value.extras.spacing === 'compact' ? 'mt-2' : value.extras.spacing === 'airy' ? 'mt-6' : 'mt-4')}><div className="h-24 rounded-xl shadow-sm" style={{ background: `${value.extras.surface_color}E6` }} /><div className="h-24 rounded-xl shadow-sm" style={{ background: `${value.extras.surface_color}E6` }} /></div>
                                 </div>
                             </div>
                             <div className="mt-4 rounded-xl border border-line bg-surface p-3 text-xs leading-5 text-muted"><b className="text-fg">Layout tidak berubah.</b> Produk, urutan block, dan isi tokomu tetap aman saat mengganti gaya.</div>

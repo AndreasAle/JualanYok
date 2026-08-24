@@ -62,7 +62,7 @@ export function StorefrontView({
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-8 sm:space-y-10">
+                    <div className={t.sectionSpacing}>
                         {blocks.map((block) => (
                             <BlockRenderer
                                 key={block.id}

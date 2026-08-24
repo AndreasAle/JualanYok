@@ -32,8 +32,12 @@ export interface StorefrontTheme {
     btnPrimary: string;
     /** Bordered button that sits on a card. */
     btnOutline: string;
+    /** Dedicated contact/WhatsApp call to action. */
+    btnContact: string;
     /** Card surface used by every block. */
     card: string;
+    /** Creator-selected rhythm between storefront blocks. */
+    sectionSpacing: string;
     /** Muted text on the storefront surface. */
     muted: string;
     /** Hairline divider matching the surface. */
@@ -48,6 +52,13 @@ const FONT_STACKS: Record<string, string> = {
     poppins: 'Poppins, ui-sans-serif, system-ui, sans-serif',
     nunito: 'Nunito, ui-sans-serif, system-ui, sans-serif',
     space: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
+    manrope: 'Manrope, ui-sans-serif, system-ui, sans-serif',
+    'dm-sans': '"DM Sans", ui-sans-serif, system-ui, sans-serif',
+    outfit: 'Outfit, ui-sans-serif, system-ui, sans-serif',
+    sora: 'Sora, ui-sans-serif, system-ui, sans-serif',
+    playfair: '"Playfair Display", Georgia, ui-serif, serif',
+    lora: 'Lora, Georgia, ui-serif, serif',
+    system: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
 };
 
 /** Relative luminance, used to decide whether a brand colour needs light text. */
@@ -75,6 +86,7 @@ export function buildStorefrontTheme(theme: Partial<StoreTheme>): StorefrontThem
     const primary = theme.primary_color ?? '#7C3AED';
     const accent = theme.accent_color ?? '#FB7185';
     const dark = theme.color_scheme === 'dark';
+    const extras = theme.extras ?? {};
 
     const radius =
         theme.button_style === 'pill'
@@ -101,24 +113,39 @@ export function buildStorefrontTheme(theme: Partial<StoreTheme>): StorefrontThem
             : `linear-gradient(135deg, ${primary}, ${accent})`;
 
     const surface = dark ? '#0F1115' : '#F6F7FB';
-    const cardBg = dark ? '#191C23' : '#FFFFFF';
+    const cardBg = extras.surface_color ?? (dark ? '#191C23' : '#FFFFFF');
     const text = dark ? '#F3F4F6' : '#111827';
+    const cardText = readableOn(cardBg);
+    const cardIsLight = luminance(cardBg) > 0.55;
+    const badgeBg = extras.badge_background_color ?? (dark ? '#262A34' : '#F5F3FF');
+    const badgeText = extras.badge_text_color ?? primary;
+    const contact = extras.contact_button_color ?? '#25D366';
+    const sectionSpacing = extras.spacing === 'compact'
+        ? 'space-y-6 sm:space-y-8'
+        : extras.spacing === 'airy'
+          ? 'space-y-12 sm:space-y-16'
+          : 'space-y-10 sm:space-y-14';
 
     const card =
         theme.card_style === 'outline'
-            ? 'rounded-2xl border border-[var(--sf-line)] bg-[var(--sf-card)]'
+            ? 'rounded-2xl border border-[var(--sf-line)] bg-[var(--sf-card)] text-[var(--sf-card-fg)]'
             : theme.card_style === 'flat'
-              ? 'rounded-2xl bg-[var(--sf-card)]'
-              : 'rounded-2xl bg-[var(--sf-card)] border border-[var(--sf-line)] shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_rgba(16,24,40,.06)]';
+              ? 'rounded-2xl bg-[var(--sf-card)] text-[var(--sf-card-fg)]'
+              : 'rounded-2xl bg-[var(--sf-card)] text-[var(--sf-card-fg)] border border-[var(--sf-line)] shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_rgba(16,24,40,.06)]';
 
     const vars = {
         '--sf-primary': primary,
         '--sf-accent': accent,
         '--sf-on-primary': readableOn(primary),
         '--sf-card': cardBg,
+        '--sf-card-fg': cardText,
+        '--sf-badge': badgeBg,
+        '--sf-on-badge': badgeText,
+        '--sf-contact': contact,
+        '--sf-on-contact': readableOn(contact),
         '--sf-fg': text,
-        '--sf-line': dark ? 'rgba(255,255,255,.10)' : 'rgba(16,24,40,.08)',
-        '--sf-muted': dark ? 'rgba(243,244,246,.62)' : 'rgba(17,24,39,.58)',
+        '--sf-line': cardIsLight ? 'rgba(16,24,40,.08)' : 'rgba(255,255,255,.12)',
+        '--sf-muted': cardIsLight ? 'rgba(17,24,39,.58)' : 'rgba(243,244,246,.68)',
     } as CSSProperties;
 
     return {
@@ -139,7 +166,10 @@ export function buildStorefrontTheme(theme: Partial<StoreTheme>): StorefrontThem
 
         btnOutline: `${radius} inline-flex items-center justify-center gap-2 border border-[var(--sf-primary)] text-[var(--sf-primary)] font-bold transition-colors hover:bg-[var(--sf-primary)] hover:text-[var(--sf-on-primary)]`,
 
+        btnContact: `${radius} inline-flex items-center justify-center gap-2 bg-[var(--sf-contact)] text-[var(--sf-on-contact)] font-bold shadow-md transition-all duration-200 hover:brightness-105 hover:-translate-y-0.5 active:translate-y-0`,
+
         card,
+        sectionSpacing,
         muted: 'text-[var(--sf-muted)]',
         line: 'border-[var(--sf-line)]',
     };

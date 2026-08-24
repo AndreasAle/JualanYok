@@ -11,7 +11,7 @@
     <meta name="theme-color" content="#fcfbfe">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800&display=swap" rel="stylesheet">
+    <link href="https://fonts.bunny.net/css?family=dm-sans:400,500,600,700,800|inter:400,500,600,700,800|lora:400,500,600,700|manrope:400,500,600,700,800|nunito:400,500,600,700,800|outfit:400,500,600,700,800|playfair-display:400,500,600,700|plus-jakarta-sans:400,500,600,700,800|poppins:400,500,600,700,800|sora:400,500,600,700,800|space-grotesk:400,500,600,700&display=swap" rel="stylesheet">
 
     {{-- JualanYok uses one consistent light visual direction across public,
          creator, member, affiliate, and admin workspaces. --}}

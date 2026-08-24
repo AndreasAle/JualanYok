@@ -330,6 +330,7 @@ class StorefrontController extends Controller
             'theme' => $store->theme?->only([
                 'primary_color', 'accent_color', 'background_type', 'background_value',
                 'font_family', 'button_style', 'card_style', 'product_layout', 'color_scheme',
+                'extras',
             ]) ?? [],
         ];
     }

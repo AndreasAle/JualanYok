@@ -127,7 +127,7 @@ export function StorefrontView({ store, blocks, isPreview, theme, onBuy, onAddTo
                 ) : matchingProducts.length === 0 && (query || category !== 'all') ? (
                     <div className={cn(t.card, 'px-6 py-16 text-center')}><Search className="mx-auto size-9 opacity-25" /><p className="mt-4 font-extrabold">Produk belum ditemukan</p><p className={cn('mt-1 text-sm', t.muted)}>Coba kata kunci atau kategori lainnya.</p></div>
                 ) : (
-                    <div className="space-y-10 sm:space-y-14">
+                    <div className={t.sectionSpacing}>
                         {visibleBlocks.map((block) => <BlockRenderer key={block.id} block={block} ctx={{ storeUsername: store.username, storeName: store.name, theme: t, productLayout: affiliateMode ? 'grid' : store.theme.product_layout ?? 'grid', affiliateMode, isPreview, onBuy, onAddToCart: affiliateMode ? undefined : onAddToCart }} />)}
                     </div>
                 )}
@@ -149,7 +149,7 @@ function MarketplaceBar({ store, experience, query, onQueryChange, cartCount, on
                     </a>
                     <SearchField query={query} onQueryChange={onQueryChange} className="hidden min-w-0 flex-1 @xl:block @3xl:max-w-md" placeholder={affiliateMode ? 'Cari rekomendasi produk' : 'Cari produk di toko ini'} />
                     <div className="ml-auto flex shrink-0 items-center gap-2">
-                    <span className="hidden items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--sf-primary)_9%,transparent)] px-3 py-2 text-[11px] font-bold text-[var(--sf-primary)] @3xl:inline-flex">{affiliateMode ? <Heart className="size-3.5" /> : <ShieldCheck className="size-3.5" />} {affiliateMode ? 'Dipilih kreator' : 'Belanja aman'}</span>
+                    <span className="hidden items-center gap-1.5 rounded-full bg-[var(--sf-badge)] px-3 py-2 text-[11px] font-bold text-[var(--sf-on-badge)] @3xl:inline-flex">{affiliateMode ? <Heart className="size-3.5" /> : <ShieldCheck className="size-3.5" />} {affiliateMode ? 'Dipilih kreator' : 'Belanja aman'}</span>
                     {affiliateMode ? (
                         <a href="#store-content" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--sf-line)] bg-[var(--sf-card)] px-3.5 text-[11px] font-black transition hover:border-[var(--sf-primary)] hover:text-[var(--sf-primary)]" aria-label="Lihat rekomendasi produk"><Sparkles className="size-3.5" /><span className="hidden @xs:inline">Katalog</span><ArrowDown className="size-3" /></a>
                     ) : onOpenCart ? (
@@ -248,10 +248,10 @@ function StoreHeader({ store, theme, isPreview, experience, products, affiliateM
 }
 
 function AffiliateStat({ value, label }: { value: string; label: string }) {
-    return <div className="min-w-0 rounded-2xl bg-[color-mix(in_oklab,var(--sf-primary)_7%,transparent)] px-2 py-3 text-center"><b className="block truncate text-xs font-black text-[var(--sf-primary)] sm:text-sm">{value}</b><span className="mt-0.5 block truncate text-[8px] font-bold uppercase tracking-[.08em] text-[var(--sf-muted)] sm:text-[9px]">{label}</span></div>;
+    return <div className="min-w-0 rounded-2xl bg-[var(--sf-badge)] px-2 py-3 text-center"><b className="block truncate text-xs font-black text-[var(--sf-on-badge)] sm:text-sm">{value}</b><span className="mt-0.5 block truncate text-[8px] font-bold uppercase tracking-[.08em] text-[var(--sf-muted)] sm:text-[9px]">{label}</span></div>;
 }
 
-function InfoPill({ icon, label }: { icon: React.ReactNode; label: string }) { return <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--sf-primary)_9%,transparent)] px-2.5 py-1.5 text-[10px] font-extrabold text-[var(--sf-primary)] [&>svg]:size-3.5">{icon}{label}</span>; }
+function InfoPill({ icon, label }: { icon: React.ReactNode; label: string }) { return <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--sf-badge)] px-2.5 py-1.5 text-[10px] font-extrabold text-[var(--sf-on-badge)] [&>svg]:size-3.5">{icon}{label}</span>; }
 
 function CategoryRail({ categories, active, onChange, productCount, affiliateMode }: { categories: [string, string][]; active: string; onChange: (value: string) => void; productCount: number; affiliateMode: boolean }) {
     return <div className="mx-auto mt-5 max-w-6xl px-4 sm:mt-6 sm:px-6"><div className={cn('flex items-center gap-2 overflow-x-auto rounded-2xl border border-[var(--sf-line)] bg-[var(--sf-card)] p-2 [scrollbar-width:none]', affiliateMode && 'shadow-[0_8px_24px_rgba(16,24,40,.06)]')} role="navigation" aria-label={affiliateMode ? 'Filter marketplace' : 'Kategori produk'}><CategoryButton active={active === 'all'} onClick={() => onChange('all')}>{affiliateMode ? 'Semua pilihan' : 'Semua'} <span className="ml-1 opacity-60">{productCount}</span></CategoryButton>{categories.map(([value, label]) => <CategoryButton key={value} active={active === value} onClick={() => onChange(value)}>{affiliateMode && <ShoppingBag className="mr-1.5 inline size-3" />}{label}</CategoryButton>)}<ChevronRight className="ml-auto hidden size-4 shrink-0 opacity-30 sm:block" /></div></div>;

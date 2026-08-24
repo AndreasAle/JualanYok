@@ -325,8 +325,8 @@ export function BlockRenderer({ block, ctx }: { block: StorefrontBlock; ctx: Ren
                         rel="noopener noreferrer"
                         onClick={trackClick}
                         className={cn(
-                            t.radius,
-                            'flex h-14 w-full items-center justify-center gap-2.5 bg-[#25D366] px-6 text-base font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:brightness-105',
+                            t.btnContact,
+                            'flex h-14 w-full px-6 text-base',
                         )}
                     >
                         <MessageCircle className="size-5" />
