@@ -262,7 +262,7 @@ class IpaymuPaymentTest extends TestCase
         $order = $this->makeOrder();
         $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'va', 'bca');
 
-        $this->post(route('checkout.status.sync', $order->number))
+        $this->get(route('checkout.status.sync', $order->number))
             ->assertRedirect(route('checkout.status', $order->number));
 
         $this->assertSame(PaymentStatus::Paid, $payment->fresh()->status);
@@ -272,6 +272,11 @@ class IpaymuPaymentTest extends TestCase
             'action' => 'status_check',
             'status' => PaymentStatus::Paid->value,
         ]);
+
+        // Repeating the same reconciliation through POST remains harmless and
+        // confirms both browser navigation and the Inertia button are valid.
+        $this->post(route('checkout.status.sync', $order->number))
+            ->assertRedirect(route('checkout.status', $order->number));
 
         Http::assertSent(function (ClientRequest $request) {
             $payload = json_decode($request->body(), true, flags: JSON_THROW_ON_ERROR);

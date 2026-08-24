@@ -43,7 +43,9 @@ Route::prefix('checkout')->name('checkout.')->group(function () {
         ->middleware('throttle:20,1')
         ->name('pay');
     Route::get('/{order:number}/status', [CheckoutController::class, 'status'])->name('status');
-    Route::post('/{order:number}/check-status', [CheckoutController::class, 'syncStatus'])
+    // POST is used by the Inertia button. GET is a safe, idempotent fallback
+    // for browsers/CDNs that open the status-check URL as a normal navigation.
+    Route::match(['get', 'post'], '/{order:number}/check-status', [CheckoutController::class, 'syncStatus'])
         ->middleware('throttle:12,1')
         ->name('status.sync');
     Route::post('/{order:number}/retry', [CheckoutController::class, 'retry'])

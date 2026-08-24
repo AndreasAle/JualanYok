@@ -275,6 +275,7 @@ export default function CheckoutStatus({
 
                                 <div className="mt-6 flex flex-wrap gap-2">
                                     <Button
+                                        type="button"
                                         variant="outline"
                                         onClick={syncStatus}
                                         disabled={syncing}
