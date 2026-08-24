@@ -33,6 +33,9 @@ export default function CheckoutStatus({
 }) {
     const paid = order.payment_status === 'PAID';
     const failed = payment?.status === 'FAILED';
+    const paymentError = payment?.error?.toLowerCase().includes('suspicious buyer')
+        ? 'Pembayaran belum dapat diproses oleh pemeriksaan keamanan penyedia. Periksa kembali data pembeli, tunggu beberapa saat, atau gunakan metode pembayaran lain.'
+        : payment?.error;
     const [copied, setCopied] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
     const canSync = Boolean(
@@ -155,7 +158,7 @@ export default function CheckoutStatus({
                                     <div className="mt-5">
                                         <Alert tone="danger" title="Coba lagi dengan data atau metode lain">
                                             <span className="text-sm">
-                                                {payment.error ??
+                                                {paymentError ??
                                                     'Gateway belum berhasil membuat tagihan. Pilih ulang metode pembayaran untuk mencoba lagi.'}
                                             </span>
                                         </Alert>
