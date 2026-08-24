@@ -101,7 +101,6 @@ class IpaymuProvider implements PaymentProviderInterface
             'paymentChannel' => $payment->channel,
             'comments' => 'Pembayaran pesanan '.$order->number,
             'feeDirection' => strtoupper($this->feeDirection) === 'BUYER' ? 'BUYER' : 'MERCHANT',
-            'escrow' => 'false',
             'successUrl' => route('checkout.status', $order->number),
             'cancelUrl' => route('checkout.show', $order->number),
         ];

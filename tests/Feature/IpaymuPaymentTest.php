@@ -83,6 +83,7 @@ class IpaymuPaymentTest extends TestCase
                 && $payload['paymentMethod'] === 'qris'
                 && $payload['paymentChannel'] === 'mpm'
                 && $payload['feeDirection'] === 'MERCHANT'
+                && ! array_key_exists('escrow', $payload)
                 && $payload['notifyUrl'] === route('webhooks.payments', ['provider' => 'ipaymu'])
                 && $payload['successUrl'] === route('checkout.status', $order->number)
                 && ! str_contains($body, '\\/')
