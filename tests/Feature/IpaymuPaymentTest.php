@@ -117,6 +117,56 @@ class IpaymuPaymentTest extends TestCase
                 ->where('payment.error', 'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.'));
     }
 
+    public function test_live_style_list_response_renders_a_real_qris_payload(): void
+    {
+        Http::fake(function (ClientRequest $request) {
+            $payload = json_decode($request->body(), true, flags: JSON_THROW_ON_ERROR);
+
+            return Http::response([
+                'Status' => 200,
+                'Success' => true,
+                'Message' => 'Success',
+                'Data' => [[
+                    'transactionId' => 778899,
+                    'referenceId' => $payload['referenceId'],
+                    'via' => 'qris',
+                    'channel' => 'mpm',
+                    'paymentNo' => '00020101021226670016COM.NOBUBANK.WWW01189360050300000879140214238261509964200303UMI51440014ID.CO.QRIS.WWW0215ID20253821632580303UMI520454995303360540645000005802ID5910JUALANYOK6007JAKARTA6304ABCD',
+                    'paymentName' => 'QRIS Dynamic',
+                    'total' => $payload['amount'],
+                    'fee' => 0,
+                    'expired' => now()->addMinutes(5)->format('Y-m-d H:i:s'),
+                    'url' => null,
+                ]],
+            ]);
+        });
+
+        $order = $this->makeOrder();
+        $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'qris', 'mpm');
+
+        $this->assertSame(PaymentStatus::Pending, $payment->status);
+        $this->assertSame('qris', $payment->instructions['type']);
+        $this->assertStringStartsWith('data:image/svg+xml;base64,', $payment->instructions['qr_svg']);
+        $this->assertNull($payment->redirect_url);
+        $attempt = $payment->attempts()->latest('id')->firstOrFail();
+        $this->assertSame(778899, $attempt->response['raw']['Data'][0]['transactionId']);
+    }
+
+    public function test_success_without_payment_instructions_is_failed_instead_of_showing_an_empty_pending_page(): void
+    {
+        Http::fake(['sandbox.ipaymu.com/*' => Http::response([
+            'Status' => 200,
+            'Success' => true,
+            'Data' => [['ReferenceId' => 'missing-instructions']],
+        ])]);
+
+        $order = $this->makeOrder();
+        $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'qris', 'mpm');
+
+        $this->assertSame(PaymentStatus::Failed, $payment->status);
+        $this->assertStringContainsString('tidak berisi QR', $payment->attempts()->latest('id')->value('error'));
+    }
+
     public function test_verified_callback_settles_once_and_replay_is_idempotent(): void
     {
         $order = $this->makeOrder();

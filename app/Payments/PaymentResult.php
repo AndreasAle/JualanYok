@@ -45,6 +45,7 @@ final class PaymentResult
             'paid_at' => $this->paidAt?->toIso8601String(),
             'event_id' => $this->eventId,
             'error' => $this->error,
+            'raw' => $this->raw,
         ];
     }
 }
