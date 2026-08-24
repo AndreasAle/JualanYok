@@ -55,6 +55,16 @@ return [
             'enabled' => (bool) env('QRIS_CHECKOUT_ENABLED', false),
         ],
 
+        'ipaymu' => [
+            'enabled' => (bool) env('IPAYMU_ENABLED', false),
+            'va' => env('IPAYMU_VA'),
+            'api_key' => env('IPAYMU_API_KEY'),
+            'production' => (bool) env('IPAYMU_PRODUCTION', false),
+            // MERCHANT keeps the buyer total equal to the amount verified by
+            // JualanYok when iPaymu sends its callback.
+            'fee_direction' => env('IPAYMU_FEE_DIRECTION', 'MERCHANT'),
+        ],
+
         'midtrans' => [
             'enabled' => (bool) env('MIDTRANS_ENABLED', false),
             'server_key' => env('MIDTRANS_SERVER_KEY'),

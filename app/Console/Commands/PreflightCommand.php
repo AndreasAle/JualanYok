@@ -124,6 +124,36 @@ class PreflightCommand extends Command
         );
 
         $this->checkQris();
+        $this->checkIpaymu();
+    }
+
+    private function checkIpaymu(): void
+    {
+        $config = config('payments.providers.ipaymu', []);
+
+        if (! (bool) ($config['enabled'] ?? false)) {
+            $this->skip('iPaymu mati', 'Tidak dipakai, jadi kredensialnya tidak diperiksa.');
+
+            return;
+        }
+
+        $this->assert(
+            filled($config['va'] ?? null) && filled($config['api_key'] ?? null),
+            'Kredensial iPaymu terisi',
+            'Isi IPAYMU_VA dan IPAYMU_API_KEY di .env server. Jangan simpan nilainya di repository.',
+        );
+
+        $this->assert(
+            (bool) ($config['production'] ?? false),
+            'iPaymu memakai mode Live',
+            'IPAYMU_PRODUCTION=false masih mengarah ke Sandbox.',
+        );
+
+        $this->assert(
+            strtoupper((string) ($config['fee_direction'] ?? '')) === 'MERCHANT',
+            'Biaya iPaymu dibebankan ke merchant',
+            'Gunakan IPAYMU_FEE_DIRECTION=MERCHANT agar nominal callback sama persis dengan tagihan pembeli.',
+        );
     }
 
     private function checkQris(): void

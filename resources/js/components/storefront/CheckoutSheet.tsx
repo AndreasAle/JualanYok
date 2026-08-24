@@ -206,7 +206,7 @@ export function CheckoutSheet({
                         />
                     </Field>
 
-                    <Field label="Nomor WhatsApp" error={errors.phone} hint="Opsional">
+                    <Field label="Nomor WhatsApp" error={errors.phone} hint="Dipakai untuk konfirmasi pembayaran.">
                         <input
                             type="tel"
                             value={data.phone}

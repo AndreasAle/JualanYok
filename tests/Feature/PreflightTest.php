@@ -110,6 +110,25 @@ class PreflightTest extends TestCase
         $this->artisan('jualanyok:preflight')->assertFailed();
     }
 
+    public function test_ipaymu_enabled_without_live_credentials_stops_the_deploy(): void
+    {
+        $this->productionConfig([
+            'payments.default' => 'ipaymu',
+            'payments.providers.qris.enabled' => false,
+            'payments.providers.ipaymu.enabled' => true,
+            'payments.providers.ipaymu.va' => '',
+            'payments.providers.ipaymu.api_key' => '',
+            'payments.providers.ipaymu.production' => false,
+            'payments.providers.ipaymu.fee_direction' => 'BUYER',
+        ]);
+
+        $this->artisan('jualanyok:preflight')
+            ->expectsOutputToContain('Kredensial iPaymu')
+            ->expectsOutputToContain('mode Live')
+            ->expectsOutputToContain('dibebankan ke merchant')
+            ->assertFailed();
+    }
+
     public function test_paid_product_files_must_sit_outside_the_public_folder(): void
     {
         $this->productionConfig(['filesystems.disks.local.root' => public_path('files')]);

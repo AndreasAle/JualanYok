@@ -237,6 +237,49 @@ Yang terjadi setelah itu — semuanya nyata, bukan tampilan:
 
 Tombol simulasi hanya muncul kalau `DEMO_MODE=true` dan provider `mock`.
 
+### Mengaktifkan iPaymu API v2
+
+JualanYok memakai **Direct Payment** supaya pembeli memilih QRIS, Virtual
+Account, DANA, atau ShopeePay di checkout kita, lalu menyelesaikan pembayaran
+di halaman aman iPaymu. Status lunas hanya diterima dari callback dengan
+signature yang valid dan setiap event diproses satu kali.
+
+Isi hanya di `.env` server (VA dan API Key asli tidak boleh masuk Git):
+
+```dotenv
+PAYMENT_PROVIDER=ipaymu
+PAYMENT_MOCK_ENABLED=false
+PAYMENT_MANUAL_ENABLED=false
+
+IPAYMU_ENABLED=true
+IPAYMU_VA=isi-va-baru-dari-dashboard
+IPAYMU_API_KEY=isi-api-key-baru-dari-dashboard
+IPAYMU_PRODUCTION=true
+IPAYMU_FEE_DIRECTION=MERCHANT
+```
+
+Endpoint callback production:
+
+```text
+https://jualanyok.conweb.id/webhooks/payments/ipaymu
+```
+
+Di **Dashboard iPaymu â†’ Integrasi â†’ Pengaturan**, pilih callback
+`application/x-www-form-urlencoded` (format JSON juga didukung). Direct Payment
+selalu mengirim `notifyUrl` di setiap tagihan, jadi endpoint di atas ikut
+terdaftar otomatis pada transaksi.
+
+Setelah mengubah `.env`:
+
+```bash
+php artisan optimize:clear
+php artisan optimize
+php artisan jualanyok:preflight
+```
+
+Preflight akan menolak rilis bila iPaymu masih Sandbox, kredensial kosong,
+fee dibebankan ke pembeli, mock masih aktif, atau mode demo masih menyala.
+
 ---
 
 ## Menjual produk digital

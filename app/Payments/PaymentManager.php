@@ -2,6 +2,7 @@
 
 namespace App\Payments;
 
+use App\Payments\Providers\IpaymuProvider;
 use App\Payments\Providers\ManualTransferProvider;
 use App\Payments\Providers\MidtransProvider;
 use App\Payments\Providers\MockProvider;
@@ -36,6 +37,12 @@ class PaymentManager
             'mock' => new MockProvider($config['secret'] ?? 'mock-secret'),
             'manual_transfer' => new ManualTransferProvider,
             'qris' => new QrisProvider,
+            'ipaymu' => new IpaymuProvider(
+                $config['va'] ?? '',
+                $config['api_key'] ?? '',
+                (bool) ($config['production'] ?? false),
+                $config['fee_direction'] ?? 'MERCHANT',
+            ),
             'midtrans' => new MidtransProvider(
                 $config['server_key'] ?? '',
                 $config['client_key'] ?? '',

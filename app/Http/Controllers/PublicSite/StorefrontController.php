@@ -199,7 +199,11 @@ class StorefrontController extends Controller
             'items.*.meta' => ['nullable', 'array'],
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190'],
-            'phone' => ['nullable', 'string', 'max:32'],
+            'phone' => [
+                config('payments.providers.ipaymu.enabled') ? 'required' : 'nullable',
+                'string',
+                'max:32',
+            ],
             'note' => ['nullable', 'string', 'max:1000'],
             'coupon_code' => ['nullable', 'string', 'max:64'],
             'custom_fields' => ['nullable', 'array'],
