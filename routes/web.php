@@ -43,6 +43,9 @@ Route::prefix('checkout')->name('checkout.')->group(function () {
         ->middleware('throttle:20,1')
         ->name('pay');
     Route::get('/{order:number}/status', [CheckoutController::class, 'status'])->name('status');
+    Route::post('/{order:number}/check-status', [CheckoutController::class, 'syncStatus'])
+        ->middleware('throttle:12,1')
+        ->name('status.sync');
     Route::post('/{order:number}/retry', [CheckoutController::class, 'retry'])
         ->middleware('throttle:10,1')
         ->name('retry');

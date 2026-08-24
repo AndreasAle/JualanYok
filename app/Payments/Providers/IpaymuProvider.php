@@ -47,7 +47,7 @@ class IpaymuProvider implements PaymentProviderInterface
         // Fees are absorbed by the platform. This makes the amount sent to
         // iPaymu and returned by its callback identical to the order total.
         return [
-            ['method' => 'qris', 'channel' => 'mpm', 'label' => 'QRIS (semua bank & e-wallet)', 'fee_percent' => 0, 'fee_fixed' => 0],
+            ['method' => 'qris', 'channel' => 'mpm', 'label' => 'QRIS Otomatis', 'fee_percent' => 0, 'fee_fixed' => 0],
             ['method' => 'va', 'channel' => 'bca', 'label' => 'Virtual Account BCA', 'fee_percent' => 0, 'fee_fixed' => 0],
             ['method' => 'va', 'channel' => 'bni', 'label' => 'Virtual Account BNI', 'fee_percent' => 0, 'fee_fixed' => 0],
             ['method' => 'va', 'channel' => 'bri', 'label' => 'Virtual Account BRI', 'fee_percent' => 0, 'fee_fixed' => 0],
@@ -180,21 +180,88 @@ class IpaymuProvider implements PaymentProviderInterface
         }
     }
 
-    /**
-     * API v2 documents callbacks as the authoritative status notification.
-     * Polling the local record avoids inventing an undocumented status call;
-     * the checkout page itself refreshes after the verified callback lands.
-     */
     public function checkStatus(Payment $payment): PaymentResult
     {
-        return new PaymentResult(
-            status: $payment->status,
-            reference: $payment->reference,
-            amount: (float) $payment->amount,
-            fee: (float) $payment->fee,
-            expiresAt: $payment->expires_at,
-            paidAt: $payment->paid_at,
-        );
+        $transactionId = $this->transactionId($payment);
+
+        if (blank($transactionId)) {
+            return new PaymentResult(
+                status: $payment->status,
+                reference: $payment->reference,
+                amount: (float) $payment->amount,
+                fee: (float) $payment->fee,
+                expiresAt: $payment->expires_at,
+                paidAt: $payment->paid_at,
+                error: 'ID transaksi iPaymu belum tersimpan. Menunggu callback pembayaran.',
+            );
+        }
+
+        $rawResponse = [];
+
+        try {
+            $payload = ['transactionId' => is_numeric($transactionId) ? (int) $transactionId : $transactionId];
+            $body = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+            $timestamp = now('Asia/Jakarta')->format('YmdHis');
+
+            $response = $this->client()
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'va' => trim($this->va),
+                    'signature' => $this->requestSignature('POST', $body),
+                    'timestamp' => $timestamp,
+                ])
+                ->send('POST', $this->baseUrl().'/api/v2/transaction', ['body' => $body])
+                ->throw()
+                ->json();
+            $rawResponse = is_array($response) ? $response : [];
+
+            if ((int) ($rawResponse['Status'] ?? 0) !== 200 || ($rawResponse['Success'] ?? false) !== true) {
+                throw new RuntimeException((string) ($rawResponse['Message'] ?? 'Status transaksi tidak dapat diperiksa.'));
+            }
+
+            $data = $this->responseData($rawResponse['Data'] ?? []);
+            $status = $this->transactionStatus($data);
+
+            return new PaymentResult(
+                status: $status,
+                // The local reference is the signed merchant reference used to
+                // locate this payment. The numeric iPaymu ID is provider-owned.
+                reference: $payment->reference,
+                amount: ($amount = $this->value($data, ['Amount', 'amount', 'Total', 'total', 'SubTotal', 'subTotal', 'sub_total'])) !== null
+                    ? (float) $amount
+                    : (float) $payment->amount,
+                fee: ($fee = $this->value($data, ['Fee', 'fee'])) !== null ? (float) $fee : (float) $payment->fee,
+                expiresAt: $this->parseDate($this->value($data, ['ExpiredDate', 'expiredDate', 'Expired', 'expired', 'expired_at']))
+                    ?? $payment->expires_at,
+                paidAt: $status === PaymentStatus::Paid
+                    ? ($this->parseDate($this->value($data, ['SuccessDate', 'successDate', 'PaidAt', 'paidAt', 'paid_at'])) ?? now())
+                    : $payment->paid_at,
+                eventId: 'status-'.$transactionId.'-'.$status->value,
+                raw: $rawResponse,
+            );
+        } catch (Throwable $e) {
+            if ($rawResponse === [] && $e instanceof RequestException) {
+                $errorResponse = $e->response->json();
+                $rawResponse = is_array($errorResponse) ? $errorResponse : [];
+            }
+
+            Log::warning('ipaymu.status_check_failed', [
+                'payment_id' => $payment->id,
+                'transaction_id' => $transactionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return new PaymentResult(
+                status: $payment->status,
+                reference: $payment->reference,
+                amount: (float) $payment->amount,
+                fee: (float) $payment->fee,
+                expiresAt: $payment->expires_at,
+                paidAt: $payment->paid_at,
+                error: 'Status iPaymu belum dapat diperiksa. Coba lagi beberapa saat.',
+                raw: $rawResponse,
+            );
+        }
     }
 
     public function verifyWebhook(Request $request): bool
@@ -317,6 +384,43 @@ class IpaymuProvider implements PaymentProviderInterface
         ksort($normalised, SORT_STRING);
 
         return $normalised;
+    }
+
+    private function transactionId(Payment $payment): ?string
+    {
+        $response = $payment->attempts()
+            ->where('action', 'create')
+            ->latest('id')
+            ->value('response');
+
+        if (! is_array($response)) {
+            return null;
+        }
+
+        $data = $this->responseData(data_get($response, 'raw.Data', []));
+
+        return $this->stringValue($data, ['TransactionId', 'transactionId', 'transaction_id', 'trx_id']);
+    }
+
+    private function transactionStatus(array $data): PaymentStatus
+    {
+        $code = (int) ($this->value($data, [
+            'Status', 'status', 'StatusCode', 'statusCode', 'status_code',
+            'TransactionStatusCode', 'transactionStatusCode', 'transaction_status_code',
+        ]) ?? 0);
+        $text = strtolower(trim((string) ($this->value($data, [
+            'PaidStatus', 'paidStatus', 'paid_status', 'StatusDesc', 'statusDesc', 'status_desc',
+        ]) ?? '')));
+
+        return match (true) {
+            in_array($code, [1, 6], true),
+            in_array($text, ['paid', 'success', 'successful', 'berhasil', 'completed', 'settled'], true) => PaymentStatus::Paid,
+            $code === -2,
+            in_array($text, ['expired', 'kedaluwarsa'], true) => PaymentStatus::Expired,
+            $code < 0,
+            in_array($text, ['failed', 'gagal', 'cancelled', 'canceled'], true) => PaymentStatus::Failed,
+            default => PaymentStatus::Pending,
+        };
     }
 
     private function instructions(Payment $payment, array $data): array

@@ -103,7 +103,6 @@ class PaymentService
         });
     }
 
-
     /**
      * Recomputes the order total for the chosen payment method.
      *
@@ -203,7 +202,43 @@ class PaymentService
             'action' => 'callback',
             'status' => $result->status->value,
             'response' => $result->toArray(),
+            'error' => $result->error,
         ]);
+
+        return $this->transitionPayment($payment, $result);
+    }
+
+    /**
+     * Reconciles a local payment against the provider. This is the recovery
+     * path when a valid gateway callback is delayed or never reaches us.
+     */
+    public function syncStatus(Payment $payment): Payment
+    {
+        $payment->refresh();
+        $provider = $this->manager->driver($payment->provider);
+        $result = $provider->checkStatus($payment);
+
+        $statusChanged = $result->status !== $payment->status;
+        $recentIdenticalCheck = $payment->attempts()
+            ->where('action', 'status_check')
+            ->where('status', $result->status->value)
+            ->where('created_at', '>=', now()->subMinutes(5))
+            ->exists();
+
+        if ($statusChanged || filled($result->error) || ! $recentIdenticalCheck) {
+            $payment->attempts()->create([
+                'action' => 'status_check',
+                'status' => $result->status->value,
+                'response' => $result->toArray(),
+                'error' => $result->error,
+            ]);
+        }
+
+        return $this->transitionPayment($payment, $result);
+    }
+
+    private function transitionPayment(Payment $payment, PaymentResult $result): Payment
+    {
 
         return match (true) {
             $result->isPaid() => $this->markPaid($payment, $result),

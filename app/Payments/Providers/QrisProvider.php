@@ -48,7 +48,7 @@ class QrisProvider implements PaymentProviderInterface
         return [[
             'method' => 'qris',
             'channel' => 'static',
-            'label' => 'QRIS (semua e-wallet & m-banking)',
+            'label' => 'QRIS Manual',
             'fee_percent' => (float) config('payments.qris.fee_percent', 0),
             'fee_fixed' => (float) config('payments.qris.fee_fixed', 0),
         ]];

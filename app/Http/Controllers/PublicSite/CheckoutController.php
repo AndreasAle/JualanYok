@@ -57,6 +57,21 @@ class CheckoutController extends Controller
         ]);
     }
 
+    public function syncStatus(Request $request, Order $order)
+    {
+        $payment = $order->latestPayment;
+
+        if ($payment && in_array($payment->status, [
+            PaymentStatus::Pending,
+            PaymentStatus::Processing,
+            PaymentStatus::Expired,
+        ], true)) {
+            $this->payments->syncStatus($payment);
+        }
+
+        return redirect()->route('checkout.status', $order->number);
+    }
+
     public function retry(Request $request, Order $order)
     {
         abort_unless($order->isPayable(), 409, 'Pesanan ini sudah tidak bisa dibayar.');

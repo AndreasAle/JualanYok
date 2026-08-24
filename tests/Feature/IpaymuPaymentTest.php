@@ -217,6 +217,72 @@ class IpaymuPaymentTest extends TestCase
             ->count());
     }
 
+    public function test_status_check_recovers_a_paid_transaction_when_callback_is_missed(): void
+    {
+        Http::fake(function (ClientRequest $request) {
+            $payload = json_decode($request->body(), true, flags: JSON_THROW_ON_ERROR);
+
+            if (str_ends_with($request->url(), '/api/v2/transaction')) {
+                return Http::response([
+                    'Status' => 200,
+                    'Success' => true,
+                    'Message' => 'Success',
+                    'Data' => [[
+                        'transactionId' => $payload['transactionId'],
+                        'referenceId' => 'merchant-reference',
+                        'status' => 1,
+                        'statusDesc' => 'Success',
+                        'paidStatus' => 'paid',
+                        'amount' => 100000,
+                        'fee' => 125,
+                        'successDate' => now()->format('Y-m-d H:i:s'),
+                    ]],
+                ]);
+            }
+
+            return Http::response([
+                'Status' => 200,
+                'Success' => true,
+                'Message' => 'Success',
+                'Data' => [
+                    'TransactionId' => 991122,
+                    'ReferenceId' => $payload['referenceId'],
+                    'Via' => 'va',
+                    'Channel' => 'bca',
+                    'PaymentNo' => '1234567890123456',
+                    'PaymentName' => 'BCA Virtual Account',
+                    'Total' => $payload['amount'],
+                    'Fee' => 0,
+                    'Expired' => now()->addHours(12)->format('Y-m-d H:i:s'),
+                    'Url' => 'https://sandbox.ipaymu.com/payment/test',
+                ],
+            ]);
+        });
+
+        $order = $this->makeOrder();
+        $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'va', 'bca');
+
+        $this->post(route('checkout.status.sync', $order->number))
+            ->assertRedirect(route('checkout.status', $order->number));
+
+        $this->assertSame(PaymentStatus::Paid, $payment->fresh()->status);
+        $this->assertTrue($order->fresh()->status->isSettled());
+        $this->assertDatabaseHas('payment_attempts', [
+            'payment_id' => $payment->id,
+            'action' => 'status_check',
+            'status' => PaymentStatus::Paid->value,
+        ]);
+
+        Http::assertSent(function (ClientRequest $request) {
+            $payload = json_decode($request->body(), true, flags: JSON_THROW_ON_ERROR);
+
+            return $request->url() === 'https://sandbox.ipaymu.com/api/v2/transaction'
+                && $payload['transactionId'] === 991122
+                && $request->hasHeader('va', self::VA)
+                && $request->hasHeader('signature');
+        });
+    }
+
     public function test_callback_with_invalid_signature_or_merchant_is_rejected(): void
     {
         $payload = [
@@ -326,6 +392,7 @@ class IpaymuPaymentTest extends TestCase
                 'Status' => 200,
                 'Success' => true,
                 'Data' => [
+                    'TransactionId' => 991122,
                     'ReferenceId' => $payload['referenceId'],
                     'Via' => 'va',
                     'Channel' => 'bca',

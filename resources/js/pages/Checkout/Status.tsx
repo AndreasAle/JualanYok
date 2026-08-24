@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { CheckCircle2, Clock, Copy, PartyPopper, RefreshCw, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, ButtonLink, Card, statusTone } from '@/components/ui';
 import { Logo } from '@/layouts/MarketingLayout';
 import { formatIDR } from '@/lib/utils';
@@ -33,20 +33,40 @@ export default function CheckoutStatus({
 }) {
     const paid = order.payment_status === 'PAID';
     const [copied, setCopied] = useState<string | null>(null);
+    const [syncing, setSyncing] = useState(false);
+    const canSync = Boolean(
+        payment && ['PENDING', 'PROCESSING', 'EXPIRED'].includes(payment.status),
+    );
+
+    const syncStatus = useCallback(() => {
+        if (!canSync || syncing) return;
+
+        router.post(
+            `/checkout/${order.number}/check-status`,
+            {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+                only: ['order', 'payment'],
+                onStart: () => setSyncing(true),
+                onFinish: () => setSyncing(false),
+            },
+        );
+    }, [canSync, order.number, syncing]);
 
     /**
-     * While a payment is open we poll the server, so a webhook that lands
-     * while the buyer is staring at this page flips it to success on its own.
+     * Ask the provider periodically while the buyer is on this page. This also
+     * recovers a paid transaction when its webhook was delayed or missed.
      */
     useEffect(() => {
-        if (paid || !payment?.is_open) return;
+        if (paid || !canSync) return;
 
         const timer = setInterval(() => {
-            router.reload({ only: ['order', 'payment'] });
-        }, 8000);
+            syncStatus();
+        }, 15000);
 
         return () => clearInterval(timer);
-    }, [paid, payment?.is_open]);
+    }, [paid, canSync, syncStatus]);
 
     const copy = async (value: string) => {
         await navigator.clipboard.writeText(value);
@@ -256,10 +276,11 @@ export default function CheckoutStatus({
                                 <div className="mt-6 flex flex-wrap gap-2">
                                     <Button
                                         variant="outline"
-                                        onClick={() => router.reload({ only: ['order', 'payment'] })}
+                                        onClick={syncStatus}
+                                        disabled={syncing}
                                     >
-                                        <RefreshCw className="size-4" />
-                                        Cek Status
+                                        <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
+                                        {syncing ? 'Mengecek iPaymu…' : 'Cek Status'}
                                     </Button>
 
                                     {order.is_payable && (

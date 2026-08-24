@@ -40,6 +40,55 @@ const ICONS: Record<string, React.ReactNode> = {
     card: <CreditCard className="size-5" />,
 };
 
+const PAYMENT_BRANDS: Record<string, { name: string; logo?: string; className: string }> = {
+    mpm: {
+        name: 'QRIS',
+        className: 'text-slate-950',
+    },
+    static: {
+        name: 'QRIS',
+        className: 'text-slate-950',
+    },
+    bca: {
+        name: 'BCA',
+        logo: '/images/payments/bca.png',
+        className: 'text-[#0866a8]',
+    },
+    bni: {
+        name: 'BNI',
+        logo: '/images/payments/bni.png',
+        className: 'text-[#f15a23]',
+    },
+    bri: {
+        name: 'BRI',
+        logo: '/images/payments/bri.png',
+        className: 'text-[#0756a3]',
+    },
+    mandiri: {
+        name: 'mandiri',
+        logo: '/images/payments/mandiri.png',
+        className: 'text-[#153d75]',
+    },
+    permata: {
+        name: 'PermataBank',
+        logo: '/images/payments/permata.png',
+        className: 'text-[#149b64]',
+    },
+    dana: {
+        name: 'DANA',
+        className: 'text-[#108ee9]',
+    },
+    shopeepay: {
+        name: 'ShopeePay',
+        className: 'text-[#ee4d2d]',
+    },
+    manual: { name: 'Transfer bank', className: 'text-slate-800' },
+    qris: { name: 'QRIS', className: 'text-slate-950' },
+    gopay: { name: 'GoPay', className: 'text-[#00aed6]' },
+    ovo: { name: 'OVO', className: 'text-[#4c3494]' },
+    credit_card: { name: 'VISA / Mastercard', className: 'text-slate-800' },
+};
+
 export default function CheckoutShow({
     order,
     methods,
@@ -158,17 +207,32 @@ export default function CheckoutShow({
                                                 onClick={() => setSelected(method)}
                                                 disabled={!order.is_payable}
                                                 className={cn(
-                                                    'flex w-full items-center justify-between gap-3 rounded-[var(--radius-field)] border p-3.5 text-left transition-all disabled:opacity-50',
+                                                    'group flex w-full items-center justify-between gap-3 rounded-[var(--radius-field)] border p-3 text-left transition-all disabled:opacity-50 sm:p-3.5',
                                                     active
                                                         ? 'border-[var(--primary)] bg-brand-50 ring-1 ring-[var(--primary)] dark:bg-brand-900/20'
                                                         : 'border-line hover:bg-surface-2',
                                                 )}
                                                 aria-pressed={active}
                                             >
-                                                <span className="min-w-0">
-                                                    <span className="block text-sm font-semibold">{method.label}</span>
-                                                    <span className="block text-xs text-muted">
-                                                        {methodFee > 0 ? `Biaya ${formatIDR(methodFee)}` : 'Tanpa biaya tambahan'}
+                                                <span className="flex min-w-0 items-center gap-3">
+                                                    <PaymentBrand method={method} />
+                                                    <span className="min-w-0">
+                                                        <span className="block truncate text-sm font-semibold">
+                                                            {method.label}
+                                                        </span>
+                                                        <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted sm:text-xs">
+                                                            <span>
+                                                                {methodFee > 0
+                                                                    ? `Biaya pembeli ${formatIDR(methodFee)}`
+                                                                    : 'Tanpa biaya tambahan untuk pembeli'}
+                                                            </span>
+                                                            <span aria-hidden="true">&bull;</span>
+                                                            <span className="font-semibold text-foreground">
+                                                                {method.provider === 'ipaymu'
+                                                                    ? 'Otomatis via iPaymu'
+                                                                    : method.provider_name}
+                                                            </span>
+                                                        </span>
                                                     </span>
                                                 </span>
 
@@ -255,6 +319,32 @@ export default function CheckoutShow({
                 </div>
             </main>
         </div>
+    );
+}
+
+function PaymentBrand({ method }: { method: Method }) {
+    const brand = PAYMENT_BRANDS[method.channel] ?? PAYMENT_BRANDS[method.method] ?? {
+        name: method.provider_name,
+        className: 'text-slate-800',
+    };
+
+    return (
+        <span className="relative flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white px-2 shadow-sm sm:h-11 sm:w-[4.5rem]">
+            <span className={cn('text-center text-[10px] font-black leading-none tracking-tight', brand.className)}>
+                {brand.name}
+            </span>
+            {brand.logo && (
+                <img
+                    src={brand.logo}
+                    alt={`Logo ${brand.name}`}
+                    loading="lazy"
+                    className="absolute inset-0 z-10 size-full bg-white object-contain p-1.5"
+                    onError={(event) => {
+                        event.currentTarget.style.display = 'none';
+                    }}
+                />
+            )}
+        </span>
     );
 }
 
