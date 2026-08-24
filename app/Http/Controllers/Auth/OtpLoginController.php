@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\LoginOtp;
+use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\LoginCodeNotification;
@@ -25,9 +26,25 @@ use Inertia\Response;
  */
 class OtpLoginController extends Controller
 {
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        return Inertia::render('Auth/OtpRequest');
+        $email = '';
+        $orderNumber = $request->string('order')->trim()->toString();
+
+        if ($orderNumber !== '') {
+            $order = Order::where('number', $orderNumber)->first();
+
+            if ($order?->status->isSettled()) {
+                $email = strtolower((string) $order->customer_email);
+                $request->session()->put('otp_email', $email);
+                $request->session()->put('url.intended', route('member.orders.show', $order->number));
+            }
+        }
+
+        return Inertia::render('Auth/OtpRequest', [
+            'email' => $email,
+            'orderNumber' => $orderNumber !== '' ? $orderNumber : null,
+        ]);
     }
 
     public function send(Request $request)

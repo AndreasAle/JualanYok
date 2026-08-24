@@ -24,12 +24,12 @@ export default function CheckoutStatus({
     order,
     payment,
     demo,
-    memberUrl,
+    purchase,
 }: {
     order: any;
     payment: Payment | null;
     demo: boolean;
-    memberUrl: string;
+    purchase: { url: string; requires_login: boolean };
 }) {
     const paid = order.payment_status === 'PAID';
     const [copied, setCopied] = useState<string | null>(null);
@@ -81,7 +81,9 @@ export default function CheckoutStatus({
             <header className="border-b border-line bg-app">
                 <div className="mx-auto flex h-16 max-w-2xl items-center justify-between px-4 sm:px-6">
                     <Logo />
-                    <Badge tone={statusTone(order.status)}>{order.status_label}</Badge>
+                    <Badge tone={paid ? 'success' : statusTone(order.status)}>
+                        {paid ? 'Pembayaran berhasil' : order.status_label}
+                    </Badge>
                 </div>
             </header>
 
@@ -89,25 +91,41 @@ export default function CheckoutStatus({
                 <div className="mb-6 grid grid-cols-3 gap-2" aria-label="Progres pembayaran"><div><span className="block h-1.5 rounded-full bg-emerald-500" /><p className="mt-1.5 text-[10px] font-bold text-muted">Data pembeli</p></div><div><span className="block h-1.5 rounded-full bg-emerald-500" /><p className="mt-1.5 text-[10px] font-bold text-muted">Pembayaran</p></div><div><span className={paid ? 'block h-1.5 rounded-full bg-emerald-500' : 'block h-1.5 rounded-full bg-violet-600'} /><p className="mt-1.5 text-[10px] font-extrabold text-violet-600">Selesai</p></div></div>
                 {paid ? (
                     <Card className="overflow-hidden border-emerald-200 p-0 text-center dark:border-emerald-500/20">
-                        <div className="bg-emerald-500 px-6 py-3 text-xs font-black uppercase tracking-[.18em] text-white">Pembayaran terkonfirmasi</div>
+                        <div className="bg-emerald-500 px-6 py-3 text-xs font-black uppercase tracking-[.18em] text-white">Pembayaran sudah kami terima</div>
                         <div className="p-7 sm:p-9"><span className="mx-auto grid size-20 place-items-center rounded-full bg-emerald-100 text-emerald-600 ring-8 ring-emerald-50 dark:bg-emerald-900/40 dark:text-emerald-300 dark:ring-emerald-500/5">
                             <PartyPopper className="size-8" />
                         </span>
-                        <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Pembayaran berhasil!</h1>
+                        <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
+                            {order.fulfillment_status === 'FULFILLED'
+                                ? 'Produkmu sudah siap!'
+                                : 'Pesananmu sudah dikonfirmasi!'}
+                        </h1>
                         <p className="mt-2 text-sm text-muted">
-                            Makasih ya. Struk dan link produkmu sudah dikirim ke{' '}
-                            <span className="font-semibold">{order.customer_email}</span>.
+                            {order.fulfillment_status === 'FULFILLED' ? (
+                                <>Buka detail pesanan untuk mengakses produk yang baru kamu beli.</>
+                            ) : (
+                                <>Pesanan sudah diteruskan ke <span className="font-semibold">{order.store.name}</span>. Pantau proses dan instruksi berikutnya dari detail pesanan.</>
+                            )}
                         </p>
-                        <div className="mx-auto mt-5 max-w-sm rounded-xl bg-surface-2 px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted">Nomor pesanan</p><p className="mt-1 font-mono text-sm font-black">{order.number}</p></div>
+                        <div className="mx-auto mt-5 max-w-sm rounded-xl bg-surface-2 px-4 py-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Nomor pesanan</p>
+                            <p className="mt-1 font-mono text-sm font-black">{order.number}</p>
+                            <p className="mt-1 text-xs text-muted">Konfirmasi dikirim ke {order.customer_email}</p>
+                        </div>
 
                         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                            <ButtonLink href={memberUrl} variant="gradient">
-                                Buka Pembelianku
+                            <ButtonLink href={purchase.url} variant="gradient">
+                                {purchase.requires_login ? 'Lihat pesanan & akses produk' : 'Lihat detail pesanan'}
                             </ButtonLink>
                             <ButtonLink href={`/${order.store.username}`} variant="outline">
-                                Kembali ke toko
+                                Belanja lagi
                             </ButtonLink>
                         </div>
+                        {purchase.requires_login && (
+                            <p className="mt-3 text-xs text-muted">
+                                Demi keamanan, masuk dengan kode yang dikirim ke email pembeli.
+                            </p>
+                        )}
                         </div>
                     </Card>
                 ) : (

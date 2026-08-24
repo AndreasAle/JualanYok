@@ -3,8 +3,8 @@ import type { FormEvent } from 'react';
 import AuthLayout from '@/layouts/AuthLayout';
 import { Button, Field, Input } from '@/components/ui';
 
-export default function OtpRequest() {
-    const { data, setData, post, processing, errors } = useForm({ email: '' });
+export default function OtpRequest({ email = '', orderNumber = null }: { email?: string; orderNumber?: string | null }) {
+    const { data, setData, post, processing, errors } = useForm({ email });
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -13,9 +13,13 @@ export default function OtpRequest() {
 
     return (
         <AuthLayout
-            title="Masuk Pembeli"
-            heading="Masuk buat lihat pembelianmu"
-            subheading="Pakai email yang kamu isi waktu checkout. Nggak perlu password."
+            title={orderNumber ? 'Akses Pesanan' : 'Masuk Pembeli'}
+            heading={orderNumber ? 'Buka pesananmu' : 'Masuk buat lihat pembelianmu'}
+            subheading={
+                orderNumber
+                    ? `Kami kirim kode aman untuk membuka pesanan ${orderNumber}. Setelah masuk, kamu langsung kembali ke detail pesanan.`
+                    : 'Pakai email yang kamu isi waktu checkout. Nggak perlu password.'
+            }
             footer={
                 <>
                     Kamu penjual?{' '}

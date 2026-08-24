@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\PaymentStatus;
 use App\Models\Order;
+use App\Models\Role;
 use App\Payments\PaymentManager;
 use App\Services\CheckoutService;
 use App\Services\PaymentService;
@@ -272,6 +273,27 @@ class IpaymuPaymentTest extends TestCase
             'action' => 'status_check',
             'status' => PaymentStatus::Paid->value,
         ]);
+
+        $guestPurchaseUrl = route('otp.create', ['order' => $order->number]);
+
+        $this->get(route('checkout.status', $order->number))
+            ->assertInertia(fn ($page) => $page
+                ->where('purchase.url', $guestPurchaseUrl)
+                ->where('purchase.requires_login', true));
+
+        $this->get($guestPurchaseUrl)
+            ->assertSessionHas('url.intended', route('member.orders.show', $order->number))
+            ->assertInertia(fn ($page) => $page
+                ->where('email', $order->customer_email)
+                ->where('orderNumber', $order->number));
+
+        $buyer = $this->makeUser([Role::CUSTOMER], ['email' => $order->customer_email]);
+
+        $this->actingAs($buyer)
+            ->get(route('checkout.status', $order->number))
+            ->assertInertia(fn ($page) => $page
+                ->where('purchase.url', route('member.orders.show', $order->number))
+                ->where('purchase.requires_login', false));
 
         // Repeating the same reconciliation through POST remains harmless and
         // confirms both browser navigation and the Inertia button are valid.

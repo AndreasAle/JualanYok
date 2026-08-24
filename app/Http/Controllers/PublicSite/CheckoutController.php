@@ -47,13 +47,24 @@ class CheckoutController extends Controller
 
     public function status(Request $request, Order $order): Response
     {
-        $order->load(['items', 'store', 'latestPayment']);
+        $order->load(['items', 'store', 'customer', 'latestPayment']);
+
+        $user = $request->user();
+        $ownsPurchase = $user !== null && (
+            strcasecmp((string) $user->email, (string) $order->customer_email) === 0
+            || $order->customer?->user_id === $user->id
+        );
 
         return Inertia::render('Checkout/Status', [
             'order' => $this->orderPayload($order),
             'payment' => $order->latestPayment ? $this->paymentPayload($order->latestPayment) : null,
             'demo' => (bool) config('jualanyok.demo.enabled'),
-            'memberUrl' => route('otp.create'),
+            'purchase' => [
+                'url' => $ownsPurchase
+                    ? route('member.orders.show', $order->number)
+                    : route('otp.create', ['order' => $order->number]),
+                'requires_login' => ! $ownsPurchase,
+            ],
         ]);
     }
 
