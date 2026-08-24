@@ -32,6 +32,7 @@ class PreflightCommand extends Command
         $this->checkMoney();
         $this->checkStorage();
         $this->checkMail();
+        $this->checkBusinessIdentity();
         $this->checkInfrastructure();
 
         $this->render();
@@ -202,6 +203,21 @@ class PreflightCommand extends Command
             'Alamat pengirim email sudah asli',
             'MAIL_FROM_ADDRESS masih "'.$from.'".',
         );
+    }
+
+    private function checkBusinessIdentity(): void
+    {
+        foreach ([
+            'email' => 'Email usaha publik terisi',
+            'phone' => 'Nomor telepon usaha publik terisi',
+            'address' => 'Alamat usaha publik terisi',
+        ] as $key => $label) {
+            $this->assert(
+                filled(config("jualanyok.business.{$key}")),
+                $label,
+                'Isi BUSINESS_'.strtoupper($key).' di .env agar identitas pada halaman Kontak dan footer sesuai data merchant.',
+            );
+        }
     }
 
     private function checkInfrastructure(): void

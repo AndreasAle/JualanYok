@@ -38,6 +38,12 @@ export interface NotificationItem {
 
 export interface PageProps {
     app: { name: string; demo: boolean };
+    business: {
+        name: string;
+        email: string;
+        phone: string;
+        address: string;
+    };
     auth: {
         user: AuthUser | null;
         store: AuthStore | null;

@@ -6,6 +6,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public business identity
+    |--------------------------------------------------------------------------
+    | Payment providers verify these details against the registered merchant.
+    | Keep them in the environment so production can use the exact legal data
+    | without exposing credentials or hard-coding one operator into the app.
+    */
+
+    'business' => [
+        'name' => env('BUSINESS_NAME', env('APP_NAME', 'JualanYok')),
+        'email' => env('BUSINESS_EMAIL', env('MAIL_FROM_ADDRESS', '')),
+        'phone' => env('BUSINESS_PHONE', ''),
+        'address' => env('BUSINESS_ADDRESS', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Money & fees
     |--------------------------------------------------------------------------
     | Defaults only. Live values are read from platform_settings so a super
@@ -48,7 +64,7 @@ return [
         'admin', 'administrator', 'support', 'help', 'login', 'logout', 'register',
         'signup', 'signin', 'api', 'checkout', 'cart', 'dashboard', 'settings',
         'account', 'billing', 'pricing', 'features', 'templates', 'blog', 'about',
-        'contact', 'terms', 'privacy', 'refund', 'legal', 'jualanyok', 'jualan',
+        'contact', 'faq', 'terms', 'privacy', 'refund', 'legal', 'jualanyok', 'jualan',
         'creator', 'affiliate', 'customer', 'member', 'orders', 'products', 'store',
         'stores', 'shop', 'payment', 'payments', 'pay', 'withdraw', 'balance',
         'analytics', 'assets', 'static', 'storage', 'files', 'download', 'downloads',

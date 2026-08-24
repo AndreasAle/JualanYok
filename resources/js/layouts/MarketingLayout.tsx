@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Menu, X } from 'lucide-react';
+import { Mail, MapPin, Menu, Phone, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button, ButtonLink } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,7 @@ export default function MarketingLayout({
     description?: string;
 }) {
     const page = usePage<PageProps>();
-    const { auth } = page.props;
+    const { auth, business } = page.props;
     const currentPath = page.url.split('?')[0];
     const [open, setOpen] = useState(false);
 
@@ -170,6 +170,7 @@ export default function MarketingLayout({
                             title="Dukungan"
                             links={[
                                 { label: 'Pusat Bantuan', href: '/contact' },
+                                { label: 'FAQ', href: '/faq' },
                                 { label: 'Kebijakan Refund', href: '/refund-policy' },
                             ]}
                         />
@@ -182,6 +183,12 @@ export default function MarketingLayout({
                         />
                     </div>
 
+                    <div className="mt-9 grid gap-3 rounded-2xl border border-line bg-surface p-4 text-xs text-muted sm:grid-cols-3 sm:p-5">
+                        <BusinessDetail icon={<Mail />} label="Email" value={business.email} href={business.email ? `mailto:${business.email}` : undefined} />
+                        <BusinessDetail icon={<Phone />} label="Telepon" value={business.phone} href={business.phone ? `tel:${business.phone.replace(/\s/g, '')}` : undefined} />
+                        <BusinessDetail icon={<MapPin />} label="Alamat usaha" value={business.address} />
+                    </div>
+
                     <div className="mt-10 flex flex-col gap-2 border-t border-line pt-6 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
                         <p>© {new Date().getFullYear()} JualanYok. Dibuat buat kreator Indonesia.</p>
                         <p>Harga dalam Rupiah (IDR). Waktu WIB.</p>
@@ -190,6 +197,14 @@ export default function MarketingLayout({
             </footer>
         </div>
     );
+}
+
+function BusinessDetail({ icon, label, value, href }: { icon: ReactNode; label: string; value: string; href?: string }) {
+    const content = <><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600 [&>svg]:size-3.5">{icon}</span><span><b className="block text-[9px] uppercase tracking-[.12em] text-neutral-400">{label}</b><span className="mt-0.5 block font-semibold text-fg">{value || 'Belum dikonfigurasi'}</span></span></>;
+
+    return href
+        ? <a href={href} className="flex items-start gap-3 rounded-xl p-2 transition hover:bg-subtle">{content}</a>
+        : <div className="flex items-start gap-3 rounded-xl p-2">{content}</div>;
 }
 
 function FooterColumn({ title, links }: { title: string; links: { label: string; href: string }[] }) {

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -34,6 +35,9 @@ class PreflightTest extends TestCase
             'payments.qris.enabled' => false,
             'mail.default' => 'smtp',
             'mail.from.address' => 'halo@jualanyok.id',
+            'jualanyok.business.email' => 'halo@jualanyok.id',
+            'jualanyok.business.phone' => '+62 812 3456 7890',
+            'jualanyok.business.address' => 'Palembang, Sumatera Selatan, Indonesia',
         ], $overrides));
 
         // The command reads the live environment, not just config.
@@ -63,6 +67,9 @@ class PreflightTest extends TestCase
             'provider default mock' => [['payments.default' => 'mock'], 'PAYMENT_PROVIDER'],
             'mailer masih log' => [['mail.default' => 'log'], 'Mailer'],
             'pengirim email palsu' => [['mail.from.address' => 'hello@example.com'], 'pengirim'],
+            'email usaha kosong' => [['jualanyok.business.email' => ''], 'Email usaha'],
+            'telepon usaha kosong' => [['jualanyok.business.phone' => ''], 'telepon usaha'],
+            'alamat usaha kosong' => [['jualanyok.business.address' => ''], 'Alamat usaha'],
             'queue sinkron' => [['queue.default' => 'sync'], 'Queue'],
         ];
     }
@@ -70,7 +77,7 @@ class PreflightTest extends TestCase
     /**
      * @param  array<string, mixed>  $override
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('blockers')]
+    #[DataProvider('blockers')]
     public function test_each_unsafe_setting_stops_the_deploy(array $override, string $expectedMention): void
     {
         $this->productionConfig($override);

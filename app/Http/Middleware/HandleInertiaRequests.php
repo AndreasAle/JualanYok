@@ -29,6 +29,8 @@ class HandleInertiaRequests extends Middleware
                 'demo' => (bool) config('jualanyok.demo.enabled'),
             ],
 
+            'business' => config('jualanyok.business'),
+
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,

@@ -22,6 +22,7 @@ Route::get('/contact', [LandingController::class, 'contact'])->name('contact');
 Route::post('/contact', [LandingController::class, 'submitContact'])
     ->middleware('throttle:5,1')
     ->name('contact.submit');
+Route::get('/faq', [LandingController::class, 'faq'])->name('faq');
 
 foreach (['terms', 'privacy', 'refund-policy'] as $slug) {
     Route::get("/{$slug}", fn () => app(LandingController::class)->page($slug))

@@ -77,6 +77,11 @@ class LandingController extends Controller
         return Inertia::render('Marketing/Contact');
     }
 
+    public function faq(): Response
+    {
+        return Inertia::render('Marketing/Faq');
+    }
+
     public function submitContact(Request $request)
     {
         $data = $request->validate([

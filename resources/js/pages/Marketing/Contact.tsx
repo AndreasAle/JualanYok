@@ -1,11 +1,13 @@
-import { Link, useForm } from '@inertiajs/react';
-import { ArrowRight, CheckCircle2, Clock3, Mail, MessageCircle, ReceiptText, Send, ShieldQuestion, Sparkles } from 'lucide-react';
+import { Link, useForm, usePage } from '@inertiajs/react';
+import { ArrowRight, CheckCircle2, Clock3, Mail, MapPin, MessageCircle, Phone, ReceiptText, Send, ShieldQuestion, Sparkles } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { PageHero, Reveal } from '@/components/marketing-page';
 import { Button, Field, Input, Textarea } from '@/components/ui';
 import MarketingLayout from '@/layouts/MarketingLayout';
+import type { PageProps } from '@/types';
 
 export default function Contact() {
+    const { business } = usePage<PageProps>().props;
     const { data, setData, post, processing, errors, recentlySuccessful, reset } = useForm({ name: '', email: '', subject: '', message: '' });
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -31,7 +33,9 @@ export default function Contact() {
                             <p className="section-body">Sertakan email akun, URL toko, dan nomor pesanan jika masalahnya berkaitan dengan transaksi.</p>
 
                             <div className="mt-8 space-y-3">
-                                <ContactPoint icon={<Mail />} title="Balasan melalui email" detail="Gunakan email yang aktif agar update tiket tidak terlewat." />
+                                <ContactPoint icon={<Mail />} title={business.email || 'Email belum dikonfigurasi'} detail="Alamat email resmi untuk dukungan dan korespondensi." href={business.email ? `mailto:${business.email}` : undefined} />
+                                <ContactPoint icon={<Phone />} title={business.phone || 'Telepon belum dikonfigurasi'} detail="Nomor telepon resmi pada hari dan jam kerja." href={business.phone ? `tel:${business.phone.replace(/\s/g, '')}` : undefined} />
+                                <ContactPoint icon={<MapPin />} title="Alamat usaha" detail={business.address || 'Alamat usaha belum dikonfigurasi.'} />
                                 <ContactPoint icon={<Clock3 />} title="Respons pada hari kerja" detail="Biasanya kami merespons dalam 1×24 jam kerja." />
                                 <ContactPoint icon={<ReceiptText />} title="Masalah pembayaran" detail="Nomor pesanan JY-xxxx membantu kami melacak lebih cepat." />
                             </div>
@@ -39,7 +43,7 @@ export default function Contact() {
                             <div className="mt-8 rounded-[1.35rem] bg-[#f5f5f6] p-5 dark:bg-subtle">
                                 <p className="text-xs font-extrabold">Mencari jawaban cepat?</p>
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                    {[['Lihat fitur', '/features'], ['Bandingkan harga', '/pricing'], ['Kebijakan refund', '/refund-policy']].map(([label, href]) => <Link key={href} href={href} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-3 py-2 text-[10px] font-bold text-muted transition hover:text-violet-600">{label}<ArrowRight className="size-3" /></Link>)}
+                                    {[['FAQ', '/faq'], ['Bandingkan harga', '/pricing'], ['Kebijakan refund', '/refund-policy']].map(([label, href]) => <Link key={href} href={href} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-3 py-2 text-[10px] font-bold text-muted transition hover:text-violet-600">{label}<ArrowRight className="size-3" /></Link>)}
                                 </div>
                             </div>
                         </div>
@@ -91,8 +95,9 @@ function SupportHeroVisual() {
     );
 }
 
-function ContactPoint({ icon, title, detail }: { icon: React.ReactNode; title: string; detail: string }) {
-    return <div className="flex items-start gap-4 rounded-[1.15rem] border border-line bg-surface p-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600 [&>svg]:size-4.5">{icon}</span><div><p className="text-sm font-extrabold">{title}</p><p className="mt-1 text-xs leading-5 text-muted">{detail}</p></div></div>;
+function ContactPoint({ icon, title, detail, href }: { icon: React.ReactNode; title: string; detail: string; href?: string }) {
+    const content = <><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600 [&>svg]:size-4.5">{icon}</span><div><p className="text-sm font-extrabold">{title}</p><p className="mt-1 text-xs leading-5 text-muted">{detail}</p></div></>;
+    return href ? <a href={href} className="flex items-start gap-4 rounded-[1.15rem] border border-line bg-surface p-4 transition hover:border-violet-200 hover:shadow-sm">{content}</a> : <div className="flex items-start gap-4 rounded-[1.15rem] border border-line bg-surface p-4">{content}</div>;
 }
 
 function ContactTopics() {

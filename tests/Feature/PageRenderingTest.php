@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Enrollment;
 use App\Models\Order;
 use App\Models\Role;
+use App\Models\StaticPage;
 use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
@@ -56,8 +57,20 @@ class PageRenderingTest extends TestCase
 
     public function test_marketing_pages_render(): void
     {
-        foreach (['/', '/pricing', '/features', '/templates', '/templates/creator-digital/demo', '/contact', '/terms', '/privacy', '/refund-policy'] as $uri) {
+        foreach (['/', '/pricing', '/features', '/templates', '/templates/creator-digital/demo', '/contact', '/faq', '/terms', '/privacy', '/refund-policy'] as $uri) {
             $this->get($uri)->assertOk();
+        }
+
+        $this->get('/faq')->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Marketing/Faq')
+            ->where('business.name', config('jualanyok.business.name'))
+        );
+
+        foreach (['terms', 'privacy', 'refund-policy'] as $slug) {
+            $this->assertStringNotContainsString(
+                'contoh isi',
+                StaticPage::where('slug', $slug)->firstOrFail()->body,
+            );
         }
     }
 
