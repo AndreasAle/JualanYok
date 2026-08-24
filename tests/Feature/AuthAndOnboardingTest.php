@@ -2,11 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\LoginOtp;
 use App\Models\Role;
 use App\Models\Store;
 use App\Models\User;
+use App\Notifications\LoginCodeNotification;
 use Database\Seeders\StorefrontTemplateSeeder;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AuthAndOnboardingTest extends TestCase
@@ -173,6 +177,26 @@ class AuthAndOnboardingTest extends TestCase
         $this->assertDatabaseMissing('login_otps', ['email' => 'tidakada@example.test']);
     }
 
+    public function test_login_code_is_sent_immediately_instead_of_waiting_for_a_queue_worker(): void
+    {
+        $notification = new LoginCodeNotification('123456');
+        $mail = $notification->toMail((object) []);
+
+        $this->assertNotInstanceOf(ShouldQueue::class, $notification);
+        $this->assertSame('Kode masuk JualanYok — berlaku 10 menit', $mail->subject);
+        $this->assertSame([
+            'html' => 'mail.auth.login-code',
+            'text' => 'mail.auth.login-code-text',
+        ], $mail->view);
+        $this->assertSame('123456', $mail->viewData['code']);
+
+        $html = view('mail.auth.login-code', $mail->viewData)->render();
+
+        $this->assertStringContainsString('Satu langkah lagi untuk masuk.', $html);
+        $this->assertStringContainsString('123456', $html);
+        $this->assertStringNotContainsString('Laravel', $html);
+    }
+
     public function test_a_wrong_otp_is_rejected(): void
     {
         $this->makeUser([Role::CUSTOMER], ['email' => 'otp@example.test']);
@@ -184,5 +208,31 @@ class AuthAndOnboardingTest extends TestCase
         ])->assertSessionHasErrors('code');
 
         $this->assertGuest();
+    }
+
+    public function test_otp_login_sends_an_existing_creator_to_the_creator_dashboard(): void
+    {
+        $creator = $this->makeUser([Role::CUSTOMER, Role::CREATOR], [
+            'email' => 'creator-otp@example.test',
+            'is_creator' => true,
+        ]);
+        $this->makeStore($creator);
+
+        LoginOtp::create([
+            'email' => $creator->email,
+            'code_hash' => Hash::make('654321'),
+            'expires_at' => now()->addMinutes(10),
+            'ip_address' => '127.0.0.1',
+        ]);
+
+        $this->withSession(['otp_email' => $creator->email])
+            ->post('/masuk-pembeli/verifikasi', [
+                'email' => $creator->email,
+                'code' => '654321',
+            ])
+            ->assertRedirect(route('creator.dashboard'));
+
+        $this->assertAuthenticatedAs($creator);
+        $this->assertNotNull($creator->fresh()->last_login_at);
     }
 }

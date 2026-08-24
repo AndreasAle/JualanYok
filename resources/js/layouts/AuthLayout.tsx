@@ -1,7 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { Logo } from '@/layouts/MarketingLayout';
 
 export default function AuthLayout({
@@ -27,8 +26,6 @@ export default function AuthLayout({
             <Link href="/" className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 text-xs font-bold text-neutral-500 transition hover:text-violet-600 sm:left-8 sm:top-7">
                 <ArrowLeft className="size-4" /> Beranda
             </Link>
-            <ThemeToggle className="absolute right-5 top-5 z-20 sm:right-8 sm:top-7" />
-
             <main className="relative z-10 flex min-h-screen items-center justify-center px-4 py-20 sm:px-6">
                 <div className="w-full max-w-[430px]">
                     <div className="text-center">

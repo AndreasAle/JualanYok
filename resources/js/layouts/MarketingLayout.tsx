@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Menu, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Button, ButtonLink } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import type { PageProps } from '@/types';
@@ -35,8 +35,15 @@ export default function MarketingLayout({
     const currentPath = page.url.split('?')[0];
     const [open, setOpen] = useState(false);
 
+    useEffect(() => {
+        // Public marketing pages use one deliberate light visual direction.
+        // This also covers Inertia navigation from a dark authenticated page.
+        document.documentElement.classList.remove('dark');
+        document.documentElement.style.colorScheme = 'light';
+    }, []);
+
     return (
-        <div className="min-h-screen bg-app">
+        <div className="marketing-light min-h-screen bg-[#fcfbfe] text-[#171722]">
             <Head title={title}>
                 {description && <meta name="description" content={description} />}
             </Head>

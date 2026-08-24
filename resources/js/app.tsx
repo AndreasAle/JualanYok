@@ -7,6 +7,16 @@ import { Toaster } from '@/components/ui/toaster';
 
 const appName = 'JualanYok';
 
+// Keep the visual system light-only even during Vite hot reloads and Inertia
+// navigation where the Blade boot script does not run again.
+document.documentElement.classList.remove('dark');
+document.documentElement.style.colorScheme = 'light';
+try {
+    localStorage.setItem('jy-theme', 'light');
+} catch {
+    // Storage can be unavailable in private browsing; the DOM state is enough.
+}
+
 createInertiaApp({
     title: (title) => (title ? `${title} — ${appName}` : appName),
 

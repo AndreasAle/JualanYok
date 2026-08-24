@@ -102,8 +102,19 @@ class OtpLoginController extends Controller
         Auth::login($user, remember: true);
         $request->session()->regenerate();
         $request->session()->forget('otp_email');
+        $user->forceFill(['last_login_at' => now()])->save();
 
-        return redirect()->intended(route('member.dashboard'));
+        return redirect()->intended($this->homeFor($user));
+    }
+
+    private function homeFor(User $user): string
+    {
+        return match (true) {
+            $user->isAdmin() => route('admin.dashboard'),
+            (bool) $user->store => route('creator.dashboard'),
+            (bool) $user->is_affiliate => route('affiliate.dashboard'),
+            default => route('member.dashboard'),
+        };
     }
 
     private function createBuyerAccount(string $email): User

@@ -165,6 +165,20 @@
 .animate-rise { animation: jy-rise 0.45s var(--ease-snap) both; }
 
 /* Marketing landing page -------------------------------------------------- */
+.marketing-light {
+    color-scheme: light;
+    --bg: oklch(0.99 0.004 285);
+    --bg-subtle: oklch(0.972 0.006 285);
+    --surface: oklch(1 0 0);
+    --surface-2: oklch(0.978 0.005 285);
+    --border: oklch(0.916 0.008 285);
+    --fg: oklch(0.21 0.02 285);
+    --fg-muted: oklch(0.53 0.017 285);
+    --primary: var(--color-brand-600);
+    --primary-fg: oklch(1 0 0);
+    --ring: var(--color-brand-500);
+}
+
 .jy-hero {
     background:
         linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, .92) 88%),

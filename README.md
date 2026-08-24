@@ -700,6 +700,14 @@ Saat ini WhatsApp belum punya adapter konkret — lihat bagian keterbatasan.
 
 ## Deployment checklist
 
+Jalankan ini dulu — perintahnya memeriksa semua poin di bawah dan keluar dengan
+kode error kalau ada yang belum aman, jadi bisa dipasang di skrip deploy:
+
+```bash
+php artisan jualanyok:preflight
+```
+
+
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`
 - [ ] **`DEMO_MODE=false`** — mematikan seeder demo dan tombol simulasi bayar
 - [ ] `APP_KEY` di-generate dan disimpan aman

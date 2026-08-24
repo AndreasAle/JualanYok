@@ -7,7 +7,7 @@ import AuthLayout from '@/layouts/AuthLayout';
 import type { PageProps } from '@/types';
 
 export default function Login({ status, googleConfigured }: { status?: string; googleConfigured: boolean }) {
-    const { app, flash } = usePage<PageProps>().props;
+    const { flash } = usePage<PageProps>().props;
     const [showPassword, setShowPassword] = useState(false);
     const { data, setData, post, processing, errors } = useForm({ login: '', password: '', remember: false as boolean });
 
@@ -52,7 +52,6 @@ export default function Login({ status, googleConfigured }: { status?: string; g
 
             <p className="mt-6 text-center text-xs text-muted">Kamu pembeli? <Link href="/masuk-pembeli" className="font-extrabold text-violet-600 hover:underline">Masuk pakai kode email</Link></p>
 
-            {app.demo && <div className="mt-5"><Alert tone="info" title="Mode demo aktif">Kredensial akun demo tersedia di README.</Alert></div>}
         </AuthLayout>
     );
 }

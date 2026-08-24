@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { TemplateShowcasePreview } from '@/components/template-showcase-preview';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { Badge, Button, Field, Input, Textarea } from '@/components/ui';
 import { Logo } from '@/layouts/MarketingLayout';
 import { cn } from '@/lib/utils';
@@ -66,10 +65,7 @@ export default function Onboarding({ goals, niches, templates, suggestedUsername
             <header className="sticky top-0 z-50 border-b border-black/[.06] bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#15151b]/90">
                 <div className="mx-auto flex h-[4.5rem] max-w-[1320px] items-center justify-between px-4 sm:px-6 lg:px-8">
                     <Logo className="[&_img]:h-7" />
-                    <div className="flex items-center gap-3">
-                        <p className="hidden text-right text-[11px] leading-4 text-muted sm:block">Toko belum dipublikasikan<span className="block font-bold text-fg">Aman sebagai draft</span></p>
-                        <ThemeToggle />
-                    </div>
+                    <p className="hidden text-right text-[11px] leading-4 text-muted sm:block">Toko belum dipublikasikan<span className="block font-bold text-fg">Aman sebagai draft</span></p>
                 </div>
             </header>
 

@@ -2,15 +2,11 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class LoginCodeNotification extends Notification implements ShouldQueue
+class LoginCodeNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(private readonly string $code) {}
 
     public function via(object $notifiable): array
@@ -21,11 +17,16 @@ class LoginCodeNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Kode masuk JualanYok: '.$this->code)
-            ->greeting('Halo!')
-            ->line('Ini kode masuk kamu:')
-            ->line('# '.$this->code)
-            ->line('Kode berlaku 10 menit dan cuma bisa dipakai sekali.')
-            ->line('Kalau kamu nggak minta kode ini, abaikan saja email ini.');
+            ->subject('Kode masuk JualanYok — berlaku 10 menit')
+            ->view('mail.auth.login-code', [
+                'code' => $this->code,
+                'expiresInMinutes' => 10,
+                'year' => now()->year,
+            ])
+            ->text('mail.auth.login-code-text', [
+                'code' => $this->code,
+                'expiresInMinutes' => 10,
+                'year' => now()->year,
+            ]);
     }
 }

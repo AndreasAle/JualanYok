@@ -8,19 +8,19 @@
     <title inertia>{{ config('jualanyok.name', 'JualanYok') }}</title>
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <meta name="theme-color" content="#7c3aed">
+    <meta name="theme-color" content="#fcfbfe">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800&display=swap" rel="stylesheet">
 
-    {{-- Respect the stored theme before first paint so there is no flash. --}}
+    {{-- JualanYok uses one consistent light visual direction across public,
+         creator, member, affiliate, and admin workspaces. --}}
     <script>
         (function () {
             try {
-                var stored = localStorage.getItem('jy-theme');
-                var dark = stored ? stored === 'dark'
-                    : window.matchMedia('(prefers-color-scheme: dark)').matches;
-                document.documentElement.classList.toggle('dark', dark);
+                document.documentElement.classList.remove('dark');
+                document.documentElement.style.colorScheme = 'light';
+                localStorage.setItem('jy-theme', 'light');
             } catch (e) {}
         })();
     </script>
