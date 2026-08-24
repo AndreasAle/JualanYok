@@ -22,6 +22,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Akun terbatas untuk verifikasi payment gateway
+    |--------------------------------------------------------------------------
+    | Migration produksi memakai data ini untuk menyiapkan satu workspace
+    | Creator yang bisa diuji tim iPaymu. Akun ini tidak pernah diberi role
+    | admin. Password wajib hanya berada di .env produksi.
+    */
+
+    'ipaymu_review' => [
+        'name' => env('IPAYMU_REVIEW_NAME', 'Tim Verifikasi iPaymu'),
+        'email' => env('IPAYMU_REVIEW_EMAIL', 'verifikasi.ipaymu@conweb.id'),
+        'username' => env('IPAYMU_REVIEW_USERNAME', 'reviewipaymu'),
+        'password' => env('IPAYMU_REVIEW_PASSWORD'),
+        'store_username' => env('IPAYMU_REVIEW_STORE_USERNAME', 'uji-bayar-jualanyok'),
+        'store_name' => env('IPAYMU_REVIEW_STORE_NAME', 'Toko Uji Pembayaran JualanYok'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Money & fees
     |--------------------------------------------------------------------------
     | Defaults only. Live values are read from platform_settings so a super
