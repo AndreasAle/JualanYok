@@ -5,6 +5,10 @@ import {
 } from 'lucide-react';
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { ProductCard } from '@/components/storefront/ProductCard';
+import {
+    BeforeAfterBlock, CarouselBlock, LogoCloudBlock, MarqueeBlock, StatsBlock, StepsBlock, useReveal,
+} from '@/components/storefront/ShowcaseBlocks';
+import { blockStyleClasses, blockStyleVars, type BlockStyleTokens } from '@/lib/block-style';
 import { EMBED_PROVIDERS, toEmbedUrl } from '@/lib/embed';
 import { cn } from '@/lib/utils';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
@@ -418,6 +422,51 @@ export function BlockRenderer({ block, ctx }: { block: StorefrontBlock; ctx: Ren
                     </article>
                 );
 
+            case 'CAROUSEL':
+                return (
+                    <CarouselBlock
+                        slides={(content.slides ?? []) as any[]}
+                        theme={t}
+                        aspect={content.aspect}
+                        autoplay={!!content.autoplay && !ctx.isPreview}
+                    />
+                );
+
+            case 'MARQUEE':
+                return (
+                    <MarqueeBlock
+                        items={(content.items ?? []).filter(Boolean)}
+                        speed={content.speed}
+                        reverse={!!content.reverse}
+                        separator={content.separator || '✦'}
+                    />
+                );
+
+            case 'STATS':
+                return <StatsBlock stats={(content.stats ?? []) as any[]} theme={t} />;
+
+            case 'LOGO_CLOUD':
+                return (
+                    <LogoCloudBlock
+                        logos={(content.logos ?? []) as any[]}
+                        grayscale={content.grayscale !== false}
+                    />
+                );
+
+            case 'BEFORE_AFTER':
+                return (
+                    <BeforeAfterBlock
+                        before={content.before}
+                        after={content.after}
+                        beforeLabel={content.before_label || 'Sebelum'}
+                        afterLabel={content.after_label || 'Sesudah'}
+                        theme={t}
+                    />
+                );
+
+            case 'STEPS':
+                return <StepsBlock steps={(content.steps ?? []) as any[]} theme={t} layout={content.layout} />;
+
             case 'EMBED': {
                 // Providers block their public pages from being framed, and an
                 // allowlist alone is not enough — the URL has to be converted
@@ -467,16 +516,23 @@ export function BlockRenderer({ block, ctx }: { block: StorefrontBlock; ctx: Ren
 
     const showHeading = block.title && !['HEADING', 'DIVIDER', 'SPACER'].includes(block.type);
 
+    const style = (block.style ?? {}) as BlockStyleTokens;
+
+    // The builder preview shows the finished state: an editor watching blocks
+    // fade in on every keystroke cannot judge the design.
+    const revealRef = useReveal<HTMLElement>(!ctx.isPreview && (style.animation ?? 'none') !== 'none');
+
     return (
         <section
+            ref={revealRef}
             id={`block-${block.id}`}
             className={cn(
                 'scroll-mt-32',
                 block.visible_mobile ? '' : 'hidden sm:block',
                 block.visible_desktop ? '' : 'sm:hidden',
-                block.animation === 'fade' && 'animate-rise',
+                blockStyleClasses(style),
             )}
-            style={block.style as CSSProperties}
+            style={blockStyleVars(style) as CSSProperties}
         >
             {showHeading && (
                 <div className="mb-5 flex items-end justify-between gap-4 sm:mb-6">

@@ -26,6 +26,15 @@ enum BlockType: string
     case Article = 'ARTICLE';
     case Embed = 'EMBED';
 
+    /* Showcase blocks — the pieces a storefront needs to look like a brand
+       rather than a list of links. */
+    case Carousel = 'CAROUSEL';
+    case Marquee = 'MARQUEE';
+    case Stats = 'STATS';
+    case LogoCloud = 'LOGO_CLOUD';
+    case BeforeAfter = 'BEFORE_AFTER';
+    case Steps = 'STEPS';
+
     public function label(): string
     {
         return match ($this) {
@@ -50,6 +59,12 @@ enum BlockType: string
             self::AffiliateProduct => 'Produk Affiliate',
             self::Article => 'Artikel',
             self::Embed => 'Embed',
+            self::Carousel => 'Carousel',
+            self::Marquee => 'Teks Berjalan',
+            self::Stats => 'Angka Pencapaian',
+            self::LogoCloud => 'Logo Partner',
+            self::BeforeAfter => 'Sebelum & Sesudah',
+            self::Steps => 'Alur Langkah',
         };
     }
 
@@ -59,6 +74,8 @@ enum BlockType: string
             self::Product, self::ProductCollection, self::FeaturedProducts, self::AffiliateProduct => 'Jualan',
             self::LeadForm, self::WhatsappCta, self::PromoBanner, self::Countdown => 'Marketing',
             self::Heading, self::Text, self::Image, self::Gallery, self::Video, self::Article => 'Konten',
+            self::Carousel, self::BeforeAfter, self::LogoCloud => 'Showcase',
+            self::Marquee, self::Stats, self::Steps => 'Showcase',
             default => 'Lainnya',
         };
     }

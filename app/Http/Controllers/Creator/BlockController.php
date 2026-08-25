@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Creator;
 
 use App\Enums\BlockType;
+use App\Support\BlockStyle;
 use App\Http\Controllers\Controller;
 use App\Models\Block;
 use App\Services\PlanService;
@@ -67,7 +68,17 @@ class BlockController extends Controller
             'snapshot' => $block->only(['title', 'content', 'draft_content', 'style']),
         ]);
 
-        $block->fill(collect($data)->except(['content', 'publish_now'])->all());
+        $block->fill(collect($data)->except(['content', 'publish_now', 'style'])->all());
+
+        /*
+         * Style is a fixed vocabulary, not free CSS. It used to be an open array
+         * rendered straight into an inline style attribute, which let a creator
+         * write anything — a fixed-position overlay covering their own checkout
+         * button, for instance, that still looked fine in the preview.
+         */
+        if (array_key_exists('style', $data)) {
+            $block->style = BlockStyle::sanitise($data['style']);
+        }
 
         if (array_key_exists('content', $data)) {
             $block->draft_content = $data['content'];

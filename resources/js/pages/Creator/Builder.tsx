@@ -1,12 +1,15 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
-    BadgeDollarSign, CheckCircle2, ChevronDown, ChevronUp, CircleHelp, Code2, Copy, ExternalLink, Eye,
-    FileText, GalleryHorizontal, GripVertical, Heading1, Image as ImageIcon, LayoutGrid, LayoutTemplate,
-    Link2, Loader2, Megaphone, MessageCircle, MessageSquareQuote, Monitor, MoveVertical, Package,
-    Paintbrush, Palette, PartyPopper, Plus, Rocket, Save, Share2, ShoppingBag, Smartphone, Sparkles,
-    Tablet, Timer, Trash2, Type, Video, X,
+    BadgeDollarSign, Building2, CheckCircle2, ChevronDown, ChevronUp, CircleHelp, Code2, Copy,
+    ExternalLink, Eye, FileText, GalleryHorizontal, GalleryHorizontalEnd, GripVertical, Heading1,
+    Image as ImageIcon, LayoutGrid, LayoutTemplate, Link2, ListOrdered, Loader2, Megaphone,
+    MessageCircle, MessageSquareQuote, Monitor, MoveHorizontal, MoveVertical, Package, Paintbrush,
+    Palette, PartyPopper, Plus, Rocket, Save, Share2, ShoppingBag, SlidersHorizontal, Smartphone,
+    Sparkles, Tablet, Timer, Trash2, TrendingUp, Type, Video, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BlockStylePanel } from '@/components/block-style-panel';
+import type { BlockStyleTokens } from '@/lib/block-style';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { StorefrontView } from '@/components/storefront/MarketplaceStorefrontView';
 import { GalleryPicker, MediaPicker } from '@/components/media-picker';
@@ -978,7 +981,17 @@ const BLOCK_VISUALS: Record<string, { description: string; icon: ReactNode; tone
     EMBED: { description: 'Sematkan konten dari platform lain.', icon: <Code2 className="size-5" />, tone: 'slate' },
 };
 
+const SHOWCASE_VISUALS: Record<string, { description: string; icon: ReactNode; tone: string }> = {
+    CAROUSEL: { description: 'Slide gambar yang bisa digeser.', icon: <GalleryHorizontalEnd className="size-5" />, tone: 'amber' },
+    MARQUEE: { description: 'Teks berjalan untuk promo atau pengumuman.', icon: <MoveHorizontal className="size-5" />, tone: 'amber' },
+    STATS: { description: 'Pamerkan angka: pembeli, rating, pengalaman.', icon: <TrendingUp className="size-5" />, tone: 'emerald' },
+    LOGO_CLOUD: { description: 'Deretan logo brand yang pernah kerja sama.', icon: <Building2 className="size-5" />, tone: 'slate' },
+    BEFORE_AFTER: { description: 'Geser untuk bandingkan hasil kerjamu.', icon: <SlidersHorizontal className="size-5" />, tone: 'rose' },
+    STEPS: { description: 'Jelaskan alur pesan atau cara kerjanya.', icon: <ListOrdered className="size-5" />, tone: 'violet' },
+};
+
 const BLOCK_TONES: Record<string, string> = {
+    amber: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
     violet: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
     emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
     rose: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
@@ -1025,7 +1038,7 @@ function BlockPicker({
                             <div className="mb-3 flex items-center justify-between"><p className="text-xs font-black uppercase tracking-[.15em] text-muted">{group}</p><span className="text-[10px] font-bold text-muted">{items.length} pilihan</span></div>
                             <div className="grid gap-2.5 sm:grid-cols-2">
                                 {items.map((item) => {
-                                    const visual = BLOCK_VISUALS[item.value] ?? { description: 'Tambahkan bagian baru ke tokomu.', icon: <Plus className="size-5" />, tone: 'slate' };
+                                    const visual = BLOCK_VISUALS[item.value] ?? SHOWCASE_VISUALS[item.value] ?? { description: 'Tambahkan bagian baru ke tokomu.', icon: <Plus className="size-5" />, tone: 'slate' };
                                     return <button key={item.value} type="button" onClick={() => onPick(item.value)} className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-3.5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-[0_10px_28px_rgba(16,24,40,.08)]"><span className={cn('grid size-11 shrink-0 place-items-center rounded-xl', BLOCK_TONES[visual.tone])}>{visual.icon}</span><span className="min-w-0 flex-1"><b className="flex items-center justify-between gap-2 text-sm">{item.label}<Plus className="size-4 text-muted transition group-hover:rotate-90 group-hover:text-violet-600" /></b><small className="mt-1 block text-xs font-normal leading-5 text-muted">{visual.description}</small></span></button>;
                                 })}
                             </div>
@@ -1055,6 +1068,7 @@ function BlockEditor({
     const [draft, setDraft] = useState({
         title: block.title ?? '',
         content: block.content ?? {},
+        style: (block.style ?? {}) as BlockStyleTokens,
         is_published: block.is_published,
         visible_mobile: block.visible_mobile,
         visible_desktop: block.visible_desktop,
@@ -1147,6 +1161,8 @@ function BlockEditor({
                 </Field>
 
                 <ContentFields type={block.type} content={draft.content} products={products} onChange={setContent} />
+
+                <BlockStylePanel value={draft.style} onChange={(style) => patch({ style })} />
 
                 <div className="space-y-3 border-t border-line pt-4">
                     <Switch
@@ -1622,6 +1638,34 @@ function defaultContent(type: string): Record<string, any> {
             return { limit: 4 };
         case 'PRODUCT_COLLECTION':
             return { product_ids: [] };
+
+        /* Showcase blocks ship with a filled-in example, so a creator sees the
+           shape immediately instead of an empty box they have to guess at. */
+        case 'CAROUSEL':
+            return { slides: [{ image: '', title: '', subtitle: '' }], aspect: 'wide', autoplay: true };
+        case 'MARQUEE':
+            return { items: ['Gratis ongkir', 'Dikirim hari ini', 'Garansi 7 hari'], speed: 'normal' };
+        case 'STATS':
+            return {
+                stats: [
+                    { value: '1200', suffix: '+', label: 'Pembeli puas' },
+                    { value: '4.9', label: 'Rating rata-rata' },
+                    { value: '3', suffix: ' th', label: 'Pengalaman' },
+                ],
+            };
+        case 'LOGO_CLOUD':
+            return { logos: [{ image: '', name: 'Brand A' }], grayscale: true };
+        case 'BEFORE_AFTER':
+            return { before: '', after: '', before_label: 'Sebelum', after_label: 'Sesudah' };
+        case 'STEPS':
+            return {
+                layout: 'vertical',
+                steps: [
+                    { title: 'Pilih produk', description: 'Cek katalog dan pilih yang kamu mau.' },
+                    { title: 'Bayar', description: 'Scan QRIS atau transfer, bebas pilih.' },
+                    { title: 'Terima', description: 'File langsung masuk ke emailmu.' },
+                ],
+            };
         default:
             return {};
     }

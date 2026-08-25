@@ -374,6 +374,54 @@ Gunakan **Ganti file** untuk itu.
 
 ---
 
+## Block & gaya storefront
+
+Storefront disusun dari block. Selain 21 block dasar, ada enam block showcase:
+
+| Block | Gunanya |
+|---|---|
+| **Carousel** | Slide gambar yang bisa digeser, dengan judul dan tautan per slide |
+| **Teks Berjalan** | Ticker promo yang bergulir mulus |
+| **Angka Pencapaian** | Angka yang menghitung naik saat discroll — pembeli, rating, pengalaman |
+| **Logo Partner** | Deretan logo brand, abu-abu sampai disentuh |
+| **Sebelum & Sesudah** | Penggeser pembanding hasil kerja |
+| **Alur Langkah** | Proses bernomor, vertikal atau horizontal |
+
+### Mengatur tampilan tiap block
+
+Panel **Tampilan & animasi** di editor block mengatur latar belakang, ruang
+dalam, sudut, bayangan, perataan, lebar isi, dan animasi saat discroll
+(muncul, naik, geser, membesar, dari buram) beserta jeda mulainya.
+
+**Bukan CSS bebas.** Nilainya kosakata tetap yang divalidasi server
+(`App\Support\BlockStyle`). Sebelumnya `style` menerima array apa pun dan
+dirender langsung sebagai inline style — artinya sebuah block bisa diberi
+`position:fixed; inset:0` dan menutupi tombol beli di tokonya sendiri, sementara
+pratinjau builder tetap terlihat normal. Token tidak bisa menghasilkan halaman
+rusak, dan warnanya selalu mengikuti tema toko sehingga tidak pernah tabrakan
+dengan palet.
+
+### Tiga jaring pengaman animasi
+
+Animasi tidak boleh menyembunyikan barang dagangan:
+
+1. **Keadaan tersembunyi ada di dalam `@media (scripting: enabled)`.** Kalau
+   bundel JS gagal dimuat, isinya langsung terlihat — bukan kolom kosong.
+2. **Reveal ditulis sebagai inline style**, jadi menang telak di kaskade. Tidak
+   ada utility atau media block lain yang bisa membuatnya tetap tak terlihat.
+3. **Ada failsafe 1,5 detik.** Observer melaporkan elemen begitu diamati, bahkan
+   saat di luar layar. Kalau laporan pertama itu tidak pernah datang, isinya
+   ditampilkan tanpa menunggu lebih lama.
+
+Angka pada block Pencapaian juga dijamin mendarat di nilai aslinya lewat timer
+terpisah, karena browser menahan `requestAnimationFrame` di tab latar — tanpa
+itu, pengunjung yang membuka toko di tab belakang bisa menemukan angkanya beku
+di nol. Desimal dipertahankan: rating 4,9 tidak boleh berubah jadi 5.
+
+Semua animasi mati otomatis untuk pengunjung yang memilih mode hemat gerak.
+
+---
+
 ## Keranjang belanja
 
 Pembeli bisa mengumpulkan beberapa produk lalu membayarnya dalam **satu order**.
