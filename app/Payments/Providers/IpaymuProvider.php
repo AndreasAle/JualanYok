@@ -82,6 +82,10 @@ class IpaymuProvider implements PaymentProviderInterface
             );
         }
 
+        if ($unreachable = $this->unreachableCallbackError()) {
+            return new PaymentResult(status: PaymentStatus::Failed, error: $unreachable);
+        }
+
         if (blank($order->customer_phone)) {
             return new PaymentResult(
                 status: PaymentStatus::Failed,
@@ -135,6 +139,10 @@ class IpaymuProvider implements PaymentProviderInterface
         float $amount,
         array $logContext = [],
     ): PaymentResult {
+        if ($unreachable = $this->unreachableCallbackError()) {
+            return new PaymentResult(status: PaymentStatus::Failed, error: $unreachable);
+        }
+
         if (blank($this->va) || blank($this->apiKey)) {
             return new PaymentResult(
                 status: PaymentStatus::Failed,
@@ -385,6 +393,40 @@ class IpaymuProvider implements PaymentProviderInterface
         );
     }
 
+
+    /**
+     * iPaymu has to be able to reach us to report a payment.
+     *
+     * Submitting a bill whose notify/success URLs point at localhost also trips
+     * their risk engine, which comes back as a generic "suspicious buyer" —
+     * a message that sends the merchant hunting through the payer's details
+     * when the real problem is APP_URL. Failing here says so plainly instead.
+     */
+    private function unreachableCallbackError(): ?string
+    {
+        $host = strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST));
+
+        if ($host === '') {
+            return 'APP_URL belum diisi, jadi iPaymu tidak punya alamat untuk mengabari pembayaran.';
+        }
+
+        $isLocal = in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)
+            || str_ends_with($host, '.local')
+            || str_ends_with($host, '.test')
+            || str_ends_with($host, '.localhost');
+
+        if (! $isLocal) {
+            return null;
+        }
+
+        return sprintf(
+            'iPaymu tidak bisa dipakai dari alamat lokal (APP_URL = %s). '
+            .'Callback pembayaran harus bisa dijangkau dari internet — pakai domain publik, '
+            .'atau tunnel seperti ngrok, lalu sesuaikan APP_URL.',
+            config('app.url'),
+        );
+    }
+
     private function requestSignature(string $method, string $body): string
     {
         $bodyHash = strtolower(hash('sha256', $body));
@@ -408,7 +450,16 @@ class IpaymuProvider implements PaymentProviderInterface
         }
 
         if (str_contains($normalisedMessage, 'suspicious buyer')) {
-            return 'Pembayaran belum dapat diproses oleh pemeriksaan keamanan penyedia. Periksa kembali data pembeli, tunggu beberapa saat, atau gunakan metode pembayaran lain.';
+            /*
+             * iPaymu returns this for anything its risk engine dislikes, which
+             * in practice is most often our own submission rather than the
+             * payer: a non-routable notify URL, or an email on a domain that
+             * does not resolve. Naming those first stops the merchant from
+             * combing through a buyer who is perfectly fine.
+             */
+            return 'iPaymu menolak transaksi lewat pemeriksaan risikonya. '
+                .'Paling sering karena APP_URL belum berupa domain publik, atau email pembeli '
+                .'memakai domain yang tidak ada. Cek keduanya dulu sebelum menduga datanya pembeli.';
         }
 
         return filled($message)

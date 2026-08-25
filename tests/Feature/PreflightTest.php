@@ -129,6 +129,25 @@ class PreflightTest extends TestCase
             ->assertFailed();
     }
 
+    public function test_ipaymu_on_an_unreachable_app_url_stops_the_deploy(): void
+    {
+        // The setup that silently produced "suspicious buyer" in development.
+        $this->productionConfig([
+            'app.url' => 'http://localhost',
+            'payments.default' => 'ipaymu',
+            'payments.providers.qris.enabled' => false,
+            'payments.providers.ipaymu.enabled' => true,
+            'payments.providers.ipaymu.va' => '1179000899',
+            'payments.providers.ipaymu.api_key' => 'contoh-api-key',
+            'payments.providers.ipaymu.production' => true,
+            'payments.providers.ipaymu.fee_direction' => 'MERCHANT',
+        ]);
+
+        $this->artisan('jualanyok:preflight')
+            ->expectsOutputToContain('dijangkau iPaymu')
+            ->assertFailed();
+    }
+
     public function test_paid_product_files_must_sit_outside_the_public_folder(): void
     {
         $this->productionConfig(['filesystems.disks.local.root' => public_path('files')]);

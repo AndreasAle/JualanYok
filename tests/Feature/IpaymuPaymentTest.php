@@ -28,12 +28,37 @@ class IpaymuPaymentTest extends TestCase
         $this->seedPlatform();
 
         config([
+            // iPaymu has to reach us to report a payment, so a working setup is
+            // always on a public host — the tests model that, not localhost.
+            'app.url' => 'https://jualanyok.id',
             'payments.providers.ipaymu.enabled' => true,
             'payments.providers.ipaymu.va' => self::VA,
             'payments.providers.ipaymu.api_key' => self::API_KEY,
             'payments.providers.ipaymu.production' => false,
             'payments.providers.ipaymu.fee_direction' => 'MERCHANT',
         ]);
+    }
+
+    public function test_a_local_app_url_is_refused_before_the_bill_is_even_attempted(): void
+    {
+        Http::fake();
+
+        // The exact setup that produced "suspicious buyer" in development: the
+        // notify URL iPaymu is handed cannot be reached from the internet.
+        config(['app.url' => 'http://localhost']);
+
+        $order = $this->makeOrder();
+        $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'qris', 'mpm');
+
+        $this->assertSame(PaymentStatus::Failed, $payment->status);
+
+        $error = $payment->attempts()->latest('id')->first()?->error;
+
+        $this->assertStringContainsString('alamat lokal', (string) $error);
+        $this->assertStringContainsString('APP_URL', (string) $error);
+
+        // Nothing was sent: a bill that cannot be reported on is worse than none.
+        Http::assertNothingSent();
     }
 
     public function test_direct_payment_is_signed_and_qris_uses_ipaymu_hosted_page(): void
@@ -132,16 +157,25 @@ class IpaymuPaymentTest extends TestCase
 
         $order = $this->makeOrder();
         $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'qris', 'mpm');
-        $safeMessage = 'Pembayaran belum dapat diproses oleh pemeriksaan keamanan penyedia. Periksa kembali data pembeli, tunggu beberapa saat, atau gunakan metode pembayaran lain.';
-
         $this->assertSame(PaymentStatus::Failed, $payment->status);
-        $this->assertSame($safeMessage, $payment->attempts()->latest('id')->value('error'));
+
+        $error = (string) $payment->attempts()->latest('id')->value('error');
+
+        /*
+         * iPaymu returns this for anything its risk engine dislikes, and in
+         * practice that is usually our own submission. The message has to point
+         * at what the merchant can actually check, or they spend the afternoon
+         * inspecting a buyer who is perfectly fine.
+         */
+        $this->assertStringContainsString('APP_URL', $error);
+        $this->assertStringContainsString('domain', $error);
+        $this->assertStringNotContainsString('Periksa kembali data pembeli', $error);
 
         $this->get(route('checkout.status', $order->number))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('payment.status', PaymentStatus::Failed->value)
-                ->where('payment.error', $safeMessage));
+                ->where('payment.error', $error));
     }
 
     public function test_live_style_list_response_renders_a_real_qris_payload(): void

@@ -50,9 +50,21 @@ class PlanPaymentService
             || ((bool) config('payments.qris.enabled') && $this->staticPayload() !== null);
     }
 
+    /**
+     * A flag on its own is not a working gateway.
+     *
+     * Flipping IPAYMU_ENABLED without the keys used to switch the whole billing
+     * flow over to a provider that could not create a single bill. Falling back
+     * to manual QRIS is a working checkout; an iPaymu screen that always fails
+     * is not.
+     */
     public function usesIpaymu(): bool
     {
-        return (bool) config('payments.providers.ipaymu.enabled');
+        $config = config('payments.providers.ipaymu', []);
+
+        return (bool) ($config['enabled'] ?? false)
+            && filled($config['va'] ?? null)
+            && filled($config['api_key'] ?? null);
     }
 
     public function automatic(): bool

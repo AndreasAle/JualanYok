@@ -149,6 +149,16 @@ class PreflightCommand extends Command
             'IPAYMU_PRODUCTION=false masih mengarah ke Sandbox.',
         );
 
+        $host = strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST));
+
+        $this->assert(
+            $host !== '' && ! in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)
+                && ! str_ends_with($host, '.test') && ! str_ends_with($host, '.local'),
+            'APP_URL bisa dijangkau iPaymu',
+            'APP_URL "'.config('app.url').'" tidak bisa dihubungi dari internet. '
+                .'iPaymu tidak bisa mengirim callback ke sana, dan tagihannya ditolak pemeriksaan risiko mereka.',
+        );
+
         $this->assert(
             strtoupper((string) ($config['fee_direction'] ?? '')) === 'MERCHANT',
             'Biaya iPaymu dibebankan ke merchant',

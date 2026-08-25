@@ -28,6 +28,9 @@ class IpaymuPlanPaymentTest extends TestCase
         $this->seedPlatform();
 
         config([
+            // iPaymu has to reach us to report a payment, so a working setup is
+            // always on a public host — the tests model that, not localhost.
+            'app.url' => 'https://jualanyok.id',
             'payments.providers.ipaymu.enabled' => true,
             'payments.providers.ipaymu.va' => self::VA,
             'payments.providers.ipaymu.api_key' => self::API_KEY,
