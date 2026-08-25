@@ -34,9 +34,25 @@ class OrderReceipt extends Notification implements ShouldQueue
             $mail->line(sprintf('• %s ×%d — %s', $item->name, $item->quantity, Money::format((float) $item->total)));
         }
 
-        $mail->line('Total dibayar: **'.Money::format((float) $order->grand_total).'**')
-            ->action('Lihat Pesanan', route('member.orders.show', $order->number))
-            ->line('Semua produk digital bisa langsung kamu unduh dari halaman pesanan.');
+        $mail->line('Total dibayar: **'.Money::format((float) $order->grand_total).'**');
+
+        $hasFiles = $order->digitalAccesses()->exists();
+
+        /*
+         * Points at the token page, never the member area. Most buyers check out
+         * as guests, so a link behind a login means the sale completes and the
+         * product never actually reaches them.
+         */
+        $mail->action(
+            $hasFiles ? 'Ambil File Kamu' : 'Lihat Pesanan',
+            $order->deliveryUrl(),
+        );
+
+        $mail->line(
+            $hasFiles
+                ? 'Tautan di atas permanen dan cuma kamu yang punya — simpan email ini, filenya bisa diunduh ulang kapan saja.'
+                : 'Tautan di atas permanen, jadi kamu bisa cek pesanan ini kapan saja tanpa perlu login.',
+        );
 
         if ($order->items->first()?->product?->post_purchase_message) {
             $mail->line($order->items->first()->product->post_purchase_message);

@@ -14,6 +14,8 @@ enum PlanPaymentStatus: string
 
     case Rejected = 'REJECTED';
 
+    case Failed = 'FAILED';
+
     case Expired = 'EXPIRED';
 
     public function label(): string
@@ -23,6 +25,7 @@ enum PlanPaymentStatus: string
             self::AwaitingReview => 'Menunggu konfirmasi admin',
             self::Paid => 'Lunas',
             self::Rejected => 'Ditolak',
+            self::Failed => 'Gagal dibuat',
             self::Expired => 'Kedaluwarsa',
         };
     }

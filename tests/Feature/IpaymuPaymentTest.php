@@ -299,12 +299,18 @@ class IpaymuPaymentTest extends TestCase
             'status' => PaymentStatus::Paid->value,
         ]);
 
-        $guestPurchaseUrl = route('otp.create', ['order' => $order->number]);
-
+        /*
+         * A guest who has just paid is sent straight to their delivery page.
+         * Asking them to prove who they are before collecting what they bought
+         * is the most common moment to abandon and open a dispute.
+         */
         $this->get(route('checkout.status', $order->number))
             ->assertInertia(fn ($page) => $page
-                ->where('purchase.url', $guestPurchaseUrl)
-                ->where('purchase.requires_login', true));
+                ->where('purchase.url', $order->fresh()->deliveryUrl())
+                ->where('purchase.requires_login', false));
+
+        // The OTP route still exists for buyers who want the full member area.
+        $guestPurchaseUrl = route('otp.create', ['order' => $order->number]);
 
         $this->get($guestPurchaseUrl)
             ->assertSessionHas('url.intended', route('member.orders.show', $order->number))
@@ -314,11 +320,14 @@ class IpaymuPaymentTest extends TestCase
 
         $buyer = $this->makeUser([Role::CUSTOMER], ['email' => $order->customer_email]);
 
+        // A signed-in buyer gets the same delivery page — one path for everyone —
+        // plus a pointer to the copy filed in their account.
         $this->actingAs($buyer)
             ->get(route('checkout.status', $order->number))
             ->assertInertia(fn ($page) => $page
-                ->where('purchase.url', route('member.orders.show', $order->number))
-                ->where('purchase.requires_login', false));
+                ->where('purchase.url', $order->fresh()->deliveryUrl())
+                ->where('purchase.requires_login', false)
+                ->where('purchase.account_url', route('member.orders.show', $order->number)));
 
         // Repeating the same reconciliation through POST remains harmless and
         // confirms both browser navigation and the Inertia button are valid.

@@ -29,7 +29,7 @@ export default function CheckoutStatus({
     order: any;
     payment: Payment | null;
     demo: boolean;
-    purchase: { url: string; requires_login: boolean };
+    purchase: { url: string; requires_login: boolean; account_url: string | null };
 }) {
     const paid = order.payment_status === 'PAID';
     const failed = payment?.status === 'FAILED';
@@ -119,17 +119,17 @@ export default function CheckoutStatus({
 
                         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                             <ButtonLink href={purchase.url} variant="gradient">
-                                {purchase.requires_login ? 'Lihat pesanan & akses produk' : 'Lihat detail pesanan'}
+                                {order.fulfillment_status === 'FULFILLED'
+                                    ? 'Ambil produkmu sekarang'
+                                    : 'Lihat detail pesanan'}
                             </ButtonLink>
                             <ButtonLink href={`/${order.store.username}`} variant="outline">
                                 Belanja lagi
                             </ButtonLink>
                         </div>
-                        {purchase.requires_login && (
-                            <p className="mt-3 text-xs text-muted">
-                                Demi keamanan, masuk dengan kode yang dikirim ke email pembeli.
-                            </p>
-                        )}
+                        <p className="mt-3 text-xs text-muted">
+                            Tautannya juga kami kirim ke emailmu — tanpa perlu login, kapan pun kamu butuh.
+                        </p>
                         </div>
                     </Card>
                 ) : (

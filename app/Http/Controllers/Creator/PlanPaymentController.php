@@ -12,10 +12,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/**
- * The subscriber's side of manual QRIS billing: show a QR for an exact amount,
- * then wait for an admin to confirm the transfer landed.
- */
+/** Creator-facing plan checkout for automatic iPaymu and legacy manual QRIS. */
 class PlanPaymentController extends Controller
 {
     public function __construct(private readonly PlanPaymentService $payments) {}
@@ -54,14 +51,33 @@ class PlanPaymentController extends Controller
                 'expires_at' => $payment->expires_at->toIso8601String(),
                 'seconds_left' => $payment->secondsLeft(),
                 'review_note' => $payment->review_note,
+                'provider' => $payment->provider,
+                'method' => $payment->method,
+                'channel' => $payment->channel,
+                'gateway_fee' => (float) $payment->gateway_fee,
+                'instructions' => $payment->instructions ?? [],
+                'redirect_url' => $payment->redirect_url,
+                'gateway_error' => $payment->gateway_error,
                 // Rendered server-side: the payload never needs a third party.
                 'qr_svg' => $payment->status->isOpen()
-                    ? QrImage::svgDataUri($payment->qris_payload)
+                    ? (data_get($payment->instructions, 'qr_svg') ?? (filled($payment->qris_payload)
+                        ? QrImage::svgDataUri($payment->qris_payload)
+                        : null))
                     : null,
             ],
             'merchant' => $this->payments->merchantName(),
             'windowMinutes' => $this->payments->minutesToPay(),
+            'automatic' => $payment->provider === 'ipaymu',
         ]);
+    }
+
+    public function checkStatus(Request $request, PlanPayment $payment)
+    {
+        $this->authorizePayment($request, $payment);
+
+        $this->payments->syncStatus($payment);
+
+        return back();
     }
 
     public function confirm(Request $request, PlanPayment $payment)

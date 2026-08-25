@@ -112,12 +112,41 @@ class IpaymuProvider implements PaymentProviderInterface
             $payload['expiredType'] = 'hours';
         }
 
+        return $this->createDirectPayment(
+            payload: $payload,
+            method: $payment->method,
+            channel: $payment->channel,
+            reference: $reference,
+            amount: (float) $payment->amount,
+            logContext: ['payment_id' => $payment->id],
+        );
+    }
+
+    /**
+     * Creates any iPaymu direct charge. Orders and SaaS subscriptions share
+     * this transport so signing, response parsing, and public errors cannot
+     * drift into two subtly different implementations.
+     */
+    public function createDirectPayment(
+        array $payload,
+        string $method,
+        ?string $channel,
+        string $reference,
+        float $amount,
+        array $logContext = [],
+    ): PaymentResult {
+        if (blank($this->va) || blank($this->apiKey)) {
+            return new PaymentResult(
+                status: PaymentStatus::Failed,
+                reference: $reference,
+                error: 'Kredensial iPaymu belum dikonfigurasi.',
+            );
+        }
+
         $rawResponse = [];
 
         try {
             // iPaymu calculates its signature from JSON_UNESCAPED_SLASHES.
-            // This is especially important here because the payload contains
-            // notify/success/cancel URLs: `\/` and `/` produce different hashes.
             $body = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
             $timestamp = now('Asia/Jakarta')->format('YmdHis');
             $signature = $this->requestSignature('POST', $body);
@@ -142,9 +171,9 @@ class IpaymuProvider implements PaymentProviderInterface
             $redirectUrl = $this->stringValue($data, [
                 'Url', 'url', 'RedirectUrl', 'redirectUrl', 'PaymentUrl', 'paymentUrl',
             ]);
-            $instructions = $this->instructions($payment, $data);
+            $instructions = $this->instructions($method, $channel, $data);
 
-            if (! $this->hasPayableInstructions($payment, $instructions, $redirectUrl)) {
+            if (! $this->hasPayableInstructions($method, $instructions, $redirectUrl)) {
                 throw new RuntimeException(
                     'Respons iPaymu tidak berisi QR, nomor pembayaran, atau tautan pembayaran.'
                 );
@@ -153,12 +182,12 @@ class IpaymuProvider implements PaymentProviderInterface
             return new PaymentResult(
                 status: PaymentStatus::Pending,
                 reference: $this->stringValue($data, ['ReferenceId', 'referenceId', 'reference_id']) ?? $reference,
-                amount: (float) ($this->value($data, ['Total', 'total']) ?? $payment->amount),
+                amount: (float) ($this->value($data, ['Total', 'total']) ?? $amount),
                 fee: ($fee = $this->value($data, ['Fee', 'fee'])) !== null ? (float) $fee : null,
                 instructions: $instructions,
                 redirectUrl: $redirectUrl,
                 expiresAt: $this->parseDate($this->value($data, ['Expired', 'expired', 'ExpiredAt', 'expired_at']))
-                    ?? $this->fallbackExpiry($payment->method, $payment->channel),
+                    ?? $this->fallbackExpiry($method, $channel),
                 raw: $response,
             );
         } catch (Throwable $e) {
@@ -167,13 +196,11 @@ class IpaymuProvider implements PaymentProviderInterface
                 $rawResponse = is_array($errorResponse) ? $errorResponse : [];
             }
 
-            Log::error('ipaymu.create_failed', [
-                'payment_id' => $payment->id,
-                'error' => $e->getMessage(),
-            ]);
+            Log::error('ipaymu.create_failed', $logContext + ['error' => $e->getMessage()]);
 
             return new PaymentResult(
                 status: PaymentStatus::Failed,
+                reference: $reference,
                 error: $this->publicError($e),
                 raw: $rawResponse,
             );
@@ -195,6 +222,29 @@ class IpaymuProvider implements PaymentProviderInterface
                 error: 'ID transaksi iPaymu belum tersimpan. Menunggu callback pembayaran.',
             );
         }
+
+        return $this->checkTransaction(
+            transactionId: $transactionId,
+            reference: (string) $payment->reference,
+            currentStatus: $payment->status,
+            amount: (float) $payment->amount,
+            fee: (float) $payment->fee,
+            expiresAt: $payment->expires_at,
+            paidAt: $payment->paid_at,
+            logContext: ['payment_id' => $payment->id],
+        );
+    }
+
+    public function checkTransaction(
+        string $transactionId,
+        string $reference,
+        PaymentStatus $currentStatus,
+        float $amount,
+        float $fee = 0,
+        ?Carbon $expiresAt = null,
+        ?Carbon $paidAt = null,
+        array $logContext = [],
+    ): PaymentResult {
 
         $rawResponse = [];
 
@@ -226,16 +276,16 @@ class IpaymuProvider implements PaymentProviderInterface
                 status: $status,
                 // The local reference is the signed merchant reference used to
                 // locate this payment. The numeric iPaymu ID is provider-owned.
-                reference: $payment->reference,
-                amount: ($amount = $this->value($data, ['Amount', 'amount', 'Total', 'total', 'SubTotal', 'subTotal', 'sub_total'])) !== null
-                    ? (float) $amount
-                    : (float) $payment->amount,
-                fee: ($fee = $this->value($data, ['Fee', 'fee'])) !== null ? (float) $fee : (float) $payment->fee,
+                reference: $reference,
+                amount: ($providerAmount = $this->value($data, ['Amount', 'amount', 'Total', 'total', 'SubTotal', 'subTotal', 'sub_total'])) !== null
+                    ? (float) $providerAmount
+                    : $amount,
+                fee: ($providerFee = $this->value($data, ['Fee', 'fee'])) !== null ? (float) $providerFee : $fee,
                 expiresAt: $this->parseDate($this->value($data, ['ExpiredDate', 'expiredDate', 'Expired', 'expired', 'expired_at']))
-                    ?? $payment->expires_at,
+                    ?? $expiresAt,
                 paidAt: $status === PaymentStatus::Paid
                     ? ($this->parseDate($this->value($data, ['SuccessDate', 'successDate', 'PaidAt', 'paidAt', 'paid_at'])) ?? now())
-                    : $payment->paid_at,
+                    : $paidAt,
                 eventId: 'status-'.$transactionId.'-'.$status->value,
                 raw: $rawResponse,
             );
@@ -245,19 +295,18 @@ class IpaymuProvider implements PaymentProviderInterface
                 $rawResponse = is_array($errorResponse) ? $errorResponse : [];
             }
 
-            Log::warning('ipaymu.status_check_failed', [
-                'payment_id' => $payment->id,
+            Log::warning('ipaymu.status_check_failed', $logContext + [
                 'transaction_id' => $transactionId,
                 'error' => $e->getMessage(),
             ]);
 
             return new PaymentResult(
-                status: $payment->status,
-                reference: $payment->reference,
-                amount: (float) $payment->amount,
-                fee: (float) $payment->fee,
-                expiresAt: $payment->expires_at,
-                paidAt: $payment->paid_at,
+                status: $currentStatus,
+                reference: $reference,
+                amount: $amount,
+                fee: $fee,
+                expiresAt: $expiresAt,
+                paidAt: $paidAt,
                 error: 'Status iPaymu belum dapat diperiksa. Coba lagi beberapa saat.',
                 raw: $rawResponse,
             );
@@ -403,7 +452,12 @@ class IpaymuProvider implements PaymentProviderInterface
             return null;
         }
 
-        $data = $this->responseData(data_get($response, 'raw.Data', []));
+        return $this->transactionIdFromResponse($response);
+    }
+
+    public function transactionIdFromResponse(array $response): ?string
+    {
+        $data = $this->responseData(data_get($response, 'raw.Data', data_get($response, 'Data', [])));
 
         return $this->stringValue($data, ['TransactionId', 'transactionId', 'transaction_id', 'trx_id']);
     }
@@ -429,12 +483,12 @@ class IpaymuProvider implements PaymentProviderInterface
         };
     }
 
-    private function instructions(Payment $payment, array $data): array
+    private function instructions(string $method, ?string $channel, array $data): array
     {
-        if ($payment->method === 'va') {
+        if ($method === 'va') {
             return [
                 'type' => 'va',
-                'bank' => strtoupper((string) ($this->stringValue($data, ['Channel', 'channel']) ?? $payment->channel)),
+                'bank' => strtoupper((string) ($this->stringValue($data, ['Channel', 'channel']) ?? $channel)),
                 'va_number' => $this->stringValue($data, ['PaymentNo', 'paymentNo', 'payment_no', 'Va', 'va']) ?? '',
                 'payment_name' => $this->stringValue($data, ['PaymentName', 'paymentName', 'payment_name']),
                 'note' => $this->stringValue($data, ['Note', 'note']),
@@ -446,7 +500,7 @@ class IpaymuProvider implements PaymentProviderInterface
             ];
         }
 
-        if ($payment->method === 'qris') {
+        if ($method === 'qris') {
             $payload = $this->stringValue($data, [
                 'QrString', 'QRString', 'qrString', 'qr_string',
                 'QrCode', 'QRCode', 'qrCode', 'qr_code',
@@ -476,7 +530,7 @@ class IpaymuProvider implements PaymentProviderInterface
             'note' => $this->stringValue($data, ['Note', 'note']),
             'steps' => [
                 'Tekan tombol Lanjut ke Halaman Pembayaran.',
-                $payment->method === 'qris'
+                $method === 'qris'
                     ? 'Scan QRIS yang ditampilkan iPaymu dengan aplikasi bank atau e-wallet.'
                     : 'Selesaikan pembayaran di halaman aman iPaymu.',
                 'Kembali ke halaman ini; status diperbarui otomatis.',
@@ -515,9 +569,9 @@ class IpaymuProvider implements PaymentProviderInterface
         return is_scalar($value) && filled((string) $value) ? (string) $value : null;
     }
 
-    private function hasPayableInstructions(Payment $payment, array $instructions, ?string $redirectUrl): bool
+    private function hasPayableInstructions(string $method, array $instructions, ?string $redirectUrl): bool
     {
-        return match ($payment->method) {
+        return match ($method) {
             'va', 'cstore' => filled($instructions['va_number'] ?? $instructions['payment_no'] ?? null),
             'qris' => filled($instructions['payload'] ?? null) || filled($redirectUrl),
             default => filled($redirectUrl) || filled($instructions['payment_no'] ?? null),

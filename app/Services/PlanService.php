@@ -106,8 +106,13 @@ class PlanService
      * Starts or switches a subscription. In development this settles through
      * the mock provider; the shape is ready for a real gateway subscription id.
      */
-    public function subscribe(User $user, Plan $plan, string $interval = 'monthly'): Subscription
-    {
+    public function subscribe(
+        User $user,
+        Plan $plan,
+        string $interval = 'monthly',
+        ?string $provider = null,
+        ?string $providerReference = null,
+    ): Subscription {
         $current = $user->activeSubscription();
 
         $current?->update([
@@ -116,7 +121,11 @@ class PlanService
         ]);
 
         $amount = $interval === 'yearly' ? $plan->price_yearly : $plan->price_monthly;
-        $trialEnds = $plan->trial_days > 0 && ! $current ? now()->addDays($plan->trial_days) : null;
+        // A successfully paid checkout starts immediately. Trials only apply
+        // to subscriptions created without a settled payment provider.
+        $trialEnds = $plan->trial_days > 0 && ! $current && $provider === null
+            ? now()->addDays($plan->trial_days)
+            : null;
 
         return Subscription::create([
             'user_id' => $user->id,
@@ -124,7 +133,8 @@ class PlanService
             'status' => $trialEnds ? SubscriptionStatus::Trialing : SubscriptionStatus::Active,
             'billing_interval' => $interval,
             'amount' => $amount,
-            'provider' => config('payments.default'),
+            'provider' => $provider ?? config('payments.default'),
+            'provider_reference' => $providerReference,
             'trial_ends_at' => $trialEnds,
             'current_period_start' => now(),
             'current_period_end' => $interval === 'yearly' ? now()->addYear() : now()->addMonth(),

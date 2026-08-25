@@ -119,12 +119,15 @@ Route::middleware(['auth', 'creator'])
         Route::post('/langganan', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
         Route::post('/langganan/batal', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
 
-        /* Manual QRIS billing for plan upgrades. */
+        /* Plan upgrades through automatic iPaymu or legacy manual QRIS. */
         Route::post('/langganan/bayar', [PlanPaymentController::class, 'store'])
             ->middleware('throttle:10,1')
             ->name('subscription.pay.store');
         Route::get('/langganan/bayar/{payment:reference}', [PlanPaymentController::class, 'show'])
             ->name('subscription.pay');
+        Route::match(['get', 'post'], '/langganan/bayar/{payment:reference}/cek-status', [PlanPaymentController::class, 'checkStatus'])
+            ->middleware('throttle:30,1')
+            ->name('subscription.pay.check-status');
         Route::post('/langganan/bayar/{payment:reference}/konfirmasi', [PlanPaymentController::class, 'confirm'])
             ->middleware('throttle:10,1')
             ->name('subscription.pay.confirm');

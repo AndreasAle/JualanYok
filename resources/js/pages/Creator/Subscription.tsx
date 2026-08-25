@@ -11,16 +11,21 @@ export default function Subscription({
     plans,
     usage,
     invoices,
-    billingProvider,
-    qris,
+    billing,
     openPayment,
 }: {
     current: any | null;
     plans: any[];
     usage: Record<string, { used: number; limit: number | null }>;
     invoices: any[];
-    billingProvider: string;
-    qris: { enabled: boolean; merchant: string | null; window_minutes: number };
+    billing: {
+        enabled: boolean;
+        provider: string;
+        provider_name: string;
+        automatic: boolean;
+        merchant: string | null;
+        window_minutes: number;
+    };
     openPayment: { reference: string; plan_name: string; amount: number; status: string; status_label: string } | null;
 }) {
     const [yearly, setYearly] = useState(current?.interval === 'yearly');
@@ -55,23 +60,18 @@ export default function Subscription({
                 </div>
             )}
 
-            {qris.enabled ? (
+            {billing.enabled ? (
                 <div className="mb-4">
-                    <Alert tone="info" title="Pembayaran lewat QRIS">
-                        Upgrade dibayar dengan scan QRIS{qris.merchant ? ` ke ${qris.merchant}` : ''}. Paket aktif
-                        setelah admin mengonfirmasi dana masuk — biasanya cepat.
+                    <Alert
+                        tone="info"
+                        title={billing.automatic ? 'Pembayaran langganan via iPaymu' : 'Pembayaran lewat QRIS'}
+                    >
+                        {billing.automatic
+                            ? 'Bayar paket dengan QRIS aman dari iPaymu. Status diverifikasi otomatis dan paket langsung aktif setelah pembayaran diterima—tanpa menunggu admin.'
+                            : `Upgrade dibayar dengan scan QRIS${billing.merchant ? ` ke ${billing.merchant}` : ''}. Paket aktif setelah admin mengonfirmasi dana masuk.`}
                     </Alert>
                 </div>
-            ) : (
-                billingProvider === 'mock' && (
-                    <div className="mb-4">
-                        <Alert tone="info" title="Mode pengembangan">
-                            Pembayaran langganan diproses lewat provider simulasi. Upgrade langsung aktif tanpa
-                            tagihan sungguhan.
-                        </Alert>
-                    </div>
-                )
-            )}
+            ) : null}
 
             {/* Current plan */}
             <Card className="mb-6 p-5">
@@ -223,17 +223,17 @@ export default function Subscription({
                                     message={
                                         price === 0
                                             ? 'Kamu akan turun ke paket Gratis dengan limit yang lebih kecil.'
-                                            : qris.enabled
-                                              ? `Kamu akan diarahkan ke halaman pembayaran QRIS sebesar ${formatIDR(price)}.`
+                                            : billing.enabled
+                                              ? `Kamu akan membuat tagihan ${billing.provider_name} sebesar ${formatIDR(price)}. Paket aktif otomatis setelah pembayaran diterima.`
                                               : `Kamu akan ditagih ${formatIDR(price)} per ${yearly ? 'tahun' : 'bulan'}.`
                                     }
                                     confirmLabel="Ya, lanjut"
                                     variant="primary"
                                     onConfirm={() =>
-                                        // Paid plans go through QRIS when it is configured; free
+                                        // Paid plans go through the configured gateway; free
                                         // downgrades still switch instantly.
                                         router.post(
-                                            qris.enabled && price > 0
+                                            billing.enabled && price > 0
                                                 ? '/dashboard/langganan/bayar'
                                                 : '/dashboard/langganan',
                                             { plan: plan.slug, interval: yearly ? 'yearly' : 'monthly' },

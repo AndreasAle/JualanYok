@@ -49,8 +49,6 @@ class DemoSeeder extends Seeder
         // enrolments and tickets instead of jobs waiting on an idle worker.
         config(['queue.default' => 'sync']);
 
-        $this->seedDemoFiles();
-
         $admins = $this->createAdmins();
         $customer = $this->createCustomerAccount();
 
@@ -66,25 +64,37 @@ class DemoSeeder extends Seeder
 
         $this->buildAnalytics([$kreator, $ruang, $racun]);
 
+        $this->seedDemoFiles();
+
         $this->command?->info('Demo data siap. Kredensial ada di README.');
     }
 
     /** Placeholder files so the download flow is exercisable end to end. */
+    /**
+     * Puts real bytes behind every demo product file.
+     *
+     * Driven off the ProductFile rows rather than a hand-kept list: adding a
+     * demo product used to mean remembering to add its file here too, and a
+     * forgotten one produced a storefront where paying yields a 404 — exactly
+     * the failure the demo exists to disprove.
+     */
     private function seedDemoFiles(): void
     {
         $disk = Storage::disk('local');
 
-        $files = [
-            'demo/content-plan-30-hari.pdf' => '%PDF-1.4
-% Demo file JualanYok
-',
-            'demo/notion-kit.zip' => 'PKdemo',
-        ];
-
-        foreach ($files as $path => $contents) {
-            if (! $disk->exists($path)) {
-                $disk->put($path, $contents);
+        foreach (ProductFile::whereNotNull('path')->get() as $file) {
+            if ($disk->exists($file->path)) {
+                continue;
             }
+
+            $disk->put(
+                $file->path,
+                str_ends_with($file->path, '.pdf')
+                    ? "%PDF-1.4
+% Demo file JualanYok - {$file->name}
+"
+                    : "Demo file JualanYok - {$file->name}",
+            );
         }
     }
 

@@ -74,13 +74,11 @@ class SubscriptionController extends Controller
                 'period_start' => $i->period_start->toDateString(),
                 'period_end' => $i->period_end->toDateString(),
             ]) ?? [],
-            // Real gateway billing is not wired up yet; upgrades settle through
-            // the mock provider in development.
-            'billingProvider' => config('payments.default'),
-            // When QRIS is configured, upgrades go through a manual transfer
-            // that an admin confirms instead of activating instantly.
-            'qris' => [
+            'billing' => [
                 'enabled' => $this->planPayments->enabled(),
+                'provider' => $this->planPayments->usesIpaymu() ? 'ipaymu' : 'qris',
+                'provider_name' => $this->planPayments->providerName(),
+                'automatic' => $this->planPayments->automatic(),
                 'merchant' => $this->planPayments->merchantName(),
                 'window_minutes' => $this->planPayments->minutesToPay(),
             ],
@@ -105,12 +103,12 @@ class SubscriptionController extends Controller
 
         $isFree = (float) ($data['interval'] === 'yearly' ? $plan->price_yearly : $plan->price_monthly) <= 0;
 
-        // With QRIS configured, a paid plan must actually be paid for. The UI
+        // With billing configured, a paid plan must actually be paid for. The UI
         // posts to the payment endpoint instead; this is the server-side guard
         // that stops a crafted request from granting a plan for free.
         if ($this->planPayments->enabled() && ! $isFree) {
             throw ValidationException::withMessages([
-                'plan' => 'Paket berbayar harus lewat pembayaran QRIS.',
+                'plan' => 'Paket berbayar harus lewat halaman pembayaran.',
             ]);
         }
 

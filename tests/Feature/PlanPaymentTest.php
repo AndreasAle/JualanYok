@@ -8,7 +8,9 @@ use App\Models\PlanPayment;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\PlanPaymentService;
+use App\Services\PlanService;
 use App\Support\Qris;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -37,6 +39,7 @@ class PlanPaymentTest extends TestCase
         $this->seedPlatform();
 
         config([
+            'payments.providers.ipaymu.enabled' => false,
             'payments.qris.enabled' => true,
             'payments.qris.static_payload' => self::TEST_STATIC,
             'payments.qris.window_minutes' => 30,
@@ -110,7 +113,7 @@ class PlanPaymentTest extends TestCase
         $payment = $this->service()->open($this->creator(), $this->paidPlan());
 
         // Bypasses the service entirely — the guarantee has to live in the schema.
-        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        $this->expectException(UniqueConstraintViolationException::class);
 
         PlanPayment::create([
             'reference' => PlanPayment::generateReference(),
@@ -173,7 +176,7 @@ class PlanPaymentTest extends TestCase
         $user = $this->creator();
         $plan = $this->paidPlan();
 
-        $this->assertNotSame($plan->slug, app(\App\Services\PlanService::class)->planFor($user)->slug);
+        $this->assertNotSame($plan->slug, app(PlanService::class)->planFor($user)->slug);
 
         $payment = $this->service()->open($user, $plan);
         $this->service()->confirm($payment);
@@ -236,7 +239,7 @@ class PlanPaymentTest extends TestCase
     public function test_a_rejected_payment_leaves_the_plan_untouched(): void
     {
         $user = $this->creator();
-        $before = app(\App\Services\PlanService::class)->planFor($user)->slug;
+        $before = app(PlanService::class)->planFor($user)->slug;
 
         $payment = $this->service()->open($user, $this->paidPlan());
         $this->service()->confirm($payment);
@@ -244,7 +247,7 @@ class PlanPaymentTest extends TestCase
 
         $this->assertSame(PlanPaymentStatus::Rejected, $payment->fresh()->status);
         $this->assertNull($payment->fresh()->claimable_amount);
-        $this->assertSame($before, app(\App\Services\PlanService::class)->planFor($user->fresh())->slug);
+        $this->assertSame($before, app(PlanService::class)->planFor($user->fresh())->slug);
     }
 
     public function test_a_creator_cannot_open_someone_elses_payment(): void
@@ -333,7 +336,11 @@ class PlanPaymentTest extends TestCase
         $this->actingAs($user)
             ->get('/dashboard/langganan')
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->where('qris.enabled', true));
+            ->assertInertia(
+                fn ($page) => $page
+                    ->where('billing.enabled', true)
+                    ->where('billing.provider', 'qris'),
+            );
     }
 
     public function test_a_paid_plan_cannot_be_granted_through_the_instant_endpoint(): void

@@ -16,8 +16,12 @@ class PlanPayment extends Model
     {
         return [
             'status' => PlanPaymentStatus::class,
+            'gateway_fee' => 'decimal:2',
+            'instructions' => 'array',
+            'gateway_response' => 'array',
             'expires_at' => 'datetime',
             'confirmed_at' => 'datetime',
+            'paid_at' => 'datetime',
             'reviewed_at' => 'datetime',
         ];
     }

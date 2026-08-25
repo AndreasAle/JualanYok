@@ -59,11 +59,17 @@ class CheckoutController extends Controller
             'order' => $this->orderPayload($order),
             'payment' => $order->latestPayment ? $this->paymentPayload($order->latestPayment) : null,
             'demo' => (bool) config('jualanyok.demo.enabled'),
+            /*
+             * Always the token page, even for a signed-in buyer.
+             *
+             * Sending a guest to an OTP screen meant asking someone who had just
+             * paid to prove who they are before they could collect what they
+             * bought — the most common moment to abandon and file a dispute.
+             */
             'purchase' => [
-                'url' => $ownsPurchase
-                    ? route('member.orders.show', $order->number)
-                    : route('otp.create', ['order' => $order->number]),
-                'requires_login' => ! $ownsPurchase,
+                'url' => $order->deliveryUrl(),
+                'requires_login' => false,
+                'account_url' => $ownsPurchase ? route('member.orders.show', $order->number) : null,
             ],
         ]);
     }
@@ -136,6 +142,8 @@ class CheckoutController extends Controller
             'coupon_code' => $order->coupon_code,
             'expires_at' => $order->expires_at?->toIso8601String(),
             'is_payable' => $order->isPayable(),
+            // Where the buyer collects what they paid for — no account needed.
+            'delivery_url' => $order->deliveryUrl(),
             'items' => $order->items->map(fn ($i) => [
                 'name' => $i->name,
                 'variant_name' => $i->variant_name,

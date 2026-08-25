@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Creator;
 
 use App\Enums\ProductType;
 use App\Http\Controllers\Controller;
+use App\Jobs\NotifyFileUpdate;
 use App\Models\DigitalAccess;
 use App\Models\Product;
 use App\Models\ProductFile;
@@ -123,7 +124,22 @@ class ProductFileController extends Controller
             Storage::disk('local')->delete($previousPath);
         }
 
-        return back()->with('success', 'File diperbarui. Semua pembeli lama otomatis mendapat versi terbaru.');
+        // Past buyers already hold the entitlement; tell them there is a new
+        // edition waiting behind the same link they were given at purchase.
+        $buyers = DigitalAccess::where('product_file_id', $file->id)
+            ->where('is_revoked', false)
+            ->count();
+
+        if ($buyers > 0) {
+            NotifyFileUpdate::dispatch($file->id);
+        }
+
+        return back()->with(
+            'success',
+            $buyers > 0
+                ? "File diperbarui. {$buyers} pembeli lama sedang dikabari versi barunya."
+                : 'File diperbarui.',
+        );
     }
 
     public function update(Request $request, Product $product, ProductFile $file)

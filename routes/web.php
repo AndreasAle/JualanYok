@@ -3,6 +3,7 @@
 use App\Http\Controllers\PublicSite\CheckoutController;
 use App\Http\Controllers\PublicSite\DownloadController;
 use App\Http\Controllers\PublicSite\LandingController;
+use App\Http\Controllers\PublicSite\OrderAccessController;
 use App\Http\Controllers\PublicSite\PaymentWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +37,20 @@ foreach (['terms', 'privacy', 'refund-policy'] as $slug) {
 | Checkout lives at the top level (not under /{username}) so the URL stays
 | stable across stores and cannot be shadowed by a creator username.
 */
+
+/*
+ * Permanent delivery page for one order, reachable without an account.
+ * The token is the credential; see OrderAccessController.
+ */
+Route::prefix('pesanan/{token}')->name('order.')->group(function () {
+    Route::get('/', [OrderAccessController::class, 'show'])->name('access');
+    Route::get('/unduh/{access}', [OrderAccessController::class, 'download'])
+        ->middleware('throttle:60,1')
+        ->name('access.download');
+    Route::post('/simpan', [OrderAccessController::class, 'claim'])
+        ->middleware(['auth', 'throttle:10,1'])
+        ->name('access.claim');
+});
 
 Route::prefix('checkout')->name('checkout.')->group(function () {
     Route::get('/{order:number}', [CheckoutController::class, 'show'])->name('show');

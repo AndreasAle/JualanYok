@@ -190,6 +190,12 @@ class PaymentService
             ->first();
 
         if (! $payment) {
+            $planPayment = app(PlanPaymentService::class)->applyGatewayResult($result, $providerKey);
+
+            if ($planPayment) {
+                return null;
+            }
+
             Log::warning('payment.webhook.unknown_reference', [
                 'provider' => $providerKey,
                 'reference' => $result->reference,

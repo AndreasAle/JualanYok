@@ -106,6 +106,23 @@ class Order extends Model
         return $this->hasMany(Refund::class);
     }
 
+    /**
+     * Every order gets its permanent delivery key at creation, so a receipt can
+     * always link the buyer straight to what they bought — account or not.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $order) {
+            $order->access_token ??= Str::random(48);
+        });
+    }
+
+    /** Public, login-free page where the buyer collects their purchase. */
+    public function deliveryUrl(): string
+    {
+        return route('order.access', $this->access_token);
+    }
+
     public function digitalAccesses(): HasMany
     {
         return $this->hasMany(DigitalAccess::class);
