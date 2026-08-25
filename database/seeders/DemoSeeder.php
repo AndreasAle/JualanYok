@@ -49,6 +49,15 @@ class DemoSeeder extends Seeder
         // enrolments and tickets instead of jobs waiting on an idle worker.
         config(['queue.default' => 'sync']);
 
+        /*
+         * Running those listeners inline also means every seeded order tries to
+         * email its receipt. The demo addresses do not exist, so on a server
+         * with real SMTP configured that is a burst of guaranteed bounces
+         * against the sending domain's reputation — and enough of them to trip
+         * the provider's rate limit and abort the seed halfway through.
+         */
+        config(['mail.default' => 'log']);
+
         $admins = $this->createAdmins();
         $customer = $this->createCustomerAccount();
 

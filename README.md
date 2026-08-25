@@ -284,6 +284,51 @@ fee dibebankan ke pembeli, mock masih aktif, atau mode demo masih menyala.
 
 ## Menjual produk digital
 
+### Bagaimana barangnya sampai ke pembeli
+
+Pembeli **tidak perlu punya akun**. Begitu pembayaran lunas:
+
+1. Struk masuk ke emailnya berisi tombol **"Ambil File Kamu"**
+2. Tombol itu membuka `/pesanan/{token}` — halaman miliknya sendiri, tanpa login
+3. Semua file bisa diunduh dari situ, **kapan saja, selamanya**
+
+Penjual tidak melakukan apa pun. Tidak ada file yang dikirim manual lewat chat,
+dan tidak ada penjual yang harus online jam 2 pagi.
+
+**File tidak pernah dilampirkan ke email.** Lampiran mentok di batas 25 MB,
+tidak bisa dicabut atau dibatasi setelah terkirim, dan membuat pembaruan versi
+jadi mustahil.
+
+### Tautannya permanen, kuotanya membatasi
+
+Token di URL itu kredensialnya: 48 karakter acak, menunjuk **satu** pesanan,
+tidak memberi sesi dan tidak menjangkau apa pun selain pesanan itu.
+
+- Setiap unduhan **diperiksa ulang** saat diminta — dicabut? kedaluwarsa? kuota habis?
+- Kuota per file diatur penjual (`download_limit`); kalau habis, halamannya
+  menjelaskan alasannya, bukan sekadar menyembunyikan tombol
+- Halaman ini dikirim dengan header `X-Robots-Tag: noindex, nofollow` —
+  sebagai header, bukan meta tag, karena crawler tanpa JavaScript tidak akan
+  pernah melihat tag yang dirender di sisi klien
+- Token salah dan token yang tidak pernah ada memberi respons identik
+
+### Pembeli lama ikut dapat versi baru
+
+Ini yang tidak bisa dilakukan penyerahan lewat chat. Saat penjual menekan
+**Ganti file**, semua pembeli lama otomatis dikabari lewat email bahwa ada edisi
+baru — di balik tautan yang sama seperti waktu mereka beli, gratis, tanpa beli
+ulang. Entitlement-nya hidup lebih lama daripada transaksinya.
+
+### Kalau pembeli mau punya perpustakaan
+
+Opsional. Tombol **"Simpan ke akunku"** menempelkan pembelian tamu ke akun yang
+sedang login. Tautan aslinya tetap berfungsi setelahnya — mengklaim bersifat
+menambah, bukan mengganti.
+
+Kelas dan membership tetap butuh akun karena menyimpan progres belajar; halaman
+pengambilan menyampaikan itu terus terang, bukan melempar tamu ke dinding login.
+
+
 File yang dijual diatur dari **Dashboard → Produk → (pilih produk) → tab File**.
 Tab ini hanya muncul untuk produk bertipe *Produk Digital*, dan baru tersedia
 setelah produknya tersimpan.
