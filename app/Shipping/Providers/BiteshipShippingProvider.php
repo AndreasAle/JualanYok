@@ -191,7 +191,13 @@ class BiteshipShippingProvider implements ShippingProvider
             throw new RuntimeException('Token Biteship belum dikonfigurasi.');
         }
 
-        return Http::baseUrl(rtrim((string) config('shipping.providers.biteship.base_url'), '/'))
+        $baseUrl = rtrim((string) config('shipping.providers.biteship.base_url'), '/');
+
+        // Endpoint methods already include `/v1`. Accept both documented base URL
+        // styles so an environment value ending in `/v1` never becomes `/v1/v1`.
+        $baseUrl = preg_replace('#/v1$#i', '', $baseUrl) ?: $baseUrl;
+
+        return Http::baseUrl($baseUrl)
             ->withBasicAuth($token, '')
             ->acceptJson()
             ->asJson()

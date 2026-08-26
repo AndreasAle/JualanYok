@@ -182,6 +182,33 @@ class PhysicalMarketplaceTest extends TestCase
             ]);
     }
 
+    public function test_biteship_base_url_does_not_duplicate_api_version(): void
+    {
+        config()->set('shipping.providers.biteship.token', 'test-token');
+        config()->set('shipping.providers.biteship.enabled', true);
+        config()->set('shipping.providers.biteship.base_url', 'https://api.biteship.test/v1');
+
+        Http::fake([
+            'https://api.biteship.test/v1/maps/areas*' => Http::response([
+                'success' => true,
+                'areas' => [[
+                    'id' => 'IDNP6IDNC148IDND780IDZ40123',
+                    'name' => 'Palembang, Sumatera Selatan. 40123',
+                    'postal_code' => '40123',
+                ]],
+            ]),
+        ]);
+
+        $areas = app(BiteshipShippingProvider::class)->searchAreas('Palembang');
+
+        $this->assertCount(1, $areas);
+        Http::assertSent(fn ($request) => str_starts_with(
+            $request->url(),
+            'https://api.biteship.test/v1/maps/areas?',
+        ));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/v1/v1/'));
+    }
+
     /** @return array{0:Order,1:User} */
     private function paidPhysicalOrder(): array
     {
