@@ -9,6 +9,15 @@ type ShippingAddress = { address_line: string; district: string; city: string; p
 type AreaResult = { id: string; name: string; postal_code?: string | null; administrative_division_level_1_name?: string | null; administrative_division_level_2_name?: string | null; administrative_division_level_3_name?: string | null };
 type ShippingQuote = { provider: string; courier_company: string; courier_name: string; courier_type: string; service_name: string; delivery_fee: number; amount: number; insurance_fee: number; duration?: string | null; token: string };
 
+const INDONESIAN_PROVINCES = [
+    'Aceh', 'Sumatera Utara', 'Sumatera Barat', 'Riau', 'Kepulauan Riau', 'Jambi', 'Sumatera Selatan',
+    'Kepulauan Bangka Belitung', 'Bengkulu', 'Lampung', 'DKI Jakarta', 'Jawa Barat', 'Banten',
+    'Jawa Tengah', 'DI Yogyakarta', 'Jawa Timur', 'Bali', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur',
+    'Kalimantan Barat', 'Kalimantan Tengah', 'Kalimantan Selatan', 'Kalimantan Timur', 'Kalimantan Utara',
+    'Sulawesi Utara', 'Gorontalo', 'Sulawesi Tengah', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tenggara',
+    'Maluku', 'Maluku Utara', 'Papua', 'Papua Barat', 'Papua Selatan', 'Papua Tengah', 'Papua Pegunungan', 'Papua Barat Daya',
+];
+
 /**
  * Checkout sheet for both paths: a single "buy now" product, or the whole
  * basket. Submits to the store checkout endpoint, which re-prices everything
@@ -37,8 +46,10 @@ export function CheckoutSheet({
     const fromCart = !product;
     const [quantity, setQuantity] = useState(1);
     const [customPrice, setCustomPrice] = useState(product?.minimum_price ?? 0);
+    const [cityQuery, setCityQuery] = useState('');
     const [areaQuery, setAreaQuery] = useState('');
     const [areas, setAreas] = useState<AreaResult[]>([]);
+    const [areaStage, setAreaStage] = useState<'city' | 'area'>('area');
     const [quotes, setQuotes] = useState<ShippingQuote[]>([]);
     const [shippingBusy, setShippingBusy] = useState(false);
     const [shippingError, setShippingError] = useState('');
@@ -68,16 +79,45 @@ export function CheckoutSheet({
         ? { from_cart: true, items: [] as any[] }
         : { from_cart: false, items: [{ product_id: product!.id, ...(variantId ? { variant_id: variantId } : {}), quantity }] };
 
-    const searchAreas = async () => {
-        if (areaQuery.trim().length < 3) return;
+    const searchAreas = async (stage: 'city' | 'area') => {
+        const typed = stage === 'city' ? cityQuery.trim() : areaQuery.trim();
+        if (typed.length < 3) {
+            setShippingError(`Ketik minimal 3 huruf ${stage === 'city' ? 'kota/kabupaten' : 'kecamatan atau kelurahan'}.`);
+            return;
+        }
+
+        const query = stage === 'city'
+            ? `${typed}, ${data.shipping_address.province}`
+            : `${typed}, ${data.shipping_address.city}, ${data.shipping_address.province}`;
         setShippingBusy(true); setShippingError(''); setAreas([]); setQuotes([]); setData('shipping_quote_token', '');
         try {
-            const response = await fetch(`/${storeUsername}/pengiriman/area?q=${encodeURIComponent(areaQuery.trim())}`, { headers: { Accept: 'application/json' } });
+            const response = await fetch(`/${storeUsername}/pengiriman/area?q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' } });
             const body = await response.json();
             if (!response.ok) throw new Error(body.message ?? 'Area tidak ditemukan.');
+            setAreaStage(stage);
             setAreas(body.areas ?? []);
+            if (!(body.areas ?? []).length) throw new Error('Wilayah tidak ditemukan. Periksa ejaan lalu coba lagi.');
         } catch (error) { setShippingError(error instanceof Error ? error.message : 'Gagal mencari area.'); }
         finally { setShippingBusy(false); }
+    };
+
+    const selectCity = (area: AreaResult) => {
+        const city = area.administrative_division_level_2_name ?? area.name;
+        setCityQuery(city);
+        setAreaQuery('');
+        setAreas([]);
+        setQuotes([]);
+        setData({
+            ...data,
+            shipping_address: {
+                ...data.shipping_address,
+                city,
+                district: '',
+                postal_code: '',
+                area_id: '',
+            },
+            shipping_quote_token: '',
+        });
     };
 
     const selectArea = (area: AreaResult) => {
@@ -89,7 +129,7 @@ export function CheckoutSheet({
             province: area.administrative_division_level_1_name ?? '',
             postal_code: area.postal_code ?? '',
         });
-        setAreaQuery(area.name); setAreas([]); setQuotes([]); setData('shipping_quote_token', '');
+        setAreaQuery(area.administrative_division_level_3_name ?? area.name); setAreas([]); setQuotes([]); setData('shipping_quote_token', '');
     };
 
     const loadQuotes = async () => {
@@ -278,23 +318,64 @@ export function CheckoutSheet({
                         <section className={cn('space-y-4 rounded-2xl border p-4', theme.line)}>
                             <div className="flex items-start gap-3">
                                 <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_oklab,var(--sf-primary)_12%,transparent)] text-[var(--sf-primary)]"><MapPin className="size-4" /></span>
-                                <div><p className="text-sm font-extrabold">Alamat pengiriman</p><p className={cn('text-xs', theme.muted)}>Cari kecamatan/kelurahan lalu pilih layanan kurir.</p></div>
+                                <div><p className="text-sm font-extrabold">Alamat pengiriman</p><p className={cn('text-xs', theme.muted)}>Pilih wilayah berurutan agar ongkir dan kode pos akurat.</p></div>
                             </div>
-                            <Field label="Cari kecamatan atau kode pos" required>
+
+                            <Field label="Provinsi" required error={(errors as Record<string, string>)['shipping_address.province']}>
+                                <select
+                                    value={data.shipping_address.province}
+                                    onChange={(e) => {
+                                        const province = e.target.value;
+                                        setCityQuery(''); setAreaQuery(''); setAreas([]); setQuotes([]); setShippingError('');
+                                        setData({
+                                            ...data,
+                                            shipping_address: { ...data.shipping_address, province, city: '', district: '', postal_code: '', area_id: '' },
+                                            shipping_quote_token: '',
+                                        });
+                                    }}
+                                    className={field}
+                                    required
+                                >
+                                    <option value="">Pilih provinsi</option>
+                                    {INDONESIAN_PROVINCES.map((province) => <option key={province} value={province}>{province}</option>)}
+                                </select>
+                            </Field>
+
+                            <Field label="Kota atau kabupaten" required error={(errors as Record<string, string>)['shipping_address.city']}>
                                 <div className="flex gap-2">
-                                    <input value={areaQuery} onChange={(e) => { setAreaQuery(e.target.value); setData('shipping_address', { ...data.shipping_address, area_id: '' }); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchAreas(); } }} className={field} placeholder="Contoh: Coblong, Bandung" />
-                                    <button type="button" onClick={() => void searchAreas()} className={cn('grid size-12 shrink-0 place-items-center rounded-xl border transition hover:bg-black/5', theme.line)} aria-label="Cari area">{shippingBusy ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
+                                    <input disabled={!data.shipping_address.province} value={cityQuery} onChange={(e) => { setCityQuery(e.target.value); setAreas([]); setData('shipping_address', { ...data.shipping_address, city: '', district: '', postal_code: '', area_id: '' }); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchAreas('city'); } }} className={field} placeholder={data.shipping_address.province ? 'Contoh: Bandung' : 'Pilih provinsi dahulu'} />
+                                    <button type="button" disabled={!data.shipping_address.province} onClick={() => void searchAreas('city')} className={cn('grid size-12 shrink-0 place-items-center rounded-xl border transition hover:bg-black/5 disabled:opacity-40', theme.line)} aria-label="Cari kota atau kabupaten">{shippingBusy && areaStage === 'city' ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
                                 </div>
                             </Field>
-                            {areas.length > 0 && (
+
+                            {areaStage === 'city' && areas.length > 0 && (
                                 <div className={cn('max-h-44 overflow-y-auto rounded-xl border p-1', theme.line)}>
-                                    {areas.map((area) => <button key={area.id} type="button" onClick={() => selectArea(area)} className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold hover:bg-black/5">{area.name}</button>)}
+                                    {Array.from(new Map(areas.map((area) => [area.administrative_division_level_2_name ?? area.name, area])).values()).map((area) => <button key={`${area.id}-city`} type="button" onClick={() => selectCity(area)} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-black/5"><span className="block text-xs font-bold">{area.administrative_division_level_2_name ?? area.name}</span><span className={cn('text-[11px]', theme.muted)}>{area.administrative_division_level_1_name}</span></button>)}
                                 </div>
                             )}
+
+                            {data.shipping_address.city && (
+                                <Field label="Kecamatan atau kelurahan" required error={(errors as Record<string, string>)['shipping_address.area_id']}>
+                                    <div className="flex gap-2">
+                                        <input value={areaQuery} onChange={(e) => { setAreaQuery(e.target.value); setAreas([]); setData('shipping_address', { ...data.shipping_address, district: '', postal_code: '', area_id: '' }); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchAreas('area'); } }} className={field} placeholder="Contoh: Coblong atau Dago" />
+                                        <button type="button" onClick={() => void searchAreas('area')} className={cn('grid size-12 shrink-0 place-items-center rounded-xl border transition hover:bg-black/5', theme.line)} aria-label="Cari kecamatan atau kelurahan">{shippingBusy && areaStage === 'area' ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
+                                    </div>
+                                </Field>
+                            )}
+
+                            {areaStage === 'area' && areas.length > 0 && (
+                                <div className={cn('max-h-48 overflow-y-auto rounded-xl border p-1', theme.line)}>
+                                    {areas.map((area) => <button key={area.id} type="button" onClick={() => selectArea(area)} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-black/5"><span className="block text-xs font-bold">{area.name}</span><span className={cn('text-[11px]', theme.muted)}>{[area.administrative_division_level_3_name, area.administrative_division_level_2_name, area.postal_code].filter(Boolean).join(' · ')}</span></button>)}
+                                </div>
+                            )}
+
                             {data.shipping_address.area_id && (
                                 <>
+                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                                        <strong>Wilayah terpilih:</strong> {[data.shipping_address.district, data.shipping_address.city, data.shipping_address.province, data.shipping_address.postal_code].filter(Boolean).join(', ')}
+                                    </div>
                                     <Field label="Alamat lengkap" required><textarea rows={3} value={data.shipping_address.address_line} onChange={(e) => { setData('shipping_address', { ...data.shipping_address, address_line: e.target.value }); setQuotes([]); setData('shipping_quote_token', ''); }} className={cn(field, 'resize-y')} placeholder="Nama jalan, nomor rumah, RT/RW, patokan" required /></Field>
-                                    <div className="grid grid-cols-2 gap-3"><Field label="Kota"><input value={data.shipping_address.city} onChange={(e) => setData('shipping_address', { ...data.shipping_address, city: e.target.value })} className={field} required /></Field><Field label="Kode pos"><input value={data.shipping_address.postal_code} onChange={(e) => setData('shipping_address', { ...data.shipping_address, postal_code: e.target.value })} className={field} required /></Field></div>
+                                    <Field label="Kode pos" required><input value={data.shipping_address.postal_code} onChange={(e) => setData('shipping_address', { ...data.shipping_address, postal_code: e.target.value })} inputMode="numeric" className={field} required /></Field>
                                     <Field label="Catatan kurir" hint="Opsional"><input value={data.shipping_address.note} onChange={(e) => setData('shipping_address', { ...data.shipping_address, note: e.target.value })} className={field} placeholder="Rumah pagar hitam" /></Field>
                                     <button type="button" onClick={() => void loadQuotes()} disabled={shippingBusy || !data.shipping_address.address_line} className={cn('inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold transition hover:bg-black/5 disabled:opacity-50', theme.line)}>{shippingBusy ? <><Loader2 className="size-4 animate-spin" /> Menghitung ongkir</> : <><Truck className="size-4" /> Cek pilihan kurir</>}</button>
                                 </>

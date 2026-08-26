@@ -15,9 +15,9 @@ use App\Http\Controllers\Creator\PayoutMethodController;
 use App\Http\Controllers\Creator\PlanPaymentController;
 use App\Http\Controllers\Creator\ProductController;
 use App\Http\Controllers\Creator\ProductFileController;
+use App\Http\Controllers\Creator\ShippingController;
 use App\Http\Controllers\Creator\StoreBuilderController;
 use App\Http\Controllers\Creator\StoreSettingsController;
-use App\Http\Controllers\Creator\ShippingController;
 use App\Http\Controllers\Creator\SubscriptionController;
 use App\Http\Controllers\Creator\WithdrawalController;
 use Illuminate\Support\Facades\Route;
@@ -55,6 +55,8 @@ Route::middleware(['auth', 'creator'])
             ->names('products');
         Route::post('/produk/{product}/duplicate', [ProductController::class, 'duplicate'])
             ->name('products.duplicate');
+        Route::patch('/produk/{product}/stok', [ProductController::class, 'updateStock'])
+            ->name('products.stock.update');
 
         /* Deliverables for digital products. Stored privately, never public. */
         Route::prefix('/produk/{product}/files')->name('products.files.')->group(function () {

@@ -10,6 +10,7 @@ use App\Models\DigitalAccess;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Services\InventoryService;
 use App\Services\PlanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,10 @@ use Inertia\Response;
 
 class ProductController extends Controller
 {
-    public function __construct(private readonly PlanService $plans) {}
+    public function __construct(
+        private readonly PlanService $plans,
+        private readonly InventoryService $inventory,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -97,14 +101,26 @@ class ProductController extends Controller
         );
 
         $data = $this->normalizeTypeData($this->validated($request));
+        $initialStock = (int) ($data['initial_stock'] ?? 0);
+        unset($data['initial_stock']);
 
-        $product = DB::transaction(function () use ($store, $data, $request) {
+        $product = DB::transaction(function () use ($store, $data, $request, $initialStock) {
             $product = $store->products()->create($data + [
                 'slug' => $this->uniqueSlug($store->id, $data['name']),
                 'thumbnail_path' => $this->storeThumbnail($request),
             ]);
 
             $this->syncTypeExtras($product);
+
+            if ($product->type === ProductType::Physical && $initialStock > 0) {
+                $this->inventory->setQuantity(
+                    $product->inventories()->whereNull('product_variant_id')->firstOrFail(),
+                    $initialStock,
+                    'initial',
+                    $request->user(),
+                    'Stok awal saat produk dibuat.',
+                );
+            }
 
             return $product;
         });
@@ -126,7 +142,7 @@ class ProductController extends Controller
     {
         $this->authorizeProduct($request, $product);
 
-        $product->load(['media', 'files', 'variants', 'inventories', 'course.sections.lessons', 'event.tickets', 'service.availabilityRules', 'membershipPlans']);
+        $product->load(['media', 'files', 'variants', 'inventories.variant', 'course.sections.lessons', 'event.tickets', 'service.availabilityRules', 'membershipPlans']);
 
         return Inertia::render('Creator/Products/Form', [
             'product' => [
@@ -180,14 +196,19 @@ class ProductController extends Controller
                 ]),
                 'is_deliverable' => $product->isDeliverable(),
                 'variants' => $product->variants,
-                'inventory' => $product->inventories->map(fn (Inventory $i) => [
-                    'id' => $i->id,
-                    'variant_id' => $i->product_variant_id,
-                    'quantity' => $i->quantity,
-                    'reserved' => $i->reserved,
-                    'available' => $i->availableQuantity(),
-                    'track_stock' => (bool) $i->track_stock,
-                ]),
+                'inventory' => $product->inventories
+                    ->when($product->variants->isNotEmpty(), fn ($items) => $items->whereNotNull('product_variant_id'))
+                    ->map(fn (Inventory $i) => [
+                        'id' => $i->id,
+                        'variant_id' => $i->product_variant_id,
+                        'quantity' => $i->quantity,
+                        'reserved' => $i->reserved,
+                        'available' => $i->availableQuantity(),
+                        'track_stock' => (bool) $i->track_stock,
+                        'low_stock_threshold' => $i->low_stock_threshold,
+                        'variant_name' => $i->variant?->name,
+                        'sku' => $i->variant?->sku ?: $product->sku,
+                    ])->values(),
                 'public_url' => route('storefront.product', [$request->user()->store->username, $product->slug]),
             ],
             'types' => $this->typeOptions(),
@@ -201,6 +222,7 @@ class ProductController extends Controller
         $this->authorizeProduct($request, $product);
 
         $data = $this->normalizeTypeData($this->validated($request, $product));
+        unset($data['initial_stock']);
 
         if ($thumbnail = $this->storeThumbnail($request)) {
             // Drop the replaced file, unless it is shared demo artwork.
@@ -249,6 +271,38 @@ class ProductController extends Controller
         return redirect()->route('creator.products.edit', $copy)->with('success', 'Produk diduplikasi.');
     }
 
+    public function updateStock(Request $request, Product $product)
+    {
+        $this->authorizeProduct($request, $product);
+        abort_unless($product->type === ProductType::Physical, 404);
+
+        $data = $request->validate([
+            'inventory_id' => ['required', 'integer'],
+            'quantity' => ['required', 'integer', 'min:0', 'max:100000000'],
+            'low_stock_threshold' => ['required', 'integer', 'min:0', 'max:1000000'],
+            'reason' => ['required', Rule::in(['restock', 'correction', 'damaged', 'return'])],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        /** @var Inventory $inventory */
+        $inventory = $product->inventories()->whereKey($data['inventory_id'])->firstOrFail();
+        $updated = $this->inventory->setQuantity(
+            $inventory,
+            $data['quantity'],
+            $data['reason'],
+            $request->user(),
+            $data['note'] ?? null,
+            $data['low_stock_threshold'],
+        );
+
+        return back()->with('success', sprintf(
+            'Stok %s diperbarui menjadi %d unit (%d tersedia).',
+            $updated->variant?->name ?: $product->name,
+            $updated->quantity,
+            $updated->availableQuantity(),
+        ));
+    }
+
     private function validated(Request $request, ?Product $product = null): array
     {
         return $request->validate([
@@ -289,6 +343,13 @@ class ProductController extends Controller
                 'max:500',
             ],
             'custom_fields' => ['nullable', 'array'],
+            'initial_stock' => [
+                Rule::requiredIf($request->input('type') === ProductType::Physical->value && ! $product),
+                'nullable',
+                'integer',
+                'min:0',
+                'max:100000000',
+            ],
         ]);
     }
 

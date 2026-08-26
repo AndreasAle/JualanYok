@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
-import { BadgeCheck, ExternalLink, Link2, ShoppingBag, Sparkles, Trash2 } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { BadgeCheck, Boxes, ExternalLink, Link2, ShoppingBag, Sparkles, Trash2 } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { ImageUpload } from '@/components/image-upload';
 import { ProductFiles, type ProductFileItem, type UploadLimits } from '@/components/product-files';
@@ -67,6 +67,7 @@ export default function ProductForm({
         affiliate_enabled: product?.affiliate_enabled ?? false,
         external_url: product?.external_url ?? '',
         custom_fields: product?.custom_fields ?? [],
+        initial_stock: 0,
         thumbnail: null as File | null,
     });
 
@@ -441,12 +442,14 @@ export default function ProductForm({
                                         </Field>
                                     </div>
 
+                                    {currentType?.needs_shipping && !editing && (
+                                        <Field label="Stok awal" required error={serverErrors.initial_stock} hint="Jumlah unit yang siap dijual saat produk dibuat." htmlFor="initial-stock">
+                                            <Input id="initial-stock" type="number" min={0} value={data.initial_stock} onChange={(e) => setData('initial_stock', Number(e.target.value))} />
+                                        </Field>
+                                    )}
+
                                     {currentType?.needs_shipping && editing && (
-                                        <Alert tone="info" title="Stok produk fisik">
-                                            Stok tercatat di{' '}
-                                            <strong>{product?.inventory?.[0]?.available ?? 0}</strong> unit tersedia.
-                                            Stok dikunci saat checkout supaya nggak kejual dobel.
-                                        </Alert>
+                                        <StockEditor productId={product.id} inventories={product.inventory ?? []} />
                                     )}
                                 </CardBody>
                             </Card>
@@ -718,5 +721,108 @@ export default function ProductForm({
                 </div>
             </form>
         </DashboardLayout>
+    );
+}
+
+type InventoryItem = {
+    id: number;
+    variant_id: number | null;
+    variant_name?: string | null;
+    sku?: string | null;
+    quantity: number;
+    reserved: number;
+    available: number;
+    low_stock_threshold: number;
+};
+
+function StockEditor({ productId, inventories }: { productId: number; inventories: InventoryItem[] }) {
+    if (inventories.length === 0) {
+        return <Alert tone="warning" title="Inventori belum tersedia">Simpan perubahan produk sekali lagi untuk membuat inventori.</Alert>;
+    }
+
+    return (
+        <section className="space-y-3 rounded-2xl border border-line bg-surface-2 p-4">
+            <div className="flex items-start gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-700"><Boxes className="size-5" /></span>
+                <div>
+                    <p className="text-sm font-extrabold">Inventori produk</p>
+                    <p className="mt-0.5 text-xs text-muted">Setiap perubahan dicatat. Unit dalam checkout tetap dikunci agar tidak terjual dua kali.</p>
+                </div>
+            </div>
+            <div className="space-y-3">
+                {inventories.map((inventory) => (
+                    <StockRow key={inventory.id} productId={productId} inventory={inventory} />
+                ))}
+            </div>
+        </section>
+    );
+}
+
+function StockRow({ productId, inventory }: { productId: number; inventory: InventoryItem }) {
+    const [quantity, setQuantity] = useState(inventory.quantity);
+    const [threshold, setThreshold] = useState(inventory.low_stock_threshold);
+    const [reason, setReason] = useState('restock');
+    const [note, setNote] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        setQuantity(inventory.quantity);
+        setThreshold(inventory.low_stock_threshold);
+    }, [inventory.quantity, inventory.low_stock_threshold]);
+
+    const save = () => {
+        setError('');
+        router.patch(`/dashboard/produk/${productId}/stok`, {
+            inventory_id: inventory.id,
+            quantity,
+            low_stock_threshold: threshold,
+            reason,
+            note,
+        }, {
+            preserveScroll: true,
+            onStart: () => setBusy(true),
+            onFinish: () => setBusy(false),
+            onSuccess: () => setNote(''),
+            onError: (errors) => setError(String(errors.quantity ?? errors.inventory_id ?? errors.reason ?? 'Stok gagal diperbarui.')),
+        });
+    };
+
+    return (
+        <div className="rounded-xl border border-line bg-surface p-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <p className="text-sm font-bold">{inventory.variant_name || 'Stok utama'}</p>
+                    {inventory.sku && <p className="text-xs text-muted">SKU {inventory.sku}</p>}
+                </div>
+                <div className="flex gap-2 text-center text-xs">
+                    <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">{inventory.available} tersedia</span>
+                    {inventory.reserved > 0 && <span className="rounded-lg bg-amber-50 px-3 py-1.5 font-semibold text-amber-700">{inventory.reserved} dikunci</span>}
+                </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Total stok" required>
+                    <Input type="number" min={inventory.reserved} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
+                </Field>
+                <Field label="Peringatan stok rendah">
+                    <Input type="number" min={0} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} />
+                </Field>
+                <Field label="Alasan perubahan">
+                    <Select value={reason} onChange={(e) => setReason(e.target.value)}>
+                        <option value="restock">Stok masuk / restock</option>
+                        <option value="return">Barang dikembalikan</option>
+                        <option value="damaged">Rusak atau hilang</option>
+                        <option value="correction">Koreksi stok opname</option>
+                    </Select>
+                </Field>
+                <Field label="Catatan" hint="Opsional, untuk jejak tim.">
+                    <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Contoh: stok gudang 26 Agustus" />
+                </Field>
+            </div>
+            {error && <p className="mt-3 text-xs font-semibold text-rose-600">{error}</p>}
+            <button type="button" onClick={save} disabled={busy || quantity < inventory.reserved} className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-ink px-4 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50">
+                {busy ? 'Menyimpan...' : 'Perbarui stok'}
+            </button>
+        </div>
     );
 }
