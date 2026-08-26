@@ -2,16 +2,15 @@
 
 namespace Tests\Feature;
 
-use App\Enums\FulfillmentStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProductType;
 use App\Models\Order;
-use App\Models\OrderDispute;
 use App\Models\Refund;
 use App\Models\Role;
 use App\Models\Shipment;
 use App\Models\StoreShippingProfile;
+use App\Models\User;
 use App\Payments\PaymentResult;
 use App\Services\CheckoutService;
 use App\Services\DisputeService;
@@ -156,7 +155,34 @@ class PhysicalMarketplaceTest extends TestCase
         });
     }
 
-    /** @return array{0:Order,1:\App\Models\User} */
+    public function test_storefront_area_search_explains_biteship_authentication_failure(): void
+    {
+        config()->set('shipping.default', 'biteship');
+        config()->set('shipping.providers.biteship.enabled', true);
+        config()->set('shipping.providers.biteship.token', 'invalid-live-token');
+        config()->set('shipping.providers.biteship.base_url', 'https://api.biteship.test/v1');
+
+        Http::fake([
+            'https://api.biteship.test/*maps/areas*' => Http::response([
+                'success' => false,
+                'message' => 'Authorization failed',
+            ], 401),
+        ]);
+
+        $store = $this->makeStore();
+
+        $this->getJson(route('storefront.shipping.areas', [
+            'store' => $store,
+            'q' => 'palembang',
+        ]))
+            ->assertStatus(503)
+            ->assertJson([
+                'code' => 'SHIPPING_AUTH_FAILED',
+                'message' => 'Koneksi Biteship belum valid. Admin perlu memperbarui token API pengiriman.',
+            ]);
+    }
+
+    /** @return array{0:Order,1:User} */
     private function paidPhysicalOrder(): array
     {
         $owner = $this->makeUser([Role::CREATOR]);
