@@ -194,7 +194,7 @@ class PhysicalMarketplaceTest extends TestCase
                 'areas' => [[
                     'id' => 'IDNP6IDNC148IDND780IDZ40123',
                     'name' => 'Palembang, Sumatera Selatan. 40123',
-                    'postal_code' => '40123',
+                    'postal_code' => 40123,
                 ]],
             ]),
         ]);
@@ -202,6 +202,7 @@ class PhysicalMarketplaceTest extends TestCase
         $areas = app(BiteshipShippingProvider::class)->searchAreas('Palembang');
 
         $this->assertCount(1, $areas);
+        $this->assertSame('40123', $areas[0]['postal_code']);
         Http::assertSent(fn ($request) => str_starts_with(
             $request->url(),
             'https://api.biteship.test/v1/maps/areas?',

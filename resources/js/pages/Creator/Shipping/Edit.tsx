@@ -5,7 +5,7 @@ import DashboardLayout from '@/layouts/DashboardLayout';
 import { PageHeader } from '@/components/shared';
 import { Alert, Button, Card, CardBody, CardHeader, CardTitle, Field, Input, Select, Switch, Textarea } from '@/components/ui';
 
-type Area = { id: string; name: string; postal_code?: string; administrative_division_level_1_name?: string; administrative_division_level_2_name?: string; administrative_division_level_3_name?: string };
+type Area = { id: string; name: string; postal_code?: string | number; administrative_division_level_1_name?: string; administrative_division_level_2_name?: string; administrative_division_level_3_name?: string };
 
 const courierNames: Record<string, string> = {
     jne: 'JNE', sicepat: 'SiCepat', anteraja: 'AnterAja', jnt: 'J&T Express', ninja: 'Ninja Xpress', tiki: 'TIKI', pos: 'Pos Indonesia', grab: 'GrabExpress', gojek: 'GoSend', paxel: 'Paxel', lion: 'Lion Parcel', idexpress: 'ID Express',
@@ -17,7 +17,7 @@ export default function ShippingEdit({ profile, provider, webhookUrl, webhookHea
         contact_name: profile?.contact_name ?? '', contact_phone: profile?.contact_phone ?? '', contact_email: profile?.contact_email ?? '', address_line: profile?.address_line ?? '', district: profile?.district ?? '', city: profile?.city ?? '', province: profile?.province ?? '', postal_code: profile?.postal_code ?? '', area_id: profile?.area_id ?? '', note: profile?.note ?? '', collection_method: profile?.collection_method ?? 'pickup', enabled_couriers: profile?.enabled_couriers ?? provider.couriers, default_insurance: profile?.default_insurance ?? false, is_active: profile?.is_active ?? true,
     });
     const findAreas = async () => { if (query.trim().length < 3) return; setSearching(true); setSearchError(''); try { const response = await fetch(`/dashboard/pengiriman/area?q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' } }); const body = await response.json(); if (!response.ok) throw new Error(body.message ?? 'Area tidak ditemukan.'); setAreas(body.areas ?? []); } catch (error) { setSearchError(error instanceof Error ? error.message : 'Gagal mencari area.'); } finally { setSearching(false); } };
-    const choose = (area: Area) => { setData({ ...data, area_id: area.id, district: area.administrative_division_level_3_name ?? area.name, city: area.administrative_division_level_2_name ?? '', province: area.administrative_division_level_1_name ?? '', postal_code: area.postal_code ?? '' }); setQuery(area.name); setAreas([]); };
+    const choose = (area: Area) => { setData({ ...data, area_id: area.id, district: area.administrative_division_level_3_name ?? area.name, city: area.administrative_division_level_2_name ?? '', province: area.administrative_division_level_1_name ?? '', postal_code: area.postal_code == null ? '' : String(area.postal_code) }); setQuery(area.name); setAreas([]); };
     const toggleCourier = (courier: string) => setData('enabled_couriers', data.enabled_couriers.includes(courier) ? data.enabled_couriers.filter((item: string) => item !== courier) : [...data.enabled_couriers, courier]);
     const submit = (event: FormEvent) => { event.preventDefault(); put('/dashboard/pengiriman', { preserveScroll: true }); };
     return <DashboardLayout title="Pengiriman" area="creator">

@@ -37,6 +37,15 @@ class ShippingController extends Controller
     public function quotes(Request $request, Store $store): JsonResponse
     {
         abort_unless($store->isLive(), 404);
+
+        // Biteship may serialize postal codes as JSON numbers. Normalize the
+        // scalar before validation so a valid selected area is not rejected.
+        $shippingAddress = $request->input('shipping_address');
+        if (is_array($shippingAddress) && isset($shippingAddress['postal_code']) && is_scalar($shippingAddress['postal_code'])) {
+            $shippingAddress['postal_code'] = (string) $shippingAddress['postal_code'];
+            $request->merge(['shipping_address' => $shippingAddress]);
+        }
+
         $data = $request->validate([
             'from_cart' => ['nullable', 'boolean'],
             'items' => ['required_without:from_cart', 'array'],

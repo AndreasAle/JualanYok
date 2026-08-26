@@ -34,7 +34,9 @@ class BiteshipShippingProvider implements ShippingProvider
             ->map(fn (array $area) => [
                 'id' => $area['id'] ?? null,
                 'name' => $area['name'] ?? $area['display_name'] ?? null,
-                'postal_code' => $area['postal_code'] ?? null,
+                'postal_code' => filled($area['postal_code'] ?? null)
+                    ? (string) $area['postal_code']
+                    : null,
                 'administrative_division_level_1_name' => $area['administrative_division_level_1_name'] ?? null,
                 'administrative_division_level_2_name' => $area['administrative_division_level_2_name'] ?? null,
                 'administrative_division_level_3_name' => $area['administrative_division_level_3_name'] ?? null,

@@ -6,7 +6,7 @@ import type { StorefrontTheme } from '@/lib/storefront-theme';
 import type { CartPayload, StorefrontProduct } from '@/types';
 
 type ShippingAddress = { address_line: string; district: string; city: string; province: string; postal_code: string; area_id: string; note: string };
-type AreaResult = { id: string; name: string; postal_code?: string | null; administrative_division_level_1_name?: string | null; administrative_division_level_2_name?: string | null; administrative_division_level_3_name?: string | null };
+type AreaResult = { id: string; name: string; postal_code?: string | number | null; administrative_division_level_1_name?: string | null; administrative_division_level_2_name?: string | null; administrative_division_level_3_name?: string | null };
 type ShippingQuote = { provider: string; courier_company: string; courier_name: string; courier_type: string; service_name: string; delivery_fee: number; amount: number; insurance_fee: number; duration?: string | null; token: string };
 
 /**
@@ -104,7 +104,7 @@ export function CheckoutSheet({
             district: area.administrative_division_level_3_name ?? area.name,
             city: area.administrative_division_level_2_name ?? '',
             province: area.administrative_division_level_1_name ?? '',
-            postal_code: area.postal_code ?? '',
+            postal_code: area.postal_code == null ? '' : String(area.postal_code),
         };
         setData('shipping_address', address);
         setAreaQuery(area.administrative_division_level_3_name ?? area.name); setAreas([]); setQuotes([]); setData('shipping_quote_token', '');
