@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { Loader2, MapPin, Minus, Plus, Search, ShieldCheck, Truck, X } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { cn, formatIDR, uid } from '@/lib/utils';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
 import type { CartPayload, StorefrontProduct } from '@/types';
@@ -8,15 +8,6 @@ import type { CartPayload, StorefrontProduct } from '@/types';
 type ShippingAddress = { address_line: string; district: string; city: string; province: string; postal_code: string; area_id: string; note: string };
 type AreaResult = { id: string; name: string; postal_code?: string | null; administrative_division_level_1_name?: string | null; administrative_division_level_2_name?: string | null; administrative_division_level_3_name?: string | null };
 type ShippingQuote = { provider: string; courier_company: string; courier_name: string; courier_type: string; service_name: string; delivery_fee: number; amount: number; insurance_fee: number; duration?: string | null; token: string };
-
-const INDONESIAN_PROVINCES = [
-    'Aceh', 'Sumatera Utara', 'Sumatera Barat', 'Riau', 'Kepulauan Riau', 'Jambi', 'Sumatera Selatan',
-    'Kepulauan Bangka Belitung', 'Bengkulu', 'Lampung', 'DKI Jakarta', 'Jawa Barat', 'Banten',
-    'Jawa Tengah', 'DI Yogyakarta', 'Jawa Timur', 'Bali', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur',
-    'Kalimantan Barat', 'Kalimantan Tengah', 'Kalimantan Selatan', 'Kalimantan Timur', 'Kalimantan Utara',
-    'Sulawesi Utara', 'Gorontalo', 'Sulawesi Tengah', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tenggara',
-    'Maluku', 'Maluku Utara', 'Papua', 'Papua Barat', 'Papua Selatan', 'Papua Tengah', 'Papua Pegunungan', 'Papua Barat Daya',
-];
 
 /**
  * Checkout sheet for both paths: a single "buy now" product, or the whole
@@ -46,13 +37,13 @@ export function CheckoutSheet({
     const fromCart = !product;
     const [quantity, setQuantity] = useState(1);
     const [customPrice, setCustomPrice] = useState(product?.minimum_price ?? 0);
-    const [cityQuery, setCityQuery] = useState('');
     const [areaQuery, setAreaQuery] = useState('');
     const [areas, setAreas] = useState<AreaResult[]>([]);
-    const [areaStage, setAreaStage] = useState<'city' | 'area'>('area');
     const [quotes, setQuotes] = useState<ShippingQuote[]>([]);
     const [shippingBusy, setShippingBusy] = useState(false);
     const [shippingError, setShippingError] = useState('');
+    const areaSearchSequence = useRef(0);
+    const areaSearchTimer = useRef<number | null>(null);
 
     const { data, setData, post, transform, processing, errors } = useForm({
         items: [] as any[],
@@ -79,79 +70,95 @@ export function CheckoutSheet({
         ? { from_cart: true, items: [] as any[] }
         : { from_cart: false, items: [{ product_id: product!.id, ...(variantId ? { variant_id: variantId } : {}), quantity }] };
 
-    const searchAreas = async (stage: 'city' | 'area') => {
-        const typed = stage === 'city' ? cityQuery.trim() : areaQuery.trim();
+    const searchAreas = async (queryOverride?: string) => {
+        if (areaSearchTimer.current !== null) {
+            window.clearTimeout(areaSearchTimer.current);
+            areaSearchTimer.current = null;
+        }
+        const typed = (queryOverride ?? areaQuery).trim();
         if (typed.length < 3) {
-            setShippingError(`Ketik minimal 3 huruf ${stage === 'city' ? 'kota/kabupaten' : 'kecamatan atau kelurahan'}.`);
+            setShippingError('Ketik minimal 3 huruf kecamatan, kota, provinsi, atau kode pos.');
             return;
         }
-
-        const query = stage === 'city'
-            ? `${typed}, ${data.shipping_address.province}`
-            : `${typed}, ${data.shipping_address.city}, ${data.shipping_address.province}`;
+        const requestId = ++areaSearchSequence.current;
         setShippingBusy(true); setShippingError(''); setAreas([]); setQuotes([]); setData('shipping_quote_token', '');
         try {
-            const response = await fetch(`/${storeUsername}/pengiriman/area?q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' } });
+            const response = await fetch(`/${storeUsername}/pengiriman/area?q=${encodeURIComponent(typed)}`, { headers: { Accept: 'application/json' } });
             const body = await response.json();
+            if (requestId !== areaSearchSequence.current) return;
             if (!response.ok) throw new Error(body.message ?? 'Area tidak ditemukan.');
-            setAreaStage(stage);
             setAreas(body.areas ?? []);
             if (!(body.areas ?? []).length) throw new Error('Wilayah tidak ditemukan. Periksa ejaan lalu coba lagi.');
-        } catch (error) { setShippingError(error instanceof Error ? error.message : 'Gagal mencari area.'); }
-        finally { setShippingBusy(false); }
-    };
-
-    const selectCity = (area: AreaResult) => {
-        const city = area.administrative_division_level_2_name ?? area.name;
-        setCityQuery(city);
-        setAreaQuery('');
-        setAreas([]);
-        setQuotes([]);
-        setData({
-            ...data,
-            shipping_address: {
-                ...data.shipping_address,
-                city,
-                district: '',
-                postal_code: '',
-                area_id: '',
-            },
-            shipping_quote_token: '',
-        });
+        } catch (error) {
+            if (requestId === areaSearchSequence.current) setShippingError(error instanceof Error ? error.message : 'Gagal mencari area.');
+        } finally {
+            if (requestId === areaSearchSequence.current) setShippingBusy(false);
+        }
     };
 
     const selectArea = (area: AreaResult) => {
-        setData('shipping_address', {
+        areaSearchSequence.current += 1;
+        const address = {
             ...data.shipping_address,
             area_id: area.id,
             district: area.administrative_division_level_3_name ?? area.name,
             city: area.administrative_division_level_2_name ?? '',
             province: area.administrative_division_level_1_name ?? '',
             postal_code: area.postal_code ?? '',
-        });
+        };
+        setData('shipping_address', address);
         setAreaQuery(area.administrative_division_level_3_name ?? area.name); setAreas([]); setQuotes([]); setData('shipping_quote_token', '');
+
+        if (address.address_line.trim()) {
+            void loadQuotes(address);
+        }
     };
 
-    const loadQuotes = async () => {
+    const loadQuotes = async (address: ShippingAddress = data.shipping_address) => {
         setShippingBusy(true); setShippingError(''); setQuotes([]); setData('shipping_quote_token', '');
         try {
             const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
             const response = await fetch(`/${storeUsername}/pengiriman/tarif`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf },
-                body: JSON.stringify({ ...linesPayload, shipping_address: data.shipping_address }),
+                body: JSON.stringify({ ...linesPayload, shipping_address: address }),
             });
             const body = await response.json();
             if (!response.ok) throw new Error(body.message ?? Object.values(body.errors ?? {})[0] ?? 'Tarif tidak tersedia.');
-            setQuotes(body.quotes ?? []);
-            if (!(body.quotes ?? []).length) throw new Error('Belum ada layanan kurir ke alamat ini.');
+            const nextQuotes = body.quotes ?? [];
+            setQuotes(nextQuotes);
+            if (!nextQuotes.length) throw new Error('Belum ada layanan kurir ke alamat ini.');
+            setData('shipping_quote_token', nextQuotes[0].token);
         } catch (error) { setShippingError(error instanceof Error ? error.message : 'Gagal memuat ongkir.'); }
         finally { setShippingBusy(false); }
     };
+
+    useEffect(() => {
+        const query = areaQuery.trim();
+        if (!hasPhysical || data.shipping_address.area_id || query.length < 3) return;
+
+        areaSearchTimer.current = window.setTimeout(() => void searchAreas(query), 500);
+        return () => {
+            if (areaSearchTimer.current !== null) window.clearTimeout(areaSearchTimer.current);
+        };
+        // Search is deliberately debounced from the buyer's current input.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [areaQuery, data.shipping_address.area_id, hasPhysical]);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
 
         if (isPreview) return;
+
+        if (hasPhysical && !data.shipping_address.area_id) {
+            setShippingError('Pilih satu wilayah dari hasil pencarian alamat.');
+            return;
+        }
+
+        if (hasPhysical && !data.shipping_quote_token) {
+            setShippingError('Pilihan kurir belum tersedia. Lengkapi alamat lalu tampilkan ongkir.');
+            if (data.shipping_address.address_line.trim()) void loadQuotes();
+            return;
+        }
 
         transform((current) => ({
             ...current,
@@ -304,12 +311,13 @@ export function CheckoutSheet({
                         />
                     </Field>
 
-                    <Field label="Nomor WhatsApp" error={errors.phone} hint="Dipakai untuk konfirmasi pembayaran.">
+                    <Field label={hasPhysical ? 'Nomor HP penerima' : 'Nomor WhatsApp'} required={hasPhysical} error={errors.phone} hint={hasPhysical ? 'Dipakai kurir dan untuk konfirmasi pesanan.' : 'Dipakai untuk konfirmasi pembayaran.'}>
                         <input
                             type="tel"
                             value={data.phone}
                             onChange={(e) => setData('phone', e.target.value)}
                             autoComplete="tel"
+                            required={hasPhysical}
                             className={field}
                         />
                     </Field>
@@ -318,78 +326,102 @@ export function CheckoutSheet({
                         <section className={cn('space-y-4 rounded-2xl border p-4', theme.line)}>
                             <div className="flex items-start gap-3">
                                 <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_oklab,var(--sf-primary)_12%,transparent)] text-[var(--sf-primary)]"><MapPin className="size-4" /></span>
-                                <div><p className="text-sm font-extrabold">Alamat pengiriman</p><p className={cn('text-xs', theme.muted)}>Pilih wilayah berurutan agar ongkir dan kode pos akurat.</p></div>
+                                <div><p className="text-sm font-extrabold">Alamat pengiriman</p><p className={cn('text-xs', theme.muted)}>Isi detail alamat, lalu pilih wilayah dari hasil pencarian.</p></div>
                             </div>
 
-                            <Field label="Provinsi" required error={(errors as Record<string, string>)['shipping_address.province']}>
-                                <select
-                                    value={data.shipping_address.province}
-                                    onChange={(e) => {
-                                        const province = e.target.value;
-                                        setCityQuery(''); setAreaQuery(''); setAreas([]); setQuotes([]); setShippingError('');
-                                        setData({
-                                            ...data,
-                                            shipping_address: { ...data.shipping_address, province, city: '', district: '', postal_code: '', area_id: '' },
-                                            shipping_quote_token: '',
-                                        });
-                                    }}
-                                    className={field}
-                                    required
-                                >
-                                    <option value="">Pilih provinsi</option>
-                                    {INDONESIAN_PROVINCES.map((province) => <option key={province} value={province}>{province}</option>)}
-                                </select>
-                            </Field>
-
-                            <Field label="Kota atau kabupaten" required error={(errors as Record<string, string>)['shipping_address.city']}>
-                                <div className="flex gap-2">
-                                    <input disabled={!data.shipping_address.province} value={cityQuery} onChange={(e) => { setCityQuery(e.target.value); setAreas([]); setData('shipping_address', { ...data.shipping_address, city: '', district: '', postal_code: '', area_id: '' }); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchAreas('city'); } }} className={field} placeholder={data.shipping_address.province ? 'Contoh: Bandung' : 'Pilih provinsi dahulu'} />
-                                    <button type="button" disabled={!data.shipping_address.province} onClick={() => void searchAreas('city')} className={cn('grid size-12 shrink-0 place-items-center rounded-xl border transition hover:bg-black/5 disabled:opacity-40', theme.line)} aria-label="Cari kota atau kabupaten">{shippingBusy && areaStage === 'city' ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
-                                </div>
-                            </Field>
-
-                            {areaStage === 'city' && areas.length > 0 && (
-                                <div className={cn('max-h-44 overflow-y-auto rounded-xl border p-1', theme.line)}>
-                                    {Array.from(new Map(areas.map((area) => [area.administrative_division_level_2_name ?? area.name, area])).values()).map((area) => <button key={`${area.id}-city`} type="button" onClick={() => selectCity(area)} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-black/5"><span className="block text-xs font-bold">{area.administrative_division_level_2_name ?? area.name}</span><span className={cn('text-[11px]', theme.muted)}>{area.administrative_division_level_1_name}</span></button>)}
-                                </div>
-                            )}
-
-                            {data.shipping_address.city && (
-                                <Field label="Kecamatan atau kelurahan" required error={(errors as Record<string, string>)['shipping_address.area_id']}>
-                                    <div className="flex gap-2">
-                                        <input value={areaQuery} onChange={(e) => { setAreaQuery(e.target.value); setAreas([]); setData('shipping_address', { ...data.shipping_address, district: '', postal_code: '', area_id: '' }); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchAreas('area'); } }} className={field} placeholder="Contoh: Coblong atau Dago" />
-                                        <button type="button" onClick={() => void searchAreas('area')} className={cn('grid size-12 shrink-0 place-items-center rounded-xl border transition hover:bg-black/5', theme.line)} aria-label="Cari kecamatan atau kelurahan">{shippingBusy && areaStage === 'area' ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
-                                    </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <Field label="Negara">
+                                    <input value="Indonesia" readOnly className={cn(field, 'cursor-not-allowed opacity-70')} />
                                 </Field>
-                            )}
+                                <Field label="Nama penerima">
+                                    <input value={data.name || 'Isi nama pembeli di atas'} readOnly className={cn(field, 'cursor-not-allowed opacity-70')} />
+                                </Field>
+                            </div>
 
-                            {areaStage === 'area' && areas.length > 0 && (
-                                <div className={cn('max-h-48 overflow-y-auto rounded-xl border p-1', theme.line)}>
-                                    {areas.map((area) => <button key={area.id} type="button" onClick={() => selectArea(area)} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-black/5"><span className="block text-xs font-bold">{area.name}</span><span className={cn('text-[11px]', theme.muted)}>{[area.administrative_division_level_3_name, area.administrative_division_level_2_name, area.postal_code].filter(Boolean).join(' · ')}</span></button>)}
+                            <Field
+                                label="Detail alamat"
+                                required
+                                error={(errors as Record<string, string>)['shipping_address.address_line']}
+                                hint="Tulis nama jalan, nomor rumah, RT/RW, dan patokan agar kurir mudah menemukan lokasi."
+                            >
+                                <textarea
+                                    rows={3}
+                                    value={data.shipping_address.address_line}
+                                    onChange={(e) => {
+                                        setData('shipping_address', { ...data.shipping_address, address_line: e.target.value });
+                                        setQuotes([]); setData('shipping_quote_token', ''); setShippingError('');
+                                    }}
+                                    className={cn(field, 'resize-y')}
+                                    placeholder="Contoh: Jl. Merdeka No. 18, RT 02/RW 04, rumah pagar hitam"
+                                    autoComplete="street-address"
+                                    required
+                                />
+                            </Field>
+
+                            <Field
+                                label="Kecamatan / Kota / Provinsi / Kode Pos"
+                                required
+                                error={(errors as Record<string, string>)['shipping_address.area_id']}
+                                hint="Ketik minimal 3 huruf, lalu wajib pilih salah satu hasil yang tersedia."
+                            >
+                                <div className="relative">
+                                    <div className="flex gap-2">
+                                        <input
+                                            value={areaQuery}
+                                            onChange={(e) => {
+                                                areaSearchSequence.current += 1;
+                                                setAreaQuery(e.target.value); setAreas([]); setQuotes([]); setShippingBusy(false); setShippingError('');
+                                                setData({
+                                                    ...data,
+                                                    shipping_address: { ...data.shipping_address, district: '', city: '', province: '', postal_code: '', area_id: '' },
+                                                    shipping_quote_token: '',
+                                                });
+                                            }}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchAreas(); } }}
+                                            className={field}
+                                            placeholder="Contoh: Ilir Barat I, Palembang atau 30137"
+                                            autoComplete="off"
+                                        />
+                                        <button type="button" onClick={() => void searchAreas()} disabled={shippingBusy} className={cn('grid size-12 shrink-0 place-items-center rounded-xl border transition hover:bg-black/5 disabled:opacity-50', theme.line)} aria-label="Cari wilayah pengiriman">
+                                            {shippingBusy ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                                        </button>
+                                    </div>
+
+                                    {areas.length > 0 && (
+                                        <div className={cn('absolute inset-x-0 top-[calc(100%+0.4rem)] z-20 max-h-60 overflow-y-auto rounded-xl border bg-[var(--sf-card)] p-1 shadow-xl', theme.line)}>
+                                            {areas.map((area) => (
+                                                <button key={area.id} type="button" onClick={() => selectArea(area)} className="block w-full rounded-lg px-3 py-2.5 text-left transition hover:bg-black/5">
+                                                    <span className="block text-xs font-bold">{area.name}</span>
+                                                    <span className={cn('text-[11px]', theme.muted)}>{[area.administrative_division_level_3_name, area.administrative_division_level_2_name, area.administrative_division_level_1_name, area.postal_code].filter(Boolean).join(' · ')}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+                            </Field>
 
                             {data.shipping_address.area_id && (
-                                <>
+                                <div className="space-y-3">
                                     <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-                                        <strong>Wilayah terpilih:</strong> {[data.shipping_address.district, data.shipping_address.city, data.shipping_address.province, data.shipping_address.postal_code].filter(Boolean).join(', ')}
+                                        <strong>Alamat terverifikasi:</strong> {[data.shipping_address.district, data.shipping_address.city, data.shipping_address.province, data.shipping_address.postal_code].filter(Boolean).join(', ')}
                                     </div>
-                                    <Field label="Alamat lengkap" required><textarea rows={3} value={data.shipping_address.address_line} onChange={(e) => { setData('shipping_address', { ...data.shipping_address, address_line: e.target.value }); setQuotes([]); setData('shipping_quote_token', ''); }} className={cn(field, 'resize-y')} placeholder="Nama jalan, nomor rumah, RT/RW, patokan" required /></Field>
                                     <Field label="Kode pos" required><input value={data.shipping_address.postal_code} onChange={(e) => setData('shipping_address', { ...data.shipping_address, postal_code: e.target.value })} inputMode="numeric" className={field} required /></Field>
                                     <Field label="Catatan kurir" hint="Opsional"><input value={data.shipping_address.note} onChange={(e) => setData('shipping_address', { ...data.shipping_address, note: e.target.value })} className={field} placeholder="Rumah pagar hitam" /></Field>
-                                    <button type="button" onClick={() => void loadQuotes()} disabled={shippingBusy || !data.shipping_address.address_line} className={cn('inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold transition hover:bg-black/5 disabled:opacity-50', theme.line)}>{shippingBusy ? <><Loader2 className="size-4 animate-spin" /> Menghitung ongkir</> : <><Truck className="size-4" /> Cek pilihan kurir</>}</button>
-                                </>
+                                    {quotes.length === 0 && (
+                                        <button type="button" onClick={() => void loadQuotes()} disabled={shippingBusy || !data.shipping_address.address_line.trim()} className={cn('inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold transition hover:bg-black/5 disabled:opacity-50', theme.line)}>{shippingBusy ? <><Loader2 className="size-4 animate-spin" /> Menghitung ongkir</> : <><Truck className="size-4" /> Tampilkan pilihan kurir</>}</button>
+                                    )}
+                                </div>
                             )}
                             {shippingError && <p className="rounded-xl bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-800">{shippingError}</p>}
                             {quotes.length > 0 && (
-                                <div className="space-y-2"><p className="text-xs font-bold uppercase tracking-wide">Pilih layanan</p>{quotes.map((quote) => (
+                                <div className="space-y-2"><div className="flex items-center justify-between gap-3"><p className="text-xs font-bold uppercase tracking-wide">Pilih layanan</p><span className={cn('text-[10px] font-semibold', theme.muted)}>Termurah dipilih otomatis</span></div>{quotes.map((quote) => (
                                     <label key={quote.token} className={cn('flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3', theme.line, data.shipping_quote_token === quote.token && 'ring-2 ring-[var(--sf-primary)]')}>
                                         <span className="min-w-0"><span className="block text-sm font-extrabold">{quote.courier_name} · {quote.service_name}</span><span className={cn('block text-xs', theme.muted)}>{quote.duration || 'Estimasi dari kurir'}{quote.insurance_fee > 0 ? ` · termasuk asuransi ${formatIDR(quote.insurance_fee)}` : ''}</span></span>
                                         <span className="flex shrink-0 items-center gap-2"><strong className="text-sm">{formatIDR(quote.amount)}</strong><input type="radio" name="shipping_quote" checked={data.shipping_quote_token === quote.token} onChange={() => setData('shipping_quote_token', quote.token)} /></span>
                                     </label>
                                 ))}</div>
                             )}
-                            {(errors.shipping_quote_token || (errors as Record<string, string>)['shipping_address.area_id']) && <p className="text-xs text-rose-500">{errors.shipping_quote_token || (errors as Record<string, string>)['shipping_address.area_id']}</p>}
+                            {errors.shipping_quote_token && <p className="text-xs text-rose-500">{errors.shipping_quote_token}</p>}
                         </section>
                     )}
 
@@ -441,10 +473,16 @@ export function CheckoutSheet({
 
                     <button
                         type="submit"
-                        disabled={processing || isPreview || (hasPhysical && !data.shipping_quote_token)}
+                        disabled={processing || isPreview}
                         className={cn(theme.btnPrimary, 'h-13 w-full px-5 text-base shadow-md')}
                     >
-                        Lanjut pilih pembayaran · {formatIDR(checkoutTotal)}
+                        {processing
+                            ? 'Memproses...'
+                            : hasPhysical && !data.shipping_address.area_id
+                              ? 'Lengkapi alamat pengiriman'
+                              : hasPhysical && !data.shipping_quote_token
+                                ? 'Tampilkan pilihan kurir'
+                                : `Lanjut pilih pembayaran · ${formatIDR(checkoutTotal)}`}
                     </button>
 
                     <p className={cn('flex items-center justify-center gap-1.5 text-xs', theme.muted)}>
