@@ -14,6 +14,7 @@ use App\Services\AffiliateService;
 use App\Services\AnalyticsService;
 use App\Services\CartService;
 use App\Services\CheckoutService;
+use App\Services\ShippingService;
 use App\Support\Media;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
@@ -28,6 +29,7 @@ class StorefrontController extends Controller
         private readonly AffiliateService $affiliates,
         private readonly CheckoutService $checkout,
         private readonly CartService $carts,
+        private readonly ShippingService $shipping,
     ) {}
 
     public function show(Request $request, Store $store): Response
@@ -208,6 +210,7 @@ class StorefrontController extends Controller
             'coupon_code' => ['nullable', 'string', 'max:64'],
             'custom_fields' => ['nullable', 'array'],
             'shipping_address' => ['nullable', 'array'],
+            'shipping_quote_token' => ['nullable', 'string', 'max:5000'],
             'marketing_consent' => ['nullable', 'boolean'],
             'terms' => ['accepted'],
             'idempotency_key' => ['required', 'string', 'max:64'],
@@ -225,6 +228,15 @@ class StorefrontController extends Controller
 
         if ($items === []) {
             return back()->withErrors(['items' => 'Keranjang kosong atau semua item sudah tidak tersedia.']);
+        }
+
+        $shipping = null;
+        if ($this->shipping->requiresShipping($store, $items)) {
+            if (blank($data['shipping_quote_token'] ?? null)) {
+                return back()->withErrors(['shipping_quote_token' => 'Pilih alamat dan layanan pengiriman dulu.']);
+            }
+
+            $shipping = $this->shipping->verifyQuote($store, $items, $data['shipping_quote_token']);
         }
 
         $this->analytics->record(
@@ -249,13 +261,25 @@ class StorefrontController extends Controller
                 'coupon_code' => $data['coupon_code'] ?? null,
                 'note' => $data['note'] ?? null,
                 'custom_fields' => $data['custom_fields'] ?? null,
-                'shipping_address' => $data['shipping_address'] ?? null,
+                'shipping_address' => $shipping['destination'] ?? null,
+                'shipping_total' => (float) data_get($shipping, 'quote.amount', 0),
+                'shipping_method' => data_get($shipping, 'quote.service_name'),
+                'shipping_provider' => data_get($shipping, 'quote.provider'),
+                'shipping_service' => data_get($shipping, 'quote.service_name'),
+                'shipping_courier' => data_get($shipping, 'quote.courier_company'),
+                'shipping_courier_type' => data_get($shipping, 'quote.courier_type'),
+                'shipping_insurance' => (float) data_get($shipping, 'quote.insurance_fee', 0),
+                'shipping_quote' => $shipping['quote'] ?? null,
                 'affiliate_code' => $request->cookie('jy_ref'),
                 'user_id' => $request->user()?->id,
                 'utm' => $request->only(['utm_source', 'utm_medium', 'utm_campaign']),
                 'ip' => $request->ip(),
             ],
         );
+
+        if ($shipping) {
+            $this->shipping->saveCustomerAddress($order);
+        }
 
         // Emptied only once the order exists, so a failed checkout keeps the
         // basket the buyer spent time filling.

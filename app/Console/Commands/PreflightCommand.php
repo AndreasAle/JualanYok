@@ -30,6 +30,7 @@ class PreflightCommand extends Command
 
         $this->checkEnvironment();
         $this->checkMoney();
+        $this->checkShipping();
         $this->checkStorage();
         $this->checkMail();
         $this->checkBusinessIdentity();
@@ -194,6 +195,40 @@ class PreflightCommand extends Command
         if (Qris::looksValid($payload)) {
             $this->note('Pembayaran QRIS masuk ke: '.(Qris::merchantName($payload) ?? 'nama merchant tidak terbaca'));
         }
+    }
+
+    private function checkShipping(): void
+    {
+        $provider = (string) config('shipping.default', 'manual');
+
+        if ($provider !== 'biteship') {
+            $this->skip('Biteship tidak dipakai', 'Pengiriman memakai provider manual.');
+
+            return;
+        }
+
+        $config = config('shipping.providers.biteship', []);
+
+        $this->assert(
+            (bool) ($config['enabled'] ?? false),
+            'Biteship aktif',
+            'Gunakan BITESHIP_ENABLED=true ketika SHIPPING_PROVIDER=biteship.',
+        );
+        $this->assert(
+            filled($config['token'] ?? null),
+            'Token API Biteship terisi',
+            'Isi BITESHIP_API_TOKEN dari dashboard Biteship. Jangan simpan token di repository.',
+        );
+        $this->assert(
+            count($config['couriers'] ?? []) > 0,
+            'Daftar kurir Biteship terisi',
+            'Isi BITESHIP_COURIERS minimal dengan satu kode kurir.',
+        );
+        $this->assert(
+            filled($config['webhook_secret'] ?? null),
+            'Webhook pengiriman dilindungi secret',
+            'Isi BITESHIP_WEBHOOK_SECRET dan pasang secret yang sama pada header '.($config['webhook_header'] ?? 'X-Callback-Token').' di dashboard Biteship.',
+        );
     }
 
     private function checkStorage(): void

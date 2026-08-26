@@ -40,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // The payment gateway signs its callbacks; it cannot send a CSRF token.
         $middleware->validateCsrfTokens(except: [
             'webhooks/payments/*',
+            'webhooks/shipping/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

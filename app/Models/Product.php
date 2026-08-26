@@ -30,6 +30,7 @@ class Product extends Model
             'minimum_price' => 'decimal:2',
             'is_pay_what_you_want' => 'boolean',
             'affiliate_enabled' => 'boolean',
+            'is_fragile' => 'boolean',
             'tags' => 'array',
             'custom_fields' => 'array',
             'settings' => 'array',
@@ -217,6 +218,23 @@ class Product extends Model
     public function thumbnailUrl(): ?string
     {
         return Media::url($this->thumbnail_path);
+    }
+
+    public function shippingWeight(?ProductVariant $variant = null): int
+    {
+        return max(1, (int) ($variant?->weight_gram ?: $this->weight_gram ?: 1));
+    }
+
+    /** @return array{length:int,width:int,height:int} */
+    public function shippingDimensions(?ProductVariant $variant = null): array
+    {
+        $variantDimensions = $variant?->dimensions ?? [];
+
+        return [
+            'length' => max(1, (int) ($variantDimensions['length'] ?? $this->length_cm ?: 1)),
+            'width' => max(1, (int) ($variantDimensions['width'] ?? $this->width_cm ?: 1)),
+            'height' => max(1, (int) ($variantDimensions['height'] ?? $this->height_cm ?: 1)),
+        ];
     }
 
     /** Marketplace name shown on cards and outbound buttons. */

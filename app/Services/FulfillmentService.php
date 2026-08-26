@@ -223,10 +223,58 @@ class FulfillmentService
 
     public function markDelivered(Order $order): void
     {
+        $deadline = now()->addDays((int) config('shipping.complaint_window_days', 2));
+
         $order->update([
             'fulfillment_status' => FulfillmentStatus::Delivered,
+            'status' => OrderStatus::Processing,
+            'delivered_at' => $order->delivered_at ?? now(),
+            'complaint_deadline_at' => $order->complaint_deadline_at ?? $deadline,
+            'auto_complete_at' => $order->auto_complete_at ?? $deadline,
+        ]);
+
+        $order->items()->where('product_type', ProductType::Physical->value)
+            ->update(['fulfillment_status' => FulfillmentStatus::Delivered]);
+    }
+
+    public function confirmReceived(Order $order): void
+    {
+        if (! $order->canBuyerConfirmReceipt()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'order' => 'Pesanan belum dapat dikonfirmasi atau sedang dalam proses komplain.',
+            ]);
+        }
+
+        $this->completePhysicalOrder($order, true);
+    }
+
+    public function autoCompleteDelivered(): int
+    {
+        $count = 0;
+
+        Order::where('status', OrderStatus::Processing->value)
+            ->where('fulfillment_status', FulfillmentStatus::Delivered->value)
+            ->whereNotNull('auto_complete_at')
+            ->where('auto_complete_at', '<=', now())
+            ->whereDoesntHave('openDispute')
+            ->chunkById(100, function ($orders) use (&$count) {
+                foreach ($orders as $order) {
+                    $this->completePhysicalOrder($order, false);
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    private function completePhysicalOrder(Order $order, bool $buyerConfirmed): void
+    {
+        $order->update([
             'status' => OrderStatus::Completed,
+            'fulfillment_status' => FulfillmentStatus::Delivered,
             'completed_at' => now(),
+            'buyer_confirmed_at' => $buyerConfirmed ? now() : $order->buyer_confirmed_at,
+            'funds_release_at' => now(),
         ]);
     }
 }

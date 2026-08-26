@@ -7,6 +7,8 @@ use App\Models\Customer;
 use App\Models\DigitalAccess;
 use App\Models\Order;
 use App\Services\DigitalDeliveryService;
+use App\Services\DisputeService;
+use App\Services\FulfillmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Response as HttpResponse;
@@ -26,13 +28,17 @@ use Inertia\Inertia;
  */
 class OrderAccessController extends Controller
 {
-    public function __construct(private readonly DigitalDeliveryService $delivery) {}
+    public function __construct(
+        private readonly DigitalDeliveryService $delivery,
+        private readonly FulfillmentService $fulfillment,
+        private readonly DisputeService $disputes,
+    ) {}
 
     public function show(Request $request, string $token): HttpResponse
     {
         $order = $this->resolve($token);
 
-        $order->load(['items.product', 'store', 'digitalAccesses.file']);
+        $order->load(['items.product', 'store', 'digitalAccesses.file', 'shipment.events', 'openDispute']);
 
 
         return Inertia::render('Order/Access', [
@@ -46,6 +52,29 @@ class OrderAccessController extends Controller
                 'customer_email' => $order->customer_email,
                 'grand_total' => (float) $order->grand_total,
                 'paid_at' => $order->paid_at?->toIso8601String(),
+                'requires_shipping' => $order->requiresShipping(),
+                'fulfillment_label' => $order->fulfillment_status->label(),
+                'tracking_number' => $order->tracking_number,
+                'can_confirm_receipt' => $order->canBuyerConfirmReceipt(),
+                'can_open_dispute' => $order->canOpenDispute(),
+                'complaint_deadline_at' => $order->complaint_deadline_at?->toIso8601String(),
+                'shipment' => $order->shipment ? [
+                    'courier' => $order->shipment->courier_name ?: $order->shipment->courier_company,
+                    'waybill_id' => $order->shipment->waybill_id,
+                    'tracking_url' => $order->shipment->tracking_url,
+                    'status' => $order->shipment->status->value,
+                    'status_label' => $order->shipment->status->label(),
+                    'events' => $order->shipment->events->map(fn ($event) => [
+                        'status' => $event->status,
+                        'description' => $event->description,
+                        'location' => $event->location,
+                        'event_at' => $event->event_at->toIso8601String(),
+                    ]),
+                ] : null,
+                'open_dispute' => $order->openDispute ? [
+                    'number' => $order->openDispute->number,
+                    'status_label' => $order->openDispute->status->label(),
+                ] : null,
                 'items' => $order->items->map(fn ($item) => [
                     'name' => $item->name,
                     'variant_name' => $item->variant_name,
@@ -148,6 +177,29 @@ class OrderAccessController extends Controller
         ])->save();
 
         return back()->with('success', 'Pembelian tersimpan di akunmu.');
+    }
+
+    public function confirmReceipt(Request $request, string $token)
+    {
+        $order = $this->resolve($token)->load('items');
+        $this->fulfillment->confirmReceived($order);
+
+        return back()->with('success', 'Pesanan selesai. Dana kini dapat diteruskan ke penjual.');
+    }
+
+    public function openDispute(Request $request, string $token)
+    {
+        $order = $this->resolve($token)->load('items');
+        $data = $request->validate([
+            'type' => ['required', 'in:not_received,damaged,wrong_item,incomplete,other'],
+            'description' => ['required', 'string', 'min:20', 'max:2000'],
+            'evidence' => ['nullable', 'array', 'max:5'],
+            'evidence.*' => ['url', 'max:1000'],
+        ]);
+
+        $this->disputes->open($order, $data['type'], $data['description'], $request->user(), $data['evidence'] ?? []);
+
+        return back()->with('success', 'Komplain dibuat. Dana penjual ditahan sampai masalah selesai.');
     }
 
     /**

@@ -5,6 +5,7 @@ use App\Http\Controllers\PublicSite\DownloadController;
 use App\Http\Controllers\PublicSite\LandingController;
 use App\Http\Controllers\PublicSite\OrderAccessController;
 use App\Http\Controllers\PublicSite\PaymentWebhookController;
+use App\Http\Controllers\PublicSite\ShippingWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -50,6 +51,12 @@ Route::prefix('pesanan/{token}')->name('order.')->group(function () {
     Route::post('/simpan', [OrderAccessController::class, 'claim'])
         ->middleware(['auth', 'throttle:10,1'])
         ->name('access.claim');
+    Route::post('/diterima', [OrderAccessController::class, 'confirmReceipt'])
+        ->middleware('throttle:10,1')
+        ->name('access.confirm-receipt');
+    Route::post('/komplain', [OrderAccessController::class, 'openDispute'])
+        ->middleware('throttle:5,1')
+        ->name('access.dispute');
 });
 
 Route::prefix('checkout')->name('checkout.')->group(function () {
@@ -76,6 +83,9 @@ Route::post('/pay/simulate/{payment}', [CheckoutController::class, 'simulate'])
 Route::post('/webhooks/payments/{provider}', PaymentWebhookController::class)
     ->middleware('throttle:120,1')
     ->name('webhooks.payments');
+Route::post('/webhooks/shipping/biteship', ShippingWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('webhooks.shipping.biteship');
 
 /*
 |--------------------------------------------------------------------------

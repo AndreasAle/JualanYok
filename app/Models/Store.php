@@ -45,6 +45,11 @@ class Store extends Model
         return $this->hasOne(StoreTheme::class);
     }
 
+    public function shippingProfile(): HasOne
+    {
+        return $this->hasOne(StoreShippingProfile::class);
+    }
+
     public function template(): BelongsTo
     {
         return $this->belongsTo(StorefrontTemplate::class, 'storefront_template_id');

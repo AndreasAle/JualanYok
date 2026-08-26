@@ -243,6 +243,7 @@ class CartService
                 'variant_name' => $item->variant?->name,
                 'slug' => $product->slug,
                 'type_label' => $product->type->label(),
+                'type' => $product->type->value,
                 'thumbnail_url' => $product->thumbnailUrl(),
                 'unit_price' => $current,
                 'quantity' => $item->quantity,

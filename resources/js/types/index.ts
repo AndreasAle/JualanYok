@@ -121,6 +121,7 @@ export interface CartLine {
     variant_name: string | null;
     slug: string;
     type_label: string;
+    type: string;
     thumbnail_url: string | null;
     unit_price: number;
     quantity: number;

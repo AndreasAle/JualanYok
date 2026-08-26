@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PublicSite\CartController;
 use App\Http\Controllers\PublicSite\StorefrontController;
+use App\Http\Controllers\PublicSite\ShippingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -36,6 +37,13 @@ Route::prefix('{store:username}')
         Route::post('/checkout', [StorefrontController::class, 'checkout'])
             ->middleware('throttle:20,1')
             ->name('storefront.checkout');
+
+        Route::get('/pengiriman/area', [ShippingController::class, 'areas'])
+            ->middleware('throttle:30,1')
+            ->name('storefront.shipping.areas');
+        Route::post('/pengiriman/tarif', [ShippingController::class, 'quotes'])
+            ->middleware('throttle:20,1')
+            ->name('storefront.shipping.quotes');
 
         /* Basket. Guest-friendly; identified by a per-store cookie. */
         Route::middleware('throttle:60,1')->group(function () {

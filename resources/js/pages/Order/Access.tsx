@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowUpRight, BadgeCheck, BookOpen, Check, Copy, Download, FileText, Infinity as InfinityIcon,
-    Link2, Lock, MessageCircle, ShieldCheck, Sparkles, Store,
+    AlertTriangle, Link2, Lock, MapPin, MessageCircle, PackageCheck, ShieldCheck, Sparkles, Store, Truck,
 } from 'lucide-react';
 import { useState } from 'react';
 import { formatIDR } from '@/lib/utils';
@@ -58,6 +58,21 @@ export default function OrderAccess({
         customer_email: string;
         grand_total: number;
         paid_at: string | null;
+        requires_shipping: boolean;
+        fulfillment_label: string;
+        tracking_number: string | null;
+        can_confirm_receipt: boolean;
+        can_open_dispute: boolean;
+        complaint_deadline_at: string | null;
+        shipment: null | {
+            courier: string | null;
+            waybill_id: string | null;
+            tracking_url: string | null;
+            status: string;
+            status_label: string;
+            events: Array<{ status: string; description: string | null; location: string | null; event_at: string }>;
+        };
+        open_dispute: null | { number: string; status_label: string };
         items: OrderItem[];
     };
     store: {
@@ -74,6 +89,9 @@ export default function OrderAccess({
 }) {
     const [copied, setCopied] = useState(false);
     const [started, setStarted] = useState<number | null>(null);
+    const [disputeOpen, setDisputeOpen] = useState(false);
+    const [disputeType, setDisputeType] = useState('not_received');
+    const [disputeDescription, setDisputeDescription] = useState('');
 
     const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
     const ready = downloads.filter((file) => file.available);
@@ -154,6 +172,84 @@ export default function OrderAccess({
             </header>
 
             <main className="relative mx-auto -mt-16 max-w-3xl px-5 pb-20 sm:px-6">
+                {order.requires_shipping && (
+                    <section className="rounded-[1.75rem] border border-black/5 bg-white p-5 shadow-[0_24px_60px_-24px_rgba(24,24,40,.35)] sm:p-7 dark:border-white/10 dark:bg-[#15161e]">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <p className="text-[11px] font-black uppercase tracking-[.16em] text-violet-600">Perjalanan paket</p>
+                                <h2 className="mt-1 text-xl font-black">{order.shipment?.status_label ?? order.fulfillment_label}</h2>
+                                <p className="mt-1 text-sm text-black/50 dark:text-white/50">
+                                    {order.shipment?.courier || 'Kurir belum dipilih'}
+                                    {order.shipment?.waybill_id ? ` · ${order.shipment.waybill_id}` : ''}
+                                </p>
+                            </div>
+                            {order.shipment?.tracking_url && (
+                                <a href={order.shipment.tracking_url} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-black/10 px-4 text-sm font-bold hover:border-violet-400 hover:text-violet-600 dark:border-white/15">
+                                    <Truck className="size-4" /> Lacak resmi
+                                </a>
+                            )}
+                        </div>
+
+                        {order.shipment?.events?.length ? (
+                            <ol className="mt-6 space-y-0">
+                                {order.shipment.events.map((event, index) => (
+                                    <li key={`${event.event_at}-${index}`} className="relative flex gap-4 pb-5 last:pb-0">
+                                        {index < order.shipment!.events.length - 1 && <span className="absolute left-[9px] top-5 h-full w-px bg-black/10 dark:bg-white/10" />}
+                                        <span className="relative mt-1 size-[19px] shrink-0 rounded-full border-4 border-violet-100 bg-violet-600 dark:border-violet-950" />
+                                        <div>
+                                            <p className="text-sm font-bold">{event.description || event.status}</p>
+                                            <p className="mt-0.5 flex flex-wrap gap-2 text-xs text-black/45 dark:text-white/45">
+                                                {event.location && <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{event.location}</span>}
+                                                <span>{new Date(event.event_at).toLocaleString('id-ID')}</span>
+                                            </p>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ol>
+                        ) : (
+                            <div className="mt-5 rounded-2xl bg-[#f7f7fb] p-4 text-sm text-black/55 dark:bg-white/[.04] dark:text-white/55">Riwayat perjalanan akan tampil setelah kurir menerima paket.</div>
+                        )}
+
+                        {order.open_dispute ? (
+                            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                                <p className="font-black">Komplain {order.open_dispute.number}</p>
+                                <p className="mt-1">{order.open_dispute.status_label}. Dana penjual tetap ditahan selama peninjauan.</p>
+                            </div>
+                        ) : (
+                            <div className="mt-5 flex flex-wrap gap-2 border-t border-black/5 pt-5 dark:border-white/10">
+                                {order.can_confirm_receipt && (
+                                    <button type="button" onClick={() => router.post(`/pesanan/${order.token}/diterima`, {}, { preserveScroll: true })} className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700">
+                                        <PackageCheck className="size-4" /> Pesanan sudah diterima
+                                    </button>
+                                )}
+                                {order.can_open_dispute && (
+                                    <button type="button" onClick={() => setDisputeOpen((value) => !value)} className="inline-flex h-11 items-center gap-2 rounded-xl border border-red-200 px-4 text-sm font-bold text-red-600 hover:bg-red-50">
+                                        <AlertTriangle className="size-4" /> Ada masalah
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {disputeOpen && !order.open_dispute && (
+                            <form className="mt-4 space-y-3 rounded-2xl border border-red-100 bg-red-50/60 p-4" onSubmit={(event) => {
+                                event.preventDefault();
+                                router.post(`/pesanan/${order.token}/komplain`, { type: disputeType, description: disputeDescription }, { preserveScroll: true, onSuccess: () => setDisputeOpen(false) });
+                            }}>
+                                <p className="font-black">Ceritakan masalah pesanan</p>
+                                <select value={disputeType} onChange={(event) => setDisputeType(event.target.value)} className="h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm">
+                                    <option value="not_received">Barang belum diterima</option>
+                                    <option value="damaged">Barang rusak</option>
+                                    <option value="wrong_item">Barang tidak sesuai</option>
+                                    <option value="incomplete">Barang kurang</option>
+                                    <option value="other">Masalah lainnya</option>
+                                </select>
+                                <textarea value={disputeDescription} onChange={(event) => setDisputeDescription(event.target.value)} minLength={20} required rows={4} placeholder="Jelaskan kronologi dengan lengkap (minimal 20 karakter)." className="w-full rounded-xl border border-black/10 bg-white p-3 text-sm" />
+                                <button type="submit" className="h-11 rounded-xl bg-red-600 px-5 text-sm font-black text-white">Kirim komplain</button>
+                            </form>
+                        )}
+                    </section>
+                )}
+
                 {/* Downloads — the reason this page exists, so it leads. */}
                 {downloads.length > 0 && (
                     <section className="rounded-[1.75rem] border border-black/5 bg-white p-5 shadow-[0_24px_60px_-24px_rgba(24,24,40,.35)] sm:p-7 dark:border-white/10 dark:bg-[#15161e]">

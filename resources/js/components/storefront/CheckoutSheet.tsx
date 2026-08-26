@@ -1,9 +1,13 @@
 import { useForm } from '@inertiajs/react';
-import { Minus, Plus, ShieldCheck, X } from 'lucide-react';
+import { Loader2, MapPin, Minus, Plus, Search, ShieldCheck, Truck, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { cn, formatIDR, uid } from '@/lib/utils';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
 import type { CartPayload, StorefrontProduct } from '@/types';
+
+type ShippingAddress = { address_line: string; district: string; city: string; province: string; postal_code: string; area_id: string; note: string };
+type AreaResult = { id: string; name: string; postal_code?: string | null; administrative_division_level_1_name?: string | null; administrative_division_level_2_name?: string | null; administrative_division_level_3_name?: string | null };
+type ShippingQuote = { provider: string; courier_company: string; courier_name: string; courier_type: string; service_name: string; delivery_fee: number; amount: number; insurance_fee: number; duration?: string | null; token: string };
 
 /**
  * Checkout sheet for both paths: a single "buy now" product, or the whole
@@ -33,6 +37,11 @@ export function CheckoutSheet({
     const fromCart = !product;
     const [quantity, setQuantity] = useState(1);
     const [customPrice, setCustomPrice] = useState(product?.minimum_price ?? 0);
+    const [areaQuery, setAreaQuery] = useState('');
+    const [areas, setAreas] = useState<AreaResult[]>([]);
+    const [quotes, setQuotes] = useState<ShippingQuote[]>([]);
+    const [shippingBusy, setShippingBusy] = useState(false);
+    const [shippingError, setShippingError] = useState('');
 
     const { data, setData, post, transform, processing, errors } = useForm({
         items: [] as any[],
@@ -45,10 +54,59 @@ export function CheckoutSheet({
         terms: false as boolean,
         idempotency_key: uid(),
         from_cart: false as boolean,
+        shipping_address: { address_line: '', district: '', city: '', province: '', postal_code: '', area_id: '', note: '' } as ShippingAddress,
+        shipping_quote_token: '',
     });
 
     const unitPrice = product?.is_pay_what_you_want ? customPrice : (product?.price ?? 0);
     const subtotal = fromCart ? (cart?.subtotal ?? 0) : unitPrice * quantity;
+    const hasPhysical = product?.type === 'PHYSICAL' || !!cart?.items.some((item) => item.type === 'PHYSICAL' && item.issue === null);
+    const selectedQuote = quotes.find((quote) => quote.token === data.shipping_quote_token);
+    const checkoutTotal = subtotal + (selectedQuote?.amount ?? 0);
+
+    const linesPayload = fromCart
+        ? { from_cart: true, items: [] as any[] }
+        : { from_cart: false, items: [{ product_id: product!.id, ...(variantId ? { variant_id: variantId } : {}), quantity }] };
+
+    const searchAreas = async () => {
+        if (areaQuery.trim().length < 3) return;
+        setShippingBusy(true); setShippingError(''); setAreas([]); setQuotes([]); setData('shipping_quote_token', '');
+        try {
+            const response = await fetch(`/${storeUsername}/pengiriman/area?q=${encodeURIComponent(areaQuery.trim())}`, { headers: { Accept: 'application/json' } });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message ?? 'Area tidak ditemukan.');
+            setAreas(body.areas ?? []);
+        } catch (error) { setShippingError(error instanceof Error ? error.message : 'Gagal mencari area.'); }
+        finally { setShippingBusy(false); }
+    };
+
+    const selectArea = (area: AreaResult) => {
+        setData('shipping_address', {
+            ...data.shipping_address,
+            area_id: area.id,
+            district: area.administrative_division_level_3_name ?? area.name,
+            city: area.administrative_division_level_2_name ?? '',
+            province: area.administrative_division_level_1_name ?? '',
+            postal_code: area.postal_code ?? '',
+        });
+        setAreaQuery(area.name); setAreas([]); setQuotes([]); setData('shipping_quote_token', '');
+    };
+
+    const loadQuotes = async () => {
+        setShippingBusy(true); setShippingError(''); setQuotes([]); setData('shipping_quote_token', '');
+        try {
+            const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+            const response = await fetch(`/${storeUsername}/pengiriman/tarif`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ ...linesPayload, shipping_address: data.shipping_address }),
+            });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message ?? Object.values(body.errors ?? {})[0] ?? 'Tarif tidak tersedia.');
+            setQuotes(body.quotes ?? []);
+            if (!(body.quotes ?? []).length) throw new Error('Belum ada layanan kurir ke alamat ini.');
+        } catch (error) { setShippingError(error instanceof Error ? error.message : 'Gagal memuat ongkir.'); }
+        finally { setShippingBusy(false); }
+    };
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -216,6 +274,44 @@ export function CheckoutSheet({
                         />
                     </Field>
 
+                    {hasPhysical && (
+                        <section className={cn('space-y-4 rounded-2xl border p-4', theme.line)}>
+                            <div className="flex items-start gap-3">
+                                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_oklab,var(--sf-primary)_12%,transparent)] text-[var(--sf-primary)]"><MapPin className="size-4" /></span>
+                                <div><p className="text-sm font-extrabold">Alamat pengiriman</p><p className={cn('text-xs', theme.muted)}>Cari kecamatan/kelurahan lalu pilih layanan kurir.</p></div>
+                            </div>
+                            <Field label="Cari kecamatan atau kode pos" required>
+                                <div className="flex gap-2">
+                                    <input value={areaQuery} onChange={(e) => { setAreaQuery(e.target.value); setData('shipping_address', { ...data.shipping_address, area_id: '' }); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchAreas(); } }} className={field} placeholder="Contoh: Coblong, Bandung" />
+                                    <button type="button" onClick={() => void searchAreas()} className={cn('grid size-12 shrink-0 place-items-center rounded-xl border transition hover:bg-black/5', theme.line)} aria-label="Cari area">{shippingBusy ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
+                                </div>
+                            </Field>
+                            {areas.length > 0 && (
+                                <div className={cn('max-h-44 overflow-y-auto rounded-xl border p-1', theme.line)}>
+                                    {areas.map((area) => <button key={area.id} type="button" onClick={() => selectArea(area)} className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold hover:bg-black/5">{area.name}</button>)}
+                                </div>
+                            )}
+                            {data.shipping_address.area_id && (
+                                <>
+                                    <Field label="Alamat lengkap" required><textarea rows={3} value={data.shipping_address.address_line} onChange={(e) => { setData('shipping_address', { ...data.shipping_address, address_line: e.target.value }); setQuotes([]); setData('shipping_quote_token', ''); }} className={cn(field, 'resize-y')} placeholder="Nama jalan, nomor rumah, RT/RW, patokan" required /></Field>
+                                    <div className="grid grid-cols-2 gap-3"><Field label="Kota"><input value={data.shipping_address.city} onChange={(e) => setData('shipping_address', { ...data.shipping_address, city: e.target.value })} className={field} required /></Field><Field label="Kode pos"><input value={data.shipping_address.postal_code} onChange={(e) => setData('shipping_address', { ...data.shipping_address, postal_code: e.target.value })} className={field} required /></Field></div>
+                                    <Field label="Catatan kurir" hint="Opsional"><input value={data.shipping_address.note} onChange={(e) => setData('shipping_address', { ...data.shipping_address, note: e.target.value })} className={field} placeholder="Rumah pagar hitam" /></Field>
+                                    <button type="button" onClick={() => void loadQuotes()} disabled={shippingBusy || !data.shipping_address.address_line} className={cn('inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold transition hover:bg-black/5 disabled:opacity-50', theme.line)}>{shippingBusy ? <><Loader2 className="size-4 animate-spin" /> Menghitung ongkir</> : <><Truck className="size-4" /> Cek pilihan kurir</>}</button>
+                                </>
+                            )}
+                            {shippingError && <p className="rounded-xl bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-800">{shippingError}</p>}
+                            {quotes.length > 0 && (
+                                <div className="space-y-2"><p className="text-xs font-bold uppercase tracking-wide">Pilih layanan</p>{quotes.map((quote) => (
+                                    <label key={quote.token} className={cn('flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3', theme.line, data.shipping_quote_token === quote.token && 'ring-2 ring-[var(--sf-primary)]')}>
+                                        <span className="min-w-0"><span className="block text-sm font-extrabold">{quote.courier_name} · {quote.service_name}</span><span className={cn('block text-xs', theme.muted)}>{quote.duration || 'Estimasi dari kurir'}{quote.insurance_fee > 0 ? ` · termasuk asuransi ${formatIDR(quote.insurance_fee)}` : ''}</span></span>
+                                        <span className="flex shrink-0 items-center gap-2"><strong className="text-sm">{formatIDR(quote.amount)}</strong><input type="radio" name="shipping_quote" checked={data.shipping_quote_token === quote.token} onChange={() => setData('shipping_quote_token', quote.token)} /></span>
+                                    </label>
+                                ))}</div>
+                            )}
+                            {(errors.shipping_quote_token || (errors as Record<string, string>)['shipping_address.area_id']) && <p className="text-xs text-rose-500">{errors.shipping_quote_token || (errors as Record<string, string>)['shipping_address.area_id']}</p>}
+                        </section>
+                    )}
+
                     <details className={cn('rounded-xl border p-4', theme.line)}>
                         <summary className="cursor-pointer text-sm font-bold">Punya kupon atau catatan? <span className={cn('font-normal', theme.muted)}>(opsional)</span></summary>
                         <div className="mt-4 space-y-4">
@@ -232,7 +328,7 @@ export function CheckoutSheet({
                         <div className="flex items-center justify-between text-sm">
                             <span className={theme.muted}>Subtotal</span>
                             <span className="text-lg font-extrabold tabular-nums text-[var(--sf-primary)]">
-                                {formatIDR(subtotal)}
+                                {formatIDR(checkoutTotal)}
                             </span>
                         </div>
                         <p className={cn('mt-1.5 text-xs', theme.muted)}>
@@ -264,10 +360,10 @@ export function CheckoutSheet({
 
                     <button
                         type="submit"
-                        disabled={processing || isPreview}
+                        disabled={processing || isPreview || (hasPhysical && !data.shipping_quote_token)}
                         className={cn(theme.btnPrimary, 'h-13 w-full px-5 text-base shadow-md')}
                     >
-                        Lanjut pilih pembayaran · {formatIDR(subtotal)}
+                        Lanjut pilih pembayaran · {formatIDR(checkoutTotal)}
                     </button>
 
                     <p className={cn('flex items-center justify-center gap-1.5 text-xs', theme.muted)}>

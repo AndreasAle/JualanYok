@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { CheckCircle2, Package, Truck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Package, RefreshCw, Truck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { PageHeader, StatusBadge } from '@/components/shared';
@@ -13,6 +13,7 @@ export default function OrderShow({ order }: { order: any }) {
 
     const shipForm = useForm({ tracking_number: order.tracking_number ?? '', courier: order.shipping_method ?? '' });
     const refundForm = useForm({ amount: order.refundable, reason: '' });
+    const disputeForm = useForm({ response: order.open_dispute?.seller_response ?? '' });
 
     const ship = (e: FormEvent) => {
         e.preventDefault();
@@ -117,8 +118,8 @@ export default function OrderShow({ order }: { order: any }) {
                             <CardBody>
                                 {order.shipping_address ? (
                                     <div className="mb-4 rounded-[var(--radius-field)] bg-surface-2 p-4 text-sm">
-                                        <p className="font-semibold">{order.shipping_address.recipient}</p>
-                                        <p className="text-muted">{order.shipping_address.phone}</p>
+                                        <p className="font-semibold">{order.customer_name}</p>
+                                        <p className="text-muted">{order.customer_phone}</p>
                                         <p className="mt-1 text-muted">
                                             {order.shipping_address.address_line}, {order.shipping_address.city},{' '}
                                             {order.shipping_address.province} {order.shipping_address.postal_code}
@@ -128,7 +129,21 @@ export default function OrderShow({ order }: { order: any }) {
                                     <Alert tone="warning">Pembeli belum mengisi alamat pengiriman.</Alert>
                                 )}
 
-                                <form onSubmit={ship} className="mt-4 space-y-3">
+                                {!order.shipment && order.payment_status === 'PAID' && (
+                                    <Button type="button" variant="gradient" block onClick={() => shipForm.post(`/dashboard/pesanan/${order.number}/pesan-kurir`, { preserveScroll: true })} loading={shipForm.processing}>
+                                        <Truck className="size-4" /> {order.shipping_provider === 'biteship' ? 'Pesan kurir & jadwalkan pickup' : 'Siapkan pengiriman'}
+                                    </Button>
+                                )}
+
+                                {order.shipment && (
+                                    <div className="mt-4 space-y-3 rounded-2xl border border-line bg-surface-2 p-4">
+                                        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-violet-600">{order.shipment.provider}</p><p className="font-extrabold">{order.shipping_courier || 'Pengiriman penjual'} · {order.shipping_service || 'Reguler'}</p><p className="text-xs text-muted">{order.shipment.status_label}{order.shipment.waybill_id ? ` · Resi ${order.shipment.waybill_id}` : ''}</p></div><Button type="button" variant="outline" size="sm" onClick={() => shipForm.post(`/dashboard/pesanan/${order.number}/sinkron-kurir`, { preserveScroll: true })}><RefreshCw className="size-3.5" /> Sinkron</Button></div>
+                                        {order.shipment.last_error && <Alert tone="danger" title="Kurir belum berhasil dipesan">{order.shipment.last_error}</Alert>}
+                                        {order.shipment.events?.length > 0 && <ol className="space-y-3 border-l border-violet-200 pl-4">{order.shipment.events.map((event: any, index: number) => <li key={index}><p className="text-sm font-bold">{event.description}</p><p className="text-xs text-muted">{event.location ? `${event.location} · ` : ''}{formatDate(event.event_at, true)}</p></li>)}</ol>}
+                                    </div>
+                                )}
+
+                                {(order.shipping_provider !== 'biteship' || order.shipment?.provider === 'manual') && <form onSubmit={ship} className="mt-4 space-y-3">
                                     <Field label="Kurir" htmlFor="courier">
                                         <Input
                                             id="courier"
@@ -172,9 +187,13 @@ export default function OrderShow({ order }: { order: any }) {
                                             Tandai Selesai
                                         </Button>
                                     </div>
-                                </form>
+                                </form>}
                             </CardBody>
                         </Card>
+                    )}
+
+                    {order.open_dispute && (
+                        <Card><CardHeader><CardTitle>Komplain {order.open_dispute.number}</CardTitle></CardHeader><CardBody className="space-y-4"><Alert tone="warning" title={order.open_dispute.status_label}><span className="text-sm">Dana pesanan ditahan selama komplain diproses.</span></Alert><div className="rounded-xl bg-surface-2 p-4"><p className="text-xs font-bold uppercase text-muted">{order.open_dispute.type}</p><p className="mt-2 text-sm">{order.open_dispute.description}</p></div><form onSubmit={(e) => { e.preventDefault(); disputeForm.post(`/dashboard/pesanan/${order.number}/respons-komplain`, { preserveScroll: true }); }} className="space-y-3"><Field label="Respons untuk pembeli" required error={disputeForm.errors.response}><Textarea rows={4} value={disputeForm.data.response} onChange={(e) => disputeForm.setData('response', e.target.value)} placeholder="Jelaskan kondisi paket dan solusi yang kamu tawarkan." /></Field><Button type="submit" variant="gradient" loading={disputeForm.processing}><AlertTriangle className="size-4" /> Kirim respons</Button></form></CardBody></Card>
                     )}
 
                     {/* Payments */}

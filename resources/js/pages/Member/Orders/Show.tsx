@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Download, Package, Truck } from 'lucide-react';
+import { AlertTriangle, Download, MapPin, PackageCheck, Truck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { PageHeader, StatusBadge } from '@/components/shared';
@@ -10,13 +10,24 @@ import { formatDate, formatIDR } from '@/lib/utils';
 
 export default function MemberOrderShow({ order }: { order: any }) {
     const [refundOpen, setRefundOpen] = useState(false);
+    const [disputeOpen, setDisputeOpen] = useState(false);
     const refundForm = useForm({ reason: '' });
+    const disputeForm = useForm({ type: 'not_received', description: '' });
+    const receiptForm = useForm({});
 
     const submitRefund = (e: FormEvent) => {
         e.preventDefault();
         refundForm.post(`/member/pembelian/${order.number}/refund`, {
             preserveScroll: true,
             onSuccess: () => setRefundOpen(false),
+        });
+    };
+
+    const submitDispute = (e: FormEvent) => {
+        e.preventDefault();
+        disputeForm.post(`/member/pembelian/${order.number}/komplain`, {
+            preserveScroll: true,
+            onSuccess: () => setDisputeOpen(false),
         });
     };
 
@@ -31,6 +42,68 @@ export default function MemberOrderShow({ order }: { order: any }) {
 
             <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
                 <div className="space-y-4">
+                    {order.requires_shipping && (
+                        <Card>
+                            <CardHeader><CardTitle>Perjalanan paket</CardTitle></CardHeader>
+                            <CardBody>
+                                <div className="flex flex-wrap items-start justify-between gap-3 rounded-[var(--radius-field)] bg-surface-2 p-4">
+                                    <div>
+                                        <p className="font-bold">{order.shipment?.status_label ?? order.fulfillment_label}</p>
+                                        <p className="mt-1 text-xs text-muted">{order.shipment?.courier || 'Kurir belum ditentukan'}{order.shipment?.waybill_id ? ` · ${order.shipment.waybill_id}` : ''}</p>
+                                    </div>
+                                    {order.shipment?.tracking_url && <a href={order.shipment.tracking_url} target="_blank" rel="noreferrer" className="text-sm font-bold text-[var(--primary)]">Lacak resmi</a>}
+                                </div>
+
+                                {order.shipment?.events?.length > 0 && (
+                                    <ol className="mt-5 space-y-4">
+                                        {order.shipment.events.map((event: any, index: number) => (
+                                            <li key={index} className="flex gap-3">
+                                                <span className="mt-1 size-3 shrink-0 rounded-full bg-[var(--primary)]" />
+                                                <div>
+                                                    <p className="text-sm font-semibold">{event.description}</p>
+                                                    <p className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted">
+                                                        {event.location && <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{event.location}</span>}
+                                                        <span>{formatDate(event.event_at, true)}</span>
+                                                    </p>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
+
+                                {order.open_dispute && (
+                                    <div className="mt-4">
+                                        <Alert tone="warning">
+                                            <b>{order.open_dispute.number}</b> · {order.open_dispute.status_label}
+                                            {order.open_dispute.seller_response && <><br />Respons penjual: {order.open_dispute.seller_response}</>}
+                                        </Alert>
+                                    </div>
+                                )}
+
+                                {!order.open_dispute && (
+                                    <div className="mt-5 flex flex-wrap gap-2">
+                                        {order.can_confirm_receipt && <Button loading={receiptForm.processing} onClick={() => receiptForm.post(`/member/pembelian/${order.number}/diterima`, { preserveScroll: true })}><PackageCheck className="size-4" /> Pesanan diterima</Button>}
+                                        {order.can_open_dispute && <Button variant="outline" onClick={() => setDisputeOpen((value) => !value)}><AlertTriangle className="size-4" /> Ajukan komplain</Button>}
+                                    </div>
+                                )}
+
+                                {disputeOpen && (
+                                    <form onSubmit={submitDispute} className="mt-4 space-y-3 rounded-[var(--radius-card)] border border-red-200 bg-red-50 p-4">
+                                        <select value={disputeForm.data.type} onChange={(event) => disputeForm.setData('type', event.target.value)} className="h-11 w-full rounded-[var(--radius-field)] border border-line bg-white px-3 text-sm">
+                                            <option value="not_received">Barang belum diterima</option>
+                                            <option value="damaged">Barang rusak</option>
+                                            <option value="wrong_item">Barang tidak sesuai</option>
+                                            <option value="incomplete">Barang kurang</option>
+                                            <option value="other">Lainnya</option>
+                                        </select>
+                                        <Textarea rows={4} required minLength={20} value={disputeForm.data.description} onChange={(event) => disputeForm.setData('description', event.target.value)} placeholder="Ceritakan kronologi selengkap mungkin." />
+                                        <Button type="submit" variant="danger" loading={disputeForm.processing}>Kirim komplain</Button>
+                                    </form>
+                                )}
+                            </CardBody>
+                        </Card>
+                    )}
+
                     {/* Downloads */}
                     {order.downloads.length > 0 && (
                         <Card>

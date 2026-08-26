@@ -1,8 +1,8 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
-    BarChart3, Bell, Blocks, Boxes, ChevronLeft, CreditCard, ExternalLink, Eye, Gauge, Gift,
+    AlertTriangle, BarChart3, Bell, Blocks, Boxes, ChevronLeft, CreditCard, ExternalLink, Eye, Gauge, Gift,
     Handshake, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
-    Search, ShieldCheck, ShoppingBag, Store, Ticket, UserCircle, Users, Wallet, X,
+    Search, ShieldCheck, ShoppingBag, Store, Ticket, Truck, UserCircle, Users, Wallet, X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Badge, Button } from '@/components/ui';
@@ -30,6 +30,7 @@ const CREATOR_NAV: { group: string; items: NavItem[] }[] = [
         group: 'Penjualan',
         items: [
             { label: 'Pesanan', href: '/dashboard/pesanan', icon: <ShoppingBag className="size-4.5" />, primary: true },
+            { label: 'Pengiriman', href: '/dashboard/pengiriman', icon: <Truck className="size-4.5" /> },
             { label: 'Pelanggan', href: '/dashboard/pelanggan', icon: <Users className="size-4.5" /> },
             { label: 'Leads', href: '/dashboard/leads', icon: <Gift className="size-4.5" /> },
         ],
@@ -78,6 +79,7 @@ const ADMIN_NAV: { group: string; items: NavItem[] }[] = [
         items: [
             { label: 'Pesanan', href: '/admin/pesanan', icon: <ShoppingBag className="size-4.5" />, primary: true },
             { label: 'Refund', href: '/admin/refund', icon: <Receipt className="size-4.5" /> },
+            { label: 'Komplain', href: '/admin/komplain', icon: <AlertTriangle className="size-4.5" /> },
             { label: 'Penarikan', href: '/admin/penarikan', icon: <CreditCard className="size-4.5" />, primary: true },
             { label: 'Ledger', href: '/admin/ledger', icon: <PieChart className="size-4.5" /> },
         ],

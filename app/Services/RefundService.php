@@ -24,7 +24,9 @@ class RefundService
 
     public function request(Order $order, float $amount, ?string $reason, ?User $requester = null): Refund
     {
-        if (! $order->status->isSettled()) {
+        // A disputed physical order is intentionally no longer in a normal
+        // settled status, but its payment is still captured and refundable.
+        if (! in_array($order->payment_status, [PaymentStatus::Paid, PaymentStatus::PartiallyRefunded], true)) {
             throw ValidationException::withMessages(['order' => 'Pesanan ini belum dibayar.']);
         }
 

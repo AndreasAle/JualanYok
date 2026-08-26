@@ -4,9 +4,11 @@ use App\Models\Store;
 use App\Services\AffiliateService;
 use App\Services\AnalyticsService;
 use App\Services\PaymentService;
+use App\Services\FulfillmentService;
 use App\Services\PlanPaymentService;
 use App\Services\PlanService;
 use App\Services\WithdrawalService;
+use App\Services\ShippingService;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -26,6 +28,18 @@ Schedule::call(fn () => app(PaymentService::class)->expireStale())
 Schedule::call(fn () => app(WithdrawalService::class)->releaseMaturedRevenue())
     ->hourly()
     ->name('balance:release-revenue')
+    ->withoutOverlapping();
+
+// Courier callbacks are primary; polling closes gaps caused by delayed webhooks.
+Schedule::call(fn () => app(ShippingService::class)->syncActive())
+    ->everyTenMinutes()
+    ->name('shipping:sync-active')
+    ->withoutOverlapping();
+
+// Physical-order escrow closes after the complaint window when buyers stay silent.
+Schedule::call(fn () => app(FulfillmentService::class)->autoCompleteDelivered())
+    ->hourly()
+    ->name('orders:auto-complete-delivered')
     ->withoutOverlapping();
 
 Schedule::call(fn () => app(AffiliateService::class)->releaseMatured())

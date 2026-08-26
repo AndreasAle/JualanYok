@@ -361,7 +361,9 @@ class PaymentService
         $sellerNet = Money::round(
             (float) $order->subtotal
             - (float) $order->discount_total
-            + (float) $order->shipping_total
+            // Platform-booked shipping is paid onwards to the courier. Manual
+            // shipping belongs to the seller, so only that one enters revenue.
+            + ($order->shipping_provider === 'biteship' ? 0 : (float) $order->shipping_total)
             - (float) $order->platform_fee
             - (float) $order->affiliate_commission
         );
@@ -385,6 +387,10 @@ class PaymentService
         $order->update([
             'seller_net' => max(0, $sellerNet),
             'status' => OrderStatus::Processing,
+            // Physical revenue stays pending until delivery + complaint window.
+            'funds_release_at' => $order->requiresShipping()
+                ? null
+                : now()->addDays((int) config('jualanyok.holding_period_days', 7)),
         ]);
     }
 

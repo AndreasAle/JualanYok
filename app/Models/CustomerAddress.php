@@ -13,6 +13,8 @@ class CustomerAddress extends Model
     {
         return [
             'is_default' => 'boolean',
+            'latitude' => 'float',
+            'longitude' => 'float',
         ];
     }
 

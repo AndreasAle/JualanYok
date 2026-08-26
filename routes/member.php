@@ -18,6 +18,10 @@ Route::middleware('auth')
             ->name('orders.download');
         Route::post('/pembelian/{order:number}/refund', [PurchaseController::class, 'requestRefund'])
             ->name('orders.refund');
+        Route::post('/pembelian/{order:number}/diterima', [PurchaseController::class, 'confirmReceipt'])
+            ->name('orders.confirm-receipt');
+        Route::post('/pembelian/{order:number}/komplain', [PurchaseController::class, 'openDispute'])
+            ->name('orders.dispute');
 
         Route::get('/kelas', [CourseController::class, 'index'])->name('courses.index');
         Route::get('/kelas/{enrollment}', [CourseController::class, 'show'])->name('courses.show');

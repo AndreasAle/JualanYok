@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DisputeStatus;
 use App\Enums\FulfillmentStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
@@ -32,6 +33,8 @@ class Order extends Model
             'subtotal' => 'decimal:2',
             'discount_total' => 'decimal:2',
             'shipping_total' => 'decimal:2',
+            'shipping_insurance' => 'decimal:2',
+            'shipping_quote' => 'array',
             'tax_total' => 'decimal:2',
             'platform_fee' => 'decimal:2',
             'payment_fee' => 'decimal:2',
@@ -43,6 +46,11 @@ class Order extends Model
             'completed_at' => 'datetime',
             'expires_at' => 'datetime',
             'shipped_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'auto_complete_at' => 'datetime',
+            'complaint_deadline_at' => 'datetime',
+            'funds_release_at' => 'datetime',
+            'buyer_confirmed_at' => 'datetime',
         ];
     }
 
@@ -106,6 +114,25 @@ class Order extends Model
         return $this->hasMany(Refund::class);
     }
 
+    public function shipment(): HasOne
+    {
+        return $this->hasOne(Shipment::class);
+    }
+
+    public function disputes(): HasMany
+    {
+        return $this->hasMany(OrderDispute::class);
+    }
+
+    public function openDispute(): HasOne
+    {
+        return $this->hasOne(OrderDispute::class)->whereIn('status', [
+            DisputeStatus::Open->value,
+            DisputeStatus::SellerResponded->value,
+            DisputeStatus::UnderReview->value,
+        ])->latestOfMany();
+    }
+
     /**
      * Every order gets its permanent delivery key at creation, so a receipt can
      * always link the buyer straight to what they bought — account or not.
@@ -162,5 +189,30 @@ class Order extends Model
     public function refundableAmount(): float
     {
         return max(0, (float) $this->grand_total - (float) $this->refunded_total);
+    }
+
+    public function canBuyerConfirmReceipt(): bool
+    {
+        return $this->requiresShipping()
+            && $this->fulfillment_status === FulfillmentStatus::Delivered
+            && $this->status === OrderStatus::Processing
+            && ! $this->disputes()->whereIn('status', [
+                DisputeStatus::Open->value,
+                DisputeStatus::SellerResponded->value,
+                DisputeStatus::UnderReview->value,
+            ])->exists();
+    }
+
+    public function canOpenDispute(): bool
+    {
+        return $this->requiresShipping()
+            && in_array($this->fulfillment_status, [FulfillmentStatus::Shipped, FulfillmentStatus::Delivered], true)
+            && $this->status === OrderStatus::Processing
+            && ($this->complaint_deadline_at === null || $this->complaint_deadline_at->isFuture())
+            && ! $this->disputes()->whereIn('status', [
+                DisputeStatus::Open->value,
+                DisputeStatus::SellerResponded->value,
+                DisputeStatus::UnderReview->value,
+            ])->exists();
     }
 }

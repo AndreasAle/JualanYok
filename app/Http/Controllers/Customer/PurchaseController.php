@@ -8,6 +8,8 @@ use App\Models\DigitalAccess;
 use App\Models\Order;
 use App\Services\DigitalDeliveryService;
 use App\Services\RefundService;
+use App\Services\FulfillmentService;
+use App\Services\DisputeService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,6 +19,8 @@ class PurchaseController extends Controller
     public function __construct(
         private readonly DigitalDeliveryService $delivery,
         private readonly RefundService $refunds,
+        private readonly FulfillmentService $fulfillment,
+        private readonly DisputeService $disputes,
     ) {}
 
     public function index(Request $request): Response
@@ -42,7 +46,7 @@ class PurchaseController extends Controller
     {
         $this->authorizeOrder($request, $order);
 
-        $order->load(['items.product', 'store', 'digitalAccesses.file', 'latestPayment']);
+        $order->load(['items.product', 'store', 'digitalAccesses.file', 'latestPayment', 'shipment.events', 'openDispute']);
 
         return Inertia::render('Member/Orders/Show', [
             'order' => [
@@ -52,6 +56,27 @@ class PurchaseController extends Controller
                 'payment_label' => $order->payment_status->label(),
                 'fulfillment_label' => $order->fulfillment_status->label(),
                 'tracking_number' => $order->tracking_number,
+                'requires_shipping' => $order->requiresShipping(),
+                'can_confirm_receipt' => $order->canBuyerConfirmReceipt(),
+                'can_open_dispute' => $order->canOpenDispute(),
+                'complaint_deadline_at' => $order->complaint_deadline_at?->toDateTimeString(),
+                'shipment' => $order->shipment ? [
+                    'courier' => $order->shipment->courier_name ?: $order->shipment->courier_company,
+                    'waybill_id' => $order->shipment->waybill_id,
+                    'tracking_url' => $order->shipment->tracking_url,
+                    'status_label' => $order->shipment->status->label(),
+                    'events' => $order->shipment->events->map(fn ($event) => [
+                        'description' => $event->description ?: $event->status,
+                        'location' => $event->location,
+                        'event_at' => $event->event_at->toDateTimeString(),
+                    ]),
+                ] : null,
+                'open_dispute' => $order->openDispute ? [
+                    'number' => $order->openDispute->number,
+                    'status_label' => $order->openDispute->status->label(),
+                    'description' => $order->openDispute->description,
+                    'seller_response' => $order->openDispute->seller_response,
+                ] : null,
                 'subtotal' => (float) $order->subtotal,
                 'discount_total' => (float) $order->discount_total,
                 'shipping_total' => (float) $order->shipping_total,
@@ -104,6 +129,29 @@ class PurchaseController extends Controller
         $this->refunds->request($order, $order->refundableAmount(), $data['reason'], $request->user());
 
         return back()->with('success', 'Permintaan refund dikirim. Kami kabari lewat email ya.');
+    }
+
+    public function confirmReceipt(Request $request, Order $order)
+    {
+        $this->authorizeOrder($request, $order);
+        $this->fulfillment->confirmReceived($order->load('items'));
+
+        return back()->with('success', 'Pesanan sudah kamu terima. Terima kasih!');
+    }
+
+    public function openDispute(Request $request, Order $order)
+    {
+        $this->authorizeOrder($request, $order);
+        $data = $request->validate([
+            'type' => ['required', 'in:not_received,damaged,wrong_item,incomplete,other'],
+            'description' => ['required', 'string', 'min:20', 'max:2000'],
+            'evidence' => ['nullable', 'array', 'max:5'],
+            'evidence.*' => ['url', 'max:1000'],
+        ]);
+
+        $this->disputes->open($order->load('items'), $data['type'], $data['description'], $request->user(), $data['evidence'] ?? []);
+
+        return back()->with('success', 'Komplain dibuat dan dana penjual ditahan.');
     }
 
     /** Orders belong to the logged-in buyer by customer link or by email. */

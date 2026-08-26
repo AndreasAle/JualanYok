@@ -47,6 +47,12 @@ export default function ProductForm({
         visibility: product?.visibility ?? 'public',
         product_category_id: product?.product_category_id ?? '',
         sku: product?.sku ?? '',
+        weight_gram: product?.weight_gram ?? 500,
+        length_cm: product?.length_cm ?? 20,
+        width_cm: product?.width_cm ?? 15,
+        height_cm: product?.height_cm ?? 10,
+        shipping_category: product?.shipping_category ?? 'others',
+        is_fragile: product?.is_fragile ?? false,
         tags: product?.tags ?? [],
         min_quantity: product?.min_quantity ?? 1,
         max_quantity: product?.max_quantity ?? '',
@@ -548,6 +554,31 @@ export default function ProductForm({
                                             label="Izinkan affiliate JualanYok"
                                             description="Orang lain bisa mempromosikan produk internal ini dan mendapat komisi."
                                         />
+                                    )}
+
+                                    {currentType?.needs_shipping && (
+                                        <div className="space-y-4 rounded-2xl border border-line bg-surface-2 p-4">
+                                            <div>
+                                                <p className="text-sm font-extrabold">Data paket untuk ongkir</p>
+                                                <p className="mt-1 text-xs text-muted">Dipakai kurir menghitung tarif nyata. Isi ukuran setelah produk dibungkus.</p>
+                                            </div>
+                                            <div className="grid gap-4 sm:grid-cols-2">
+                                                <Field label="Berat paket (gram)" required error={serverErrors.weight_gram} htmlFor="weight-gram">
+                                                    <Input id="weight-gram" type="number" min={1} value={data.weight_gram} onChange={(e) => setData('weight_gram', Number(e.target.value))} />
+                                                </Field>
+                                                <Field label="Kategori pengiriman" error={serverErrors.shipping_category} htmlFor="shipping-category">
+                                                    <Select id="shipping-category" value={data.shipping_category} onChange={(e) => setData('shipping_category', e.target.value)}>
+                                                        <option value="fashion">Fashion</option><option value="food">Makanan</option><option value="electronics">Elektronik</option><option value="health_beauty">Kesehatan &amp; kecantikan</option><option value="documents">Dokumen</option><option value="others">Lainnya</option>
+                                                    </Select>
+                                                </Field>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <Field label="Panjang (cm)" required error={serverErrors.length_cm} htmlFor="length-cm"><Input id="length-cm" type="number" min={1} value={data.length_cm} onChange={(e) => setData('length_cm', Number(e.target.value))} /></Field>
+                                                <Field label="Lebar (cm)" required error={serverErrors.width_cm} htmlFor="width-cm"><Input id="width-cm" type="number" min={1} value={data.width_cm} onChange={(e) => setData('width_cm', Number(e.target.value))} /></Field>
+                                                <Field label="Tinggi (cm)" required error={serverErrors.height_cm} htmlFor="height-cm"><Input id="height-cm" type="number" min={1} value={data.height_cm} onChange={(e) => setData('height_cm', Number(e.target.value))} /></Field>
+                                            </div>
+                                            <Switch checked={data.is_fragile} onChange={(v) => setData('is_fragile', v)} label="Barang mudah pecah" description="Tandai agar proses packing dan penanganan lebih hati-hati." />
+                                        </div>
                                     )}
 
                                     <Field label="Visibilitas" error={errors.visibility} htmlFor="visibility">

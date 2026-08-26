@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminDisputeController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminRefundController;
 use App\Http\Controllers\Admin\AdminStoreController;
@@ -36,6 +37,8 @@ Route::middleware(['auth', 'admin'])
         Route::get('/pesanan/{order:number}', [AdminOrderController::class, 'show'])->name('orders.show');
 
         Route::get('/refund', [AdminRefundController::class, 'index'])->name('refunds.index');
+        Route::get('/komplain', [AdminDisputeController::class, 'index'])->name('disputes.index');
+        Route::post('/komplain/{dispute}/putuskan', [AdminDisputeController::class, 'resolve'])->name('disputes.resolve');
         Route::post('/refund/{refund}/setujui', [AdminRefundController::class, 'approve'])->name('refunds.approve');
         Route::post('/refund/{refund}/tolak', [AdminRefundController::class, 'reject'])->name('refunds.reject');
 

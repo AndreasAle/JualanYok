@@ -250,9 +250,18 @@ class WithdrawalService
         $released = 0;
 
         Order::paid()
-            ->whereNotNull('paid_at')
-            ->where('paid_at', '<=', $cutoff)
+            ->where(function ($query) use ($cutoff) {
+                $query->where('funds_release_at', '<=', now())
+                    // Compatibility for old, non-physical orders made before
+                    // funds_release_at existed.
+                    ->orWhere(function ($legacy) use ($cutoff) {
+                        $legacy->whereNull('funds_release_at')
+                            ->where('paid_at', '<=', $cutoff)
+                            ->whereDoesntHave('items', fn ($items) => $items->where('product_type', 'PHYSICAL'));
+                    });
+            })
             ->whereDoesntHave('refunds', fn ($q) => $q->whereIn('status', ['REQUESTED', 'APPROVED', 'COMPLETED']))
+            ->whereDoesntHave('disputes', fn ($q) => $q->whereIn('status', ['OPEN', 'SELLER_RESPONDED', 'UNDER_REVIEW']))
             ->with('store.owner')
             ->chunkById(100, function ($orders) use (&$released) {
                 foreach ($orders as $order) {

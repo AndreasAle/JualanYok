@@ -834,6 +834,39 @@ Saat ini WhatsApp belum punya adapter konkret — lihat bagian keterbatasan.
 
 ---
 
+## Produk fisik dan pengiriman (fase 1-2)
+
+Alur produk fisik sudah memakai ongkir server-side dan dana tahan:
+
+1. Seller mengisi berat/dimensi produk dan alamat gudang pada **Dashboard -> Pengiriman**.
+2. Pembeli memilih alamat serta layanan kurir. Tarif dikunci dalam token terenkripsi dan diverifikasi ulang saat checkout.
+3. Setelah pembayaran lunas, dana seller tetap berada di bucket pending. Seller kemudian membuat pengiriman dari detail pesanan.
+4. Biteship mengirim status, resi, dan perubahan biaya melalui webhook. Scheduler juga menyinkronkan kiriman aktif sebagai fallback.
+5. Setelah paket diterima, pembeli dapat mengonfirmasi penerimaan atau membuka komplain. Dana baru dapat dilepas setelah penerimaan/auto-complete dan tidak ada sengketa aktif.
+6. Komplain masuk ke pusat sengketa admin. Keputusan untuk pembeli membuat antrean refund; keputusan untuk seller menyelesaikan order dan membuka jadwal pelepasan dana.
+
+Konfigurasi production:
+
+```env
+SHIPPING_PROVIDER=biteship
+BITESHIP_ENABLED=true
+BITESHIP_API_TOKEN=isi_dari_dashboard_biteship
+BITESHIP_COURIERS=jne,sicepat,anteraja,jnt,ninja,tiki,pos
+BITESHIP_WEBHOOK_HEADER=X-Callback-Token
+BITESHIP_WEBHOOK_SECRET=buat_secret_panjang_acak
+```
+
+Daftarkan `POST https://domain-kamu/webhooks/shipping/biteship` untuk event
+`order.status`, `order.waybill_id`, dan `order.price`. Pada pengaturan webhook
+Biteship, isi **Headers Signature Key** sesuai `BITESHIP_WEBHOOK_HEADER` dan
+**Headers Signature Secret** sesuai `BITESHIP_WEBHOOK_SECRET`.
+
+Scheduler wajib aktif agar status tetap tersinkron bila webhook terlambat:
+
+```cron
+* * * * * cd /path/aplikasi && php artisan schedule:run >> /dev/null 2>&1
+```
+
 ## Deployment checklist
 
 Jalankan ini dulu — perintahnya memeriksa semua poin di bawah dan keluar dengan
@@ -858,6 +891,7 @@ php artisan jualanyok:preflight
 - [ ] Queue worker berjalan di bawah supervisor
 - [ ] Cron scheduler terpasang
 - [ ] Webhook gateway diarahkan ke `POST /webhooks/payments/{provider}`
+- [ ] Webhook Biteship diarahkan ke `POST /webhooks/shipping/biteship` dengan header secret
 - [ ] Monitoring untuk job gagal dan webhook gagal
 
 ---

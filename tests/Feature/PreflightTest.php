@@ -148,6 +148,24 @@ class PreflightTest extends TestCase
             ->assertFailed();
     }
 
+    public function test_biteship_without_live_configuration_stops_the_deploy(): void
+    {
+        $this->productionConfig([
+            'shipping.default' => 'biteship',
+            'shipping.providers.biteship.enabled' => false,
+            'shipping.providers.biteship.token' => '',
+            'shipping.providers.biteship.couriers' => [],
+            'shipping.providers.biteship.webhook_secret' => '',
+        ]);
+
+        $this->artisan('jualanyok:preflight')
+            ->expectsOutputToContain('Biteship aktif')
+            ->expectsOutputToContain('Token API Biteship')
+            ->expectsOutputToContain('Daftar kurir Biteship')
+            ->expectsOutputToContain('Webhook pengiriman')
+            ->assertFailed();
+    }
+
     public function test_paid_product_files_must_sit_outside_the_public_folder(): void
     {
         $this->productionConfig(['filesystems.disks.local.root' => public_path('files')]);

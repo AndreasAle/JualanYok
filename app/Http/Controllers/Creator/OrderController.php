@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\FulfillmentService;
 use App\Services\RefundService;
+use App\Services\ShippingService;
+use App\Services\DisputeService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,6 +17,8 @@ class OrderController extends Controller
     public function __construct(
         private readonly FulfillmentService $fulfillment,
         private readonly RefundService $refunds,
+        private readonly ShippingService $shipping,
+        private readonly DisputeService $disputes,
     ) {}
 
     public function index(Request $request): Response
@@ -66,7 +70,7 @@ class OrderController extends Controller
     {
         $this->authorizeOrder($request, $order);
 
-        $order->load(['items.product', 'payments', 'customer', 'refunds', 'digitalAccesses', 'commissions.affiliate']);
+        $order->load(['items.product', 'items.variant', 'payments', 'customer', 'refunds', 'digitalAccesses', 'commissions.affiliate', 'shipment.events', 'openDispute']);
 
         return Inertia::render('Creator/Orders/Show', [
             'order' => [
@@ -85,6 +89,31 @@ class OrderController extends Controller
                 'shipping_address' => $order->shipping_address,
                 'shipping_method' => $order->shipping_method,
                 'tracking_number' => $order->tracking_number,
+                'shipping_provider' => $order->shipping_provider,
+                'shipping_service' => $order->shipping_service,
+                'shipping_courier' => $order->shipping_courier,
+                'shipment' => $order->shipment ? [
+                    'id' => $order->shipment->id,
+                    'provider' => $order->shipment->provider,
+                    'status' => $order->shipment->status->value,
+                    'status_label' => $order->shipment->status->label(),
+                    'waybill_id' => $order->shipment->waybill_id,
+                    'tracking_url' => $order->shipment->tracking_url,
+                    'last_error' => $order->shipment->last_error,
+                    'events' => $order->shipment->events->map(fn ($event) => [
+                        'description' => $event->description ?: $event->status,
+                        'location' => $event->location,
+                        'event_at' => $event->event_at->toDateTimeString(),
+                    ]),
+                ] : null,
+                'open_dispute' => $order->openDispute ? [
+                    'id' => $order->openDispute->id,
+                    'number' => $order->openDispute->number,
+                    'type' => $order->openDispute->type,
+                    'description' => $order->openDispute->description,
+                    'status_label' => $order->openDispute->status->label(),
+                    'seller_response' => $order->openDispute->seller_response,
+                ] : null,
                 'requires_shipping' => $order->requiresShipping(),
                 'subtotal' => (float) $order->subtotal,
                 'discount_total' => (float) $order->discount_total,
@@ -165,6 +194,35 @@ class OrderController extends Controller
         $this->refunds->request($order, (float) $data['amount'], $data['reason'], $request->user());
 
         return back()->with('success', 'Pengajuan refund dikirim ke tim JualanYok.');
+    }
+
+    public function bookShipment(Request $request, Order $order)
+    {
+        $this->authorizeOrder($request, $order);
+        $shipment = $this->shipping->createShipment($order);
+
+        return back()->with('success', $shipment->provider === 'manual'
+            ? 'Pesanan siap dikirim. Masukkan resi setelah paket diserahkan.'
+            : 'Kurir berhasil dipesan. Pantau penjemputan dari halaman ini.');
+    }
+
+    public function syncShipment(Request $request, Order $order)
+    {
+        $this->authorizeOrder($request, $order);
+        abort_unless($order->shipment, 404);
+        $this->shipping->sync($order->shipment);
+
+        return back()->with('success', 'Status kurir sudah diperbarui.');
+    }
+
+    public function respondDispute(Request $request, Order $order)
+    {
+        $this->authorizeOrder($request, $order);
+        abort_unless($order->openDispute, 404);
+        $data = $request->validate(['response' => ['required', 'string', 'min:20', 'max:2000']]);
+        $this->disputes->sellerRespond($order->openDispute, $request->user(), $data['response']);
+
+        return back()->with('success', 'Respons komplain sudah dikirim.');
     }
 
     private function authorizeOrder(Request $request, Order $order): void
