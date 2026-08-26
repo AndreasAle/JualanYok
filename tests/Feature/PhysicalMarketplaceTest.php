@@ -139,7 +139,7 @@ class PhysicalMarketplaceTest extends TestCase
 
         $this->assertSame('biteship-order-1', $result['external_id']);
         Http::assertSent(function ($request) use ($order) {
-            $this->assertSame('Basic '.base64_encode('test-token:'), $request->header('Authorization')[0] ?? null);
+            $this->assertSame('Bearer test-token', $request->header('Authorization')[0] ?? null);
 
             if (! str_ends_with($request->url(), '/v1/orders')) {
                 return true;

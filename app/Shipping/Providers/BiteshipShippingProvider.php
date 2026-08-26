@@ -198,7 +198,7 @@ class BiteshipShippingProvider implements ShippingProvider
         $baseUrl = preg_replace('#/v1$#i', '', $baseUrl) ?: $baseUrl;
 
         return Http::baseUrl($baseUrl)
-            ->withBasicAuth($token, '')
+            ->withToken($token)
             ->acceptJson()
             ->asJson()
             ->timeout((int) config('shipping.providers.biteship.timeout', 20));
