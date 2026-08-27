@@ -25,8 +25,6 @@ class ShippingController extends Controller
                 'ready' => config('shipping.default') === 'manual' || ((bool) config('shipping.providers.biteship.enabled') && filled(config('shipping.providers.biteship.token'))),
                 'couriers' => config('shipping.providers.biteship.couriers', []),
             ],
-            'webhookUrl' => route('webhooks.shipping.biteship'),
-            'webhookHeader' => config('shipping.providers.biteship.webhook_header', 'X-Callback-Token'),
         ]);
     }
 

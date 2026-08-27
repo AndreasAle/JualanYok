@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { CheckCircle2, Copy, Loader2, MapPin, Search, Truck } from 'lucide-react';
+import { CheckCircle2, Loader2, MapPin, Search, Truck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { PageHeader } from '@/components/shared';
@@ -11,7 +11,7 @@ const courierNames: Record<string, string> = {
     jne: 'JNE', sicepat: 'SiCepat', anteraja: 'AnterAja', jnt: 'J&T Express', ninja: 'Ninja Xpress', tiki: 'TIKI', pos: 'Pos Indonesia', grab: 'GrabExpress', gojek: 'GoSend', paxel: 'Paxel', lion: 'Lion Parcel', idexpress: 'ID Express',
 };
 
-export default function ShippingEdit({ profile, provider, webhookUrl, webhookHeader }: { profile: any; provider: { name: string; ready: boolean; couriers: string[] }; webhookUrl: string; webhookHeader: string }) {
+export default function ShippingEdit({ profile, provider }: { profile: any; provider: { name: string; ready: boolean; couriers: string[] } }) {
     const [query, setQuery] = useState(''); const [areas, setAreas] = useState<Area[]>([]); const [searching, setSearching] = useState(false); const [searchError, setSearchError] = useState('');
     const { data, setData, put, processing, errors } = useForm({
         contact_name: profile?.contact_name ?? '', contact_phone: profile?.contact_phone ?? '', contact_email: profile?.contact_email ?? '', address_line: profile?.address_line ?? '', district: profile?.district ?? '', city: profile?.city ?? '', province: profile?.province ?? '', postal_code: profile?.postal_code ?? '', area_id: profile?.area_id ?? '', note: profile?.note ?? '', collection_method: profile?.collection_method ?? 'pickup', enabled_couriers: profile?.enabled_couriers ?? provider.couriers, default_insurance: profile?.default_insurance ?? false, is_active: profile?.is_active ?? true,
@@ -39,7 +39,6 @@ export default function ShippingEdit({ profile, provider, webhookUrl, webhookHea
                 <Button type="submit" variant="gradient" loading={processing}><MapPin className="size-4" /> Simpan alamat pengiriman</Button>
             </CardBody></Card></form>
             <div className="space-y-4"><Card><CardHeader><CardTitle>Status logistik</CardTitle></CardHeader><CardBody className="space-y-3"><div className="flex items-center gap-3 rounded-xl bg-surface-2 p-4"><span className="grid size-10 place-items-center rounded-xl bg-emerald-100 text-emerald-700">{provider.ready ? <CheckCircle2 className="size-5" /> : <Truck className="size-5" />}</span><div><p className="font-extrabold capitalize">{provider.name}</p><p className="text-xs text-muted">{provider.ready ? 'Siap menerima tarif dan booking kurir.' : 'Menunggu kredensial server.'}</p></div></div></CardBody></Card>
-                <Card><CardHeader><CardTitle>Webhook tracking</CardTitle></CardHeader><CardBody><p className="mb-3 text-sm text-muted">Daftarkan URL ini untuk event order.status, order.waybill_id, dan order.price.</p><button type="button" onClick={() => navigator.clipboard.writeText(webhookUrl)} className="flex w-full items-center gap-2 rounded-xl border border-line bg-surface-2 p-3 text-left font-mono text-xs"><span className="min-w-0 flex-1 break-all">{webhookUrl}</span><Copy className="size-4" /></button><div className="mt-3 rounded-xl border border-line bg-surface-2 p-3 text-xs"><p className="font-bold">Header Signature Key</p><code>{webhookHeader}</code><p className="mt-2 text-muted">Header Signature Secret harus sama dengan BITESHIP_WEBHOOK_SECRET di server.</p></div></CardBody></Card>
             </div>
         </div>
     </DashboardLayout>;
