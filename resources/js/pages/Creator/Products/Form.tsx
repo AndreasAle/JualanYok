@@ -46,6 +46,8 @@ export default function ProductForm({
         status: product?.status ?? (firstProduct ? 'ACTIVE' : 'DRAFT'),
         visibility: product?.visibility ?? 'public',
         product_category_id: product?.product_category_id ?? '',
+        is_marketplace_listed: product?.is_marketplace_listed ?? false,
+        marketplace_category_id: product?.marketplace_category_id ?? product?.product_category_id ?? '',
         sku: product?.sku ?? '',
         weight_gram: product?.weight_gram ?? 500,
         length_cm: product?.length_cm ?? 20,
@@ -584,7 +586,25 @@ export default function ProductForm({
                                         </div>
                                     )}
 
-                                    <Field label="Visibilitas" error={errors.visibility} htmlFor="visibility">
+                                    <div className="rounded-2xl border border-violet-200 bg-violet-50/45 p-4 sm:p-5">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div><p className="flex items-center gap-2 text-sm font-extrabold"><Boxes className="size-4 text-violet-600" /> Distribusi marketplace</p><p className="mt-1 max-w-xl text-xs leading-5 text-muted">Storefront-mu tetap bekerja seperti biasa. Aktifkan ini kalau produk juga ingin ditemukan dari halaman Jelajahi JualanYok.</p></div>
+                                            <Switch checked={data.is_marketplace_listed} onChange={(value) => setData('is_marketplace_listed', value)} label="Ajukan" />
+                                        </div>
+
+                                        {data.is_marketplace_listed && <div className="mt-5 space-y-4 border-t border-violet-100 pt-4">
+                                            <Field label="Kategori marketplace" required error={serverErrors.marketplace_category_id} htmlFor="marketplace-category">
+                                                <Select id="marketplace-category" value={data.marketplace_category_id} onChange={(e) => setData('marketplace_category_id', e.target.value)}>
+                                                    <option value="">Pilih kategori paling relevan</option>
+                                                    {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                                                </Select>
+                                            </Field>
+                                            {editing && <div className="rounded-xl border border-line bg-white p-3 text-xs leading-5"><p className="font-extrabold">Status: {product.marketplace_status_label}</p>{product.marketplace_status === 'PENDING_REVIEW' && <p className="mt-1 text-muted">Tim JualanYok sedang memeriksa kualitas, keamanan, dan kesesuaian listing.</p>}{product.rejection_reason && <p className="mt-2 rounded-lg bg-rose-50 p-2 text-rose-700"><b>Alasan:</b> {product.rejection_reason}</p>}</div>}
+                                            <div className="rounded-xl bg-white p-3"><p className="text-[9px] font-extrabold uppercase tracking-wider text-violet-600">Preview pencarian</p><p className="mt-2 line-clamp-1 text-sm font-extrabold">{data.name || 'Nama produkmu'}</p><p className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted">{data.short_description || 'Deskripsi singkat akan membantu calon pembeli memahami produkmu.'}</p><p className="mt-2 text-sm font-black">{isExternal ? 'Cek harga terbaru' : formatIDR(Number(data.price) || 0)}</p></div>
+                                        </div>}
+                                    </div>
+
+                                    <Field label="Visibilitas storefront" error={errors.visibility} htmlFor="visibility">
                                         <Select
                                             id="visibility"
                                             value={data.visibility}

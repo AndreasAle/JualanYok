@@ -77,6 +77,7 @@ const ADMIN_NAV: { group: string; items: NavItem[] }[] = [
         items: [
             { label: 'Pengguna', href: '/admin/pengguna', icon: <Users className="size-4.5" />, primary: true },
             { label: 'Toko', href: '/admin/toko', icon: <Store className="size-4.5" />, primary: true },
+            { label: 'Marketplace', href: '/admin/marketplace', icon: <Boxes className="size-4.5" />, roles: ['support-admin', 'super-admin'] },
         ],
     },
     {

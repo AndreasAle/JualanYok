@@ -8,17 +8,23 @@ use App\Models\StaticPage;
 use App\Models\Store;
 use App\Models\StorefrontTemplate;
 use App\Models\SupportTicket;
+use App\Services\MarketplaceService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class LandingController extends Controller
 {
-    public function home(): Response
+    public function __construct(private readonly MarketplaceService $marketplace) {}
+
+    public function home(Request $request): Response
     {
+        $this->marketplace->recordEvent($request, 'marketplace_home_view');
+
         return Inertia::render('Marketing/Home', [
             'plans' => $this->plans(),
             'templates' => $this->templates_data(4),
+            'marketplace' => $this->marketplace->homepage(),
             // Real published stores power the showcase, so the landing page
             // never drifts from what the product actually produces.
             'showcase' => Store::live()

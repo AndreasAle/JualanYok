@@ -23,7 +23,10 @@ class Store extends Model
             'socials' => 'array',
             'pixels' => 'array',
             'is_published' => 'boolean',
+            'is_featured' => 'boolean',
+            'is_verified' => 'boolean',
             'published_at' => 'datetime',
+            'featured_at' => 'datetime',
             'show_platform_branding' => 'boolean',
         ];
     }

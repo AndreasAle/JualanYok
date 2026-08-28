@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Creator;
 
+use App\Enums\MarketplaceStatus;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Http\Controllers\Controller;
@@ -100,7 +101,7 @@ class ProductController extends Controller
             'produk',
         );
 
-        $data = $this->normalizeTypeData($this->validated($request));
+        $data = $this->prepareMarketplaceData($this->normalizeTypeData($this->validated($request)));
         $initialStock = (int) ($data['initial_stock'] ?? 0);
         unset($data['initial_stock']);
 
@@ -159,6 +160,11 @@ class ProductController extends Controller
                 'status' => $product->status->value,
                 'visibility' => $product->visibility,
                 'product_category_id' => $product->product_category_id,
+                'is_marketplace_listed' => (bool) $product->is_marketplace_listed,
+                'marketplace_category_id' => $product->marketplace_category_id,
+                'marketplace_status' => $product->marketplace_status->value,
+                'marketplace_status_label' => $product->marketplace_status->label(),
+                'rejection_reason' => $product->rejection_reason,
                 'tags' => $product->tags ?? [],
                 'min_quantity' => $product->min_quantity,
                 'max_quantity' => $product->max_quantity,
@@ -221,7 +227,7 @@ class ProductController extends Controller
     {
         $this->authorizeProduct($request, $product);
 
-        $data = $this->normalizeTypeData($this->validated($request, $product));
+        $data = $this->prepareMarketplaceData($this->normalizeTypeData($this->validated($request, $product)), $product);
         unset($data['initial_stock']);
 
         if ($thumbnail = $this->storeThumbnail($request)) {
@@ -317,6 +323,12 @@ class ProductController extends Controller
             'status' => ['required', Rule::enum(ProductStatus::class)],
             'visibility' => ['required', Rule::in(['public', 'unlisted', 'private'])],
             'product_category_id' => ['nullable', 'exists:product_categories,id'],
+            'is_marketplace_listed' => ['boolean'],
+            'marketplace_category_id' => [
+                Rule::requiredIf($request->boolean('is_marketplace_listed')),
+                'nullable',
+                'exists:product_categories,id',
+            ],
             'tags' => ['nullable', 'array'],
             'sku' => ['nullable', 'string', 'max:64'],
             'weight_gram' => [Rule::requiredIf($request->input('type') === ProductType::Physical->value), 'nullable', 'integer', 'min:1', 'max:1000000'],
@@ -371,6 +383,48 @@ class ProductController extends Controller
             'sale_starts_at' => null,
             'sale_ends_at' => null,
             'affiliate_enabled' => false,
+        ]);
+    }
+
+    /** Creator controls distribution, while only moderation can approve it. */
+    private function prepareMarketplaceData(array $data, ?Product $product = null): array
+    {
+        $listed = (bool) ($data['is_marketplace_listed'] ?? false);
+
+        if (! $listed) {
+            return array_merge($data, [
+                'marketplace_status' => MarketplaceStatus::Draft,
+                'marketplace_category_id' => null,
+                'rejection_reason' => null,
+                'moderated_at' => null,
+                'moderated_by' => null,
+                'featured_at' => null,
+                'featured_until' => null,
+            ]);
+        }
+
+        $listingChanged = ! $product
+            || ! $product->is_marketplace_listed
+            || (int) $product->marketplace_category_id !== (int) ($data['marketplace_category_id'] ?? 0)
+            || $product->name !== ($data['name'] ?? $product->name)
+            || $product->short_description !== ($data['short_description'] ?? null)
+            || (float) $product->price !== (float) ($data['price'] ?? $product->price);
+
+        return array_merge($data, [
+            'marketplace_status' => $listingChanged
+                ? MarketplaceStatus::PendingReview
+                : $product->marketplace_status,
+            'rejection_reason' => $listingChanged ? null : $product->rejection_reason,
+            'moderated_at' => $listingChanged ? null : $product->moderated_at,
+            'moderated_by' => $listingChanged ? null : $product->moderated_by,
+            'marketplace_quality_score' => collect([
+                ! empty($data['name']),
+                ! empty($data['short_description']),
+                ! empty($data['description']),
+                ! empty($data['marketplace_category_id']),
+                ! empty($data['seo_description']),
+                (bool) ($product?->thumbnail_path),
+            ])->filter()->count() * 15,
         ]);
     }
 

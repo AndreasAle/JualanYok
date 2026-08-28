@@ -2,11 +2,12 @@ import { Link } from '@inertiajs/react';
 import {
     ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, CircleDollarSign,
     CreditCard, Download, Globe2, HeartHandshake, Layers3, Link2, LockKeyhole,
-    MousePointerClick, PackageCheck, Palette, Play, Quote, ShoppingBag, Sparkles, Star,
+    MousePointerClick, PackageCheck, Palette, Play, Quote, Search, ShoppingBag, Sparkles, Star,
     TrendingUp, Users, WalletCards, Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { TemplateShowcasePreview } from '@/components/template-showcase-preview';
+import MarketplaceFront, { type MarketplaceHomeData } from '@/components/marketplace/MarketplaceFront';
 import { Badge, ButtonLink } from '@/components/ui';
 import MarketingLayout from '@/layouts/MarketingLayout';
 import { cn, formatIDR } from '@/lib/utils';
@@ -39,13 +40,14 @@ interface TemplateCard {
     block_count: number;
 }
 
-export default function Home({ plans, showcase, templates }: { plans: Plan[]; showcase: Showcase[]; templates: TemplateCard[] }) {
+export default function Home({ plans, showcase, templates, marketplace }: { plans: Plan[]; showcase: Showcase[]; templates: TemplateCard[]; marketplace: MarketplaceHomeData }) {
     return (
         <MarketingLayout
             title="Satu link untuk semua jualanmu"
             description="Bikin toko online, terima pembayaran, kirim produk otomatis, dan kelola bisnis kreator dari satu tempat."
         >
-            <Hero />
+            <Hero banners={marketplace.banners} />
+            <MarketplaceFront data={marketplace} />
             <TrustRail />
             <SellAnything />
             <CommerceFlow />
@@ -61,10 +63,26 @@ export default function Home({ plans, showcase, templates }: { plans: Plan[]; sh
     );
 }
 
-function Hero() {
+function Hero({ banners }: { banners: MarketplaceHomeData['banners'] }) {
+    const [active, setActive] = useState(0);
+    const banner = banners[active];
+
+    useEffect(() => {
+        if (banners.length < 2) return;
+
+        const timer = window.setInterval(() => setActive((value) => (value + 1) % banners.length), 9000);
+        return () => window.clearInterval(timer);
+    }, [banners.length]);
+
     return (
         <section className="px-3 pt-3 sm:px-5 sm:pt-5">
             <div className="jy-hero relative mx-auto min-h-[760px] max-w-[1500px] overflow-hidden rounded-[2rem] border border-white/70 px-4 pt-16 shadow-[0_28px_100px_rgba(102,64,180,.16)] sm:px-8 lg:min-h-[880px] lg:pt-20">
+                {(banner?.desktop_image_url || banner?.mobile_image_url) && (
+                    <picture className="pointer-events-none absolute inset-0 opacity-20 mix-blend-multiply">
+                        {banner.mobile_image_url && <source media="(max-width: 639px)" srcSet={banner.mobile_image_url} />}
+                        <img src={banner.desktop_image_url ?? banner.mobile_image_url ?? ''} alt="" className="size-full object-cover" fetchPriority="high" />
+                    </picture>
+                )}
                 <div className="jy-orb jy-orb-one" aria-hidden="true" />
                 <div className="jy-orb jy-orb-two" aria-hidden="true" />
                 <div className="jy-cloud jy-cloud-left" aria-hidden="true" />
@@ -75,32 +93,37 @@ function Hero() {
                         <div className="mb-6 inline-flex items-center gap-3 text-[11px] font-extrabold uppercase tracking-[.18em] text-neutral-700">
                             <span className="h-px w-8 bg-neutral-500/50" />
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/80 bg-white/55 px-3 py-1.5 shadow-sm backdrop-blur-xl">
-                                <Sparkles className="size-3.5 text-violet-600" /> Dibuat untuk kreator Indonesia
+                                <Sparkles className="size-3.5 text-violet-600" /> {banner?.eyebrow ?? 'Dibuat untuk kreator Indonesia'}
                             </span>
                             <span className="h-px w-8 bg-neutral-500/50" />
                         </div>
                     </Reveal>
                     <Reveal delay={90}>
                         <h1 className="mx-auto max-w-4xl text-balance text-[2.75rem] font-extrabold leading-[1.02] tracking-[-.055em] text-[#111119] sm:text-6xl lg:text-[5.15rem]">
-                            Semua jualanmu.<span className="block">Satu link. Langsung <span className="gradient-text">cuan.</span></span>
+                            {banner?.title ?? <>Temukan karya creator.<span className="block">Belanja langsung dari <span className="gradient-text">orangnya.</span></span></>}
                         </h1>
                     </Reveal>
                     <Reveal delay={170}>
                         <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-7 text-neutral-600 sm:text-lg">
-                            Bangun toko yang terasa seperti brand kamu, jual produk digital sampai jasa,
-                            terima pembayaran, dan kirim pesanan otomatis—tanpa ribet urusan teknis.
+                            {banner?.description ?? 'Jelajahi produk digital, kelas, jasa, event, dan karya pilihan dari creator Indonesia. Atau buka tokomu sendiri dalam satu link.'}
                         </p>
                     </Reveal>
                     <Reveal delay={240}>
                         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                            <ButtonLink href="/register" size="lg" className="group rounded-full bg-[#111119] px-7 text-white shadow-[0_14px_30px_rgba(17,17,25,.22)] hover:bg-black">
-                                Mulai jualan gratis <ArrowRight className="transition-transform group-hover:translate-x-1" />
+                            <ButtonLink href={banner?.cta_url ?? '/explore'} size="lg" className="group rounded-full bg-[#111119] px-7 text-white shadow-[0_14px_30px_rgba(17,17,25,.22)] hover:bg-black">
+                                {banner?.cta_label ?? 'Jelajahi produk'} <ArrowRight className="transition-transform group-hover:translate-x-1" />
                             </ButtonLink>
-                            <Link href="/templates" className="inline-flex h-13 items-center gap-2 rounded-full border border-black/10 bg-white/55 px-6 text-sm font-bold text-neutral-800 backdrop-blur-xl transition hover:bg-white">
-                                <Play className="size-4 fill-current" /> Lihat contoh toko
+                            <Link href="/register" className="inline-flex h-13 items-center gap-2 rounded-full border border-black/10 bg-white/55 px-6 text-sm font-bold text-neutral-800 backdrop-blur-xl transition hover:bg-white">
+                                <Play className="size-4 fill-current" /> Mulai jualan
                             </Link>
                         </div>
+                        <form action="/explore" method="get" role="search" className="mx-auto mt-5 flex max-w-xl items-center gap-2 rounded-2xl border border-white/80 bg-white/75 p-2 shadow-[0_12px_35px_rgba(55,34,100,.09)] backdrop-blur-xl">
+                            <Search className="ml-2 size-5 shrink-0 text-neutral-400" aria-hidden="true" />
+                            <input name="q" aria-label="Cari produk marketplace" className="h-10 min-w-0 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-neutral-400" placeholder="Cari produk, creator, kategori, atau tag" />
+                            <button className="h-10 rounded-xl bg-[#171722] px-5 text-xs font-extrabold text-white transition hover:bg-violet-700">Cari</button>
+                        </form>
                         <p className="mt-4 text-xs font-semibold text-neutral-500">Gratis untuk mulai · Tanpa kartu kredit · Siap dibagikan hari ini</p>
+                        {banners.length > 1 && <div className="mt-5 flex justify-center gap-2" aria-label="Pilih campaign banner">{banners.map((item, index) => <button key={item.id} type="button" onClick={() => setActive(index)} aria-label={`Tampilkan banner ${index + 1}`} aria-current={index === active} className={cn('h-1.5 rounded-full transition-all', index === active ? 'w-8 bg-[#171722]' : 'w-2 bg-[#171722]/25 hover:bg-[#171722]/45')} />)}</div>}
                     </Reveal>
                 </div>
                 <Reveal delay={320} className="relative z-10 mx-auto mt-14 max-w-5xl lg:mt-16"><HeroProduct /></Reveal>

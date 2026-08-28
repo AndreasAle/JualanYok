@@ -3,6 +3,8 @@
 use App\Http\Controllers\PublicSite\CheckoutController;
 use App\Http\Controllers\PublicSite\DownloadController;
 use App\Http\Controllers\PublicSite\LandingController;
+use App\Http\Controllers\PublicSite\MarketplaceController;
+use App\Http\Controllers\PublicSite\MarketplaceSeoController;
 use App\Http\Controllers\PublicSite\OrderAccessController;
 use App\Http\Controllers\PublicSite\PaymentWebhookController;
 use App\Http\Controllers\PublicSite\ShippingWebhookController;
@@ -25,6 +27,19 @@ Route::post('/contact', [LandingController::class, 'submitContact'])
     ->middleware('throttle:5,1')
     ->name('contact.submit');
 Route::get('/faq', [LandingController::class, 'faq'])->name('faq');
+Route::get('/sitemap.xml', [MarketplaceSeoController::class, 'sitemap'])->name('sitemap');
+Route::get('/robots.txt', [MarketplaceSeoController::class, 'robots'])->name('robots');
+
+/* Creator marketplace. Commerce actions continue through the established
+ * storefront so cart, checkout, payment, fulfilment, and ledger logic stay
+ * in one source of truth. */
+Route::get('/explore', [MarketplaceController::class, 'index'])->name('marketplace.index');
+Route::get('/categories/{category:slug}', [MarketplaceController::class, 'category'])
+    ->name('marketplace.categories.show');
+Route::get('/products/{store:username}/{product:slug}', [MarketplaceController::class, 'product'])
+    ->name('marketplace.products.show');
+Route::get('/@{store:username}', [MarketplaceController::class, 'creator'])
+    ->name('marketplace.creators.show');
 
 foreach (['terms', 'privacy', 'refund-policy'] as $slug) {
     Route::get("/{$slug}", fn () => app(LandingController::class)->page($slug))

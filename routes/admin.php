@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDisputeController;
 use App\Http\Controllers\Admin\AdminEconomicsController;
+use App\Http\Controllers\Admin\AdminMarketplaceController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPayoutMethodController;
 use App\Http\Controllers\Admin\AdminRefundController;
@@ -23,6 +24,12 @@ Route::middleware(['auth', 'admin'])
     ->group(function () {
         Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/ekonomi', [AdminEconomicsController::class, 'index'])->name('economics.index');
+
+        Route::middleware('admin:support-admin,super-admin')->group(function () {
+            Route::get('/marketplace', [AdminMarketplaceController::class, 'index'])->name('marketplace.index');
+            Route::post('/marketplace/produk/{product}/moderasi', [AdminMarketplaceController::class, 'moderate'])->name('marketplace.moderate');
+            Route::post('/marketplace/produk/{product}/unggulkan', [AdminMarketplaceController::class, 'feature'])->name('marketplace.feature');
+        });
 
         Route::get('/pengguna', [AdminUserController::class, 'index'])->name('users.index');
         Route::get('/pengguna/{user}', [AdminUserController::class, 'show'])->name('users.show');

@@ -27,6 +27,22 @@ class AnalyticsEvent extends Model
 
     public const AFFILIATE_CLICK = 'affiliate_click';
 
+    public const MARKETPLACE_HOME_VIEW = 'marketplace_home_view';
+
+    public const CATEGORY_VIEW = 'marketplace_category_view';
+
+    public const SEARCH = 'marketplace_search';
+
+    public const SEARCH_RESULT_IMPRESSION = 'marketplace_search_result_impression';
+
+    public const PRODUCT_IMPRESSION = 'marketplace_product_impression';
+
+    public const PRODUCT_CLICK = 'marketplace_product_click';
+
+    public const CREATOR_CLICK = 'marketplace_creator_click';
+
+    public const SHARE = 'share';
+
     protected $guarded = [];
 
     protected function casts(): array

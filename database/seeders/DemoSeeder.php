@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\MarketplaceStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
@@ -64,6 +65,49 @@ class DemoSeeder extends Seeder
         $kreator = $this->createKreatorKita();
         $ruang = $this->createRuangDesain();
         $racun = $this->createRacunStyle();
+        $dapur = $this->createMarketplaceShowcaseStore(
+            'Dapur Naya',
+            'nayadapur',
+            'dapur-naya',
+            'makanan@jualanyok.test',
+            'food-beverage',
+            'Food & Beverage',
+            'Menu rumahan, hampers, dan perlengkapan dapur pilihan.',
+            'Kurasi kebutuhan makan dan rumah dari usaha lokal Indonesia.',
+            'Dapur',
+        );
+        $studio = $this->createMarketplaceShowcaseStore(
+            'Studio Arunika',
+            'arunikastudio',
+            'studio-arunika',
+            'arunika@jualanyok.test',
+            'minimal-personal',
+            'Lifestyle & Edukasi',
+            'Kelas ringan dan produk pilihan untuk hidup lebih terarah.',
+            'Kami mengkurasi produk belajar dan lifestyle dengan penjelasan yang jujur.',
+            'Arunika',
+        );
+
+        $marketplaceStores = [$kreator, $ruang, $racun, $dapur, $studio];
+
+        foreach ($marketplaceStores as $index => $store) {
+            $store->forceFill([
+                'is_featured' => true,
+                'featured_at' => now()->subMinutes($index),
+                'creator_category' => ['Content Creator', 'Desain & Kreatif', 'Fashion', 'Food & Beverage', 'Lifestyle & Edukasi'][$index],
+                'is_verified' => true,
+            ])->save();
+
+            $store->products()->get()->each(function (Product $product) {
+                $product->forceFill([
+                    'is_marketplace_listed' => true,
+                    'marketplace_status' => MarketplaceStatus::Approved,
+                    'marketplace_category_id' => $product->product_category_id,
+                    'marketplace_quality_score' => 90,
+                    'moderated_at' => now(),
+                ])->save();
+            });
+        }
 
         $affiliate = $this->createAffiliate($kreator, $ruang);
 
@@ -71,7 +115,7 @@ class DemoSeeder extends Seeder
         $this->simulateSales($ruang, null);
         $this->simulateSales($racun, null, 3);
 
-        $this->buildAnalytics([$kreator, $ruang, $racun]);
+        $this->buildAnalytics($marketplaceStores);
 
         $this->seedDemoFiles();
 
@@ -356,6 +400,71 @@ class DemoSeeder extends Seeder
         ]);
 
         $this->enableAffiliateProgram($store, 20);
+        $this->fillBlocks($store);
+
+        return $store;
+    }
+
+    /** Adds a fuller, legal local-asset catalogue so discovery can be tested realistically. */
+    private function createMarketplaceShowcaseStore(
+        string $ownerName,
+        string $ownerUsername,
+        string $storeUsername,
+        string $email,
+        string $template,
+        string $creatorCategory,
+        string $tagline,
+        string $bio,
+        string $prefix,
+    ): Store {
+        $owner = $this->makeUser($ownerName, $ownerUsername, $email, [Role::CREATOR]);
+        $store = $this->provisionStore($owner, $storeUsername, $ownerName, $template, compact('tagline', 'bio'));
+
+        $physical = [
+            "{$prefix} Daily Kit",
+            "{$prefix} Starter Pack",
+            "{$prefix} Essential Set",
+            "{$prefix} Weekend Bundle",
+            "{$prefix} Gift Box",
+        ];
+
+        foreach ($physical as $index => $name) {
+            $product = $this->makeProduct($store, [
+                'type' => ProductType::Physical,
+                'name' => $name,
+                'short_description' => 'Produk pilihan dengan informasi ukuran, stok, dan pengiriman yang jelas.',
+                'description' => 'Dikurasi oleh '.$ownerName.'. Detail produk dan proses pengiriman mengikuti informasi yang tampil saat checkout.',
+                'price' => 69000 + ($index * 30000),
+                'compare_at_price' => $index % 2 === 0 ? 99000 + ($index * 30000) : null,
+                'weight_gram' => 350 + ($index * 100),
+                'length_cm' => 24,
+                'width_cm' => 18,
+                'height_cm' => 8,
+                'affiliate_enabled' => $index < 3,
+                'sales_count' => 4 + ($index * 3),
+            ]);
+
+            Inventory::updateOrCreate(
+                ['product_id' => $product->id, 'product_variant_id' => null],
+                ['quantity' => 12 + ($index * 4), 'reserved' => 0, 'track_stock' => true, 'low_stock_threshold' => 4],
+            );
+        }
+
+        foreach (range(1, 5) as $index) {
+            $this->makeProduct($store, [
+                'type' => ProductType::External,
+                'name' => "Rekomendasi {$prefix} #{$index}",
+                'short_description' => 'Rekomendasi affiliate transparan; harga final mengikuti marketplace tujuan.',
+                'description' => 'Produk kurasi creator. Pembelian diselesaikan di marketplace tujuan dan dapat menghasilkan komisi affiliate.',
+                'price' => 0,
+                'external_url' => 'https://shopee.co.id/search?keyword='.rawurlencode(strtolower($prefix).' pilihan '.$index),
+                'affiliate_enabled' => true,
+                'sales_count' => 0,
+            ]);
+        }
+
+        $store->forceFill(['creator_category' => $creatorCategory])->save();
+        $this->enableAffiliateProgram($store, 12);
         $this->fillBlocks($store);
 
         return $store;

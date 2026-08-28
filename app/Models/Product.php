@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MarketplaceStatus;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Support\Media;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Product extends Model
 {
@@ -20,22 +22,36 @@ class Product extends Model
 
     protected $guarded = [];
 
+    protected static function booted(): void
+    {
+        $forgetMarketplaceCache = static fn () => Cache::forget('marketplace.categories');
+
+        static::saved($forgetMarketplaceCache);
+        static::deleted($forgetMarketplaceCache);
+        static::restored($forgetMarketplaceCache);
+    }
+
     protected function casts(): array
     {
         return [
             'type' => ProductType::class,
             'status' => ProductStatus::class,
+            'marketplace_status' => MarketplaceStatus::class,
             'price' => 'decimal:2',
             'compare_at_price' => 'decimal:2',
             'minimum_price' => 'decimal:2',
             'is_pay_what_you_want' => 'boolean',
             'affiliate_enabled' => 'boolean',
+            'is_marketplace_listed' => 'boolean',
             'is_fragile' => 'boolean',
             'tags' => 'array',
             'custom_fields' => 'array',
             'settings' => 'array',
             'sale_starts_at' => 'datetime',
             'sale_ends_at' => 'datetime',
+            'featured_at' => 'datetime',
+            'featured_until' => 'datetime',
+            'moderated_at' => 'datetime',
         ];
     }
 
@@ -49,6 +65,16 @@ class Product extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(ProductCategory::class, 'product_category_id');
+    }
+
+    public function marketplaceCategory(): BelongsTo
+    {
+        return $this->belongsTo(ProductCategory::class, 'marketplace_category_id');
+    }
+
+    public function moderator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'moderated_by');
     }
 
     public function media(): HasMany
@@ -130,6 +156,51 @@ class Product extends Model
     public function scopePubliclyListed(Builder $query): Builder
     {
         return $query->active()->deliverable()->where('visibility', 'public');
+    }
+
+    /** Products safe to expose through marketplace discovery and SEO. */
+    public function scopeMarketplaceVisible(Builder $query): Builder
+    {
+        return $query
+            ->publiclyListed()
+            ->where('is_marketplace_listed', true)
+            ->where('marketplace_status', MarketplaceStatus::Approved->value)
+            ->whereHas('store', fn (Builder $store) => $store
+                ->live()
+                ->whereHas('owner', fn (Builder $owner) => $owner->where('status', 'active')))
+            ->where(function (Builder $availability) {
+                $availability
+                    ->where('type', '!=', ProductType::Physical->value)
+                    ->orWhereHas('inventories', fn (Builder $inventory) => $inventory
+                        ->where(function (Builder $stock) {
+                            $stock
+                                ->where('track_stock', false)
+                                ->orWhere('allow_backorder', true)
+                                ->orWhereColumn('quantity', '>', 'reserved');
+                        }));
+            });
+    }
+
+    public function isMarketplaceVisible(): bool
+    {
+        return $this->is_marketplace_listed
+            && $this->marketplace_status === MarketplaceStatus::Approved
+            && $this->visibility === 'public'
+            && $this->status === ProductStatus::Active
+            && $this->store?->isLive()
+            && ! $this->store?->owner?->isSuspended()
+            && $this->isDeliverable()
+            && ($this->type === ProductType::External || $this->isBuyable())
+            && ($this->type !== ProductType::Physical || $this->hasMarketplaceStock());
+    }
+
+    private function hasMarketplaceStock(): bool
+    {
+        $inventories = $this->relationLoaded('inventories')
+            ? $this->inventories
+            : $this->inventories()->get();
+
+        return $inventories->contains(fn (Inventory $inventory) => $inventory->canFulfil(1));
     }
 
     /**
