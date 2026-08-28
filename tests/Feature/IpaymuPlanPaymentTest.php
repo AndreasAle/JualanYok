@@ -127,6 +127,18 @@ class IpaymuPlanPaymentTest extends TestCase
             'subscription_id' => $subscription->id,
             'status' => 'PAID',
         ]);
+        $this->assertDatabaseCount('financial_journals', 1);
+        $this->assertDatabaseHas('financial_journals', [
+            'event_type' => 'SUBSCRIPTION_PAID',
+            'reference_type' => $payment->getMorphClass(),
+            'reference_id' => $payment->id,
+        ]);
+        $this->assertEquals(
+            0.0,
+            (float) \DB::table('financial_postings')
+                ->selectRaw("SUM(CASE WHEN direction = 'DEBIT' THEN amount ELSE -amount END) AS balance")
+                ->value('balance'),
+        );
     }
 
     public function test_status_check_recovers_a_paid_subscription_when_callback_is_delayed(): void

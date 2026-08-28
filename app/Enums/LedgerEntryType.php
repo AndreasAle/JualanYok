@@ -13,6 +13,10 @@ enum LedgerEntryType: string
     case Refund = 'REFUND';
     case Adjustment = 'ADJUSTMENT';
     case Release = 'RELEASE';
+    case Reserve = 'RESERVE';
+    case ReserveRelease = 'RESERVE_RELEASE';
+    case Debt = 'DEBT';
+    case DebtRecovery = 'DEBT_RECOVERY';
     case Withdrawal = 'WITHDRAWAL';
     case WithdrawalFee = 'WITHDRAWAL_FEE';
     case WithdrawalReversal = 'WITHDRAWAL_REVERSAL';
@@ -30,6 +34,10 @@ enum LedgerEntryType: string
             self::Refund => 'Refund',
             self::Adjustment => 'Penyesuaian',
             self::Release => 'Pencairan ke Saldo Tersedia',
+            self::Reserve => 'Dana Cadangan Risiko',
+            self::ReserveRelease => 'Pelepasan Dana Cadangan',
+            self::Debt => 'Saldo Negatif',
+            self::DebtRecovery => 'Pelunasan Saldo Negatif',
             self::Withdrawal => 'Penarikan',
             self::WithdrawalFee => 'Biaya Penarikan',
             self::WithdrawalReversal => 'Pengembalian Penarikan',

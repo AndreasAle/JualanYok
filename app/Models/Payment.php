@@ -17,6 +17,8 @@ class Payment extends Model
             'status' => PaymentStatus::class,
             'amount' => 'decimal:2',
             'fee' => 'decimal:2',
+            'fee_estimated' => 'decimal:2',
+            'settlement_days' => 'integer',
             'refunded_amount' => 'decimal:2',
             'instructions' => 'array',
             'expires_at' => 'datetime',

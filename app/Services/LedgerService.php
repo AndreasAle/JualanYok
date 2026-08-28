@@ -91,6 +91,7 @@ class LedgerService
             if ($amount > 0 && in_array($type, [
                 LedgerEntryType::SellerRevenue,
                 LedgerEntryType::AffiliateCommission,
+                LedgerEntryType::Reserve,
             ], true)) {
                 $locked->lifetime_earned = Money::round((float) $locked->lifetime_earned + $amount);
             }
@@ -130,6 +131,79 @@ class LedgerService
     public function walletFor(User $user, string $currency = 'IDR'): Wallet
     {
         return Wallet::firstOrCreate(['user_id' => $user->id, 'currency' => $currency]);
+    }
+
+    /**
+     * Debits recoverable money without ever making a real-money bucket
+     * negative. Any shortfall becomes an explicit positive debt balance and
+     * will be recovered automatically from the user's next earnings.
+     *
+     * @return array{reserve:float,pending:float,available:float,debt:float}
+     */
+    public function clawback(
+        Wallet $wallet,
+        float $amount,
+        LedgerEntryType $type,
+        Model $reference,
+        string $description,
+        string $idempotencyKey,
+        bool $useReserve = true,
+        ?float $reserveLimit = null,
+    ): array {
+        return DB::transaction(function () use ($wallet, $amount, $type, $reference, $description, $idempotencyKey, $useReserve, $reserveLimit) {
+            $wallet = Wallet::whereKey($wallet->id)->lockForUpdate()->firstOrFail();
+            $remaining = Money::round(max(0, $amount));
+            $allocation = ['reserve' => 0.0, 'pending' => 0.0, 'available' => 0.0, 'debt' => 0.0];
+
+            $buckets = $useReserve
+                ? [BalanceBucket::Reserve, BalanceBucket::Pending, BalanceBucket::Available]
+                : [BalanceBucket::Pending, BalanceBucket::Available];
+
+            foreach ($buckets as $bucket) {
+                if ($remaining <= 0) {
+                    break;
+                }
+
+                $available = max(0, (float) $wallet->{$bucket->column()});
+                if ($bucket === BalanceBucket::Reserve && $reserveLimit !== null) {
+                    $available = min($available, max(0, $reserveLimit));
+                }
+                $taken = Money::round(min($remaining, $available));
+
+                if ($taken <= 0) {
+                    continue;
+                }
+
+                $this->record(
+                    $wallet,
+                    $type,
+                    $bucket,
+                    -$taken,
+                    $reference,
+                    $description,
+                    $idempotencyKey.':'.strtolower($bucket->value),
+                );
+
+                $allocation[strtolower($bucket->value)] = $taken;
+                $remaining = Money::round($remaining - $taken);
+                $wallet->refresh();
+            }
+
+            if ($remaining > 0) {
+                $this->record(
+                    $wallet,
+                    LedgerEntryType::Debt,
+                    BalanceBucket::Negative,
+                    $remaining,
+                    $reference,
+                    $description.' (menjadi saldo negatif)',
+                    $idempotencyKey.':debt',
+                );
+                $allocation['debt'] = $remaining;
+            }
+
+            return $allocation;
+        });
     }
 
     /**

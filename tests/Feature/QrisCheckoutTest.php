@@ -11,6 +11,7 @@ use App\Services\CheckoutService;
 use App\Services\LedgerService;
 use App\Services\PaymentService;
 use App\Support\Qris;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -98,12 +99,13 @@ class QrisCheckoutTest extends TestCase
         $payment = $this->payments()->createPayment($order, 'qris', 'qris', 'static');
         $order->refresh();
 
-        // 0.7% of 100.000 = 700, and the buyer pays it on top.
-        $this->assertEquals(700, (float) $order->payment_fee);
-        $this->assertEquals(100700, (float) $order->grand_total);
+        // QRIS is never surcharged to the buyer. Its processing cost is part
+        // of seller/platform unit economics instead.
+        $this->assertEquals(0, (float) $order->payment_fee);
+        $this->assertEquals(100000, (float) $order->grand_total);
 
         // The payable figure is the displayed total plus the identifying suffix.
-        $this->assertSame(100700 + (int) $payment->unique_suffix, (int) $payment->amount);
+        $this->assertSame(100000 + (int) $payment->unique_suffix, (int) $payment->amount);
     }
 
     public function test_switching_payment_method_does_not_stack_two_fees(): void
@@ -145,7 +147,7 @@ class QrisCheckoutTest extends TestCase
         $payment = $this->payments()->createPayment($this->order(), 'qris', 'qris', 'static');
 
         // Bypasses the provider: the guarantee has to live in the schema.
-        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        $this->expectException(UniqueConstraintViolationException::class);
 
         Payment::create([
             'order_id' => $payment->order_id,
@@ -229,7 +231,11 @@ class QrisCheckoutTest extends TestCase
         $expectedNet = 100000 - (float) $order->platform_fee;
 
         $this->assertEquals($expectedNet, (float) $order->seller_net);
-        $this->assertEquals($expectedNet, (float) $wallet->pending_balance);
+        $this->assertEquals(
+            $expectedNet - (float) $order->reserve_amount,
+            (float) $wallet->pending_balance,
+        );
+        $this->assertEquals((float) $order->reserve_amount, (float) $wallet->reserve_balance);
 
         // And the ledger still adds up to the wallet.
         $this->assertSame([], app(LedgerService::class)->reconcile($wallet));

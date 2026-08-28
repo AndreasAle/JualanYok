@@ -37,6 +37,8 @@ class BalanceController extends Controller
                 'pending' => (float) $wallet->pending_balance,
                 'available' => (float) $wallet->available_balance,
                 'held' => (float) $wallet->held_balance,
+                'reserve' => (float) $wallet->reserve_balance,
+                'negative' => (float) $wallet->negative_balance,
                 'withdrawn' => (float) $wallet->withdrawn_balance,
                 'lifetime_earned' => (float) $wallet->lifetime_earned,
                 'is_frozen' => (bool) $wallet->is_frozen,

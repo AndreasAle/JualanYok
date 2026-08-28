@@ -20,7 +20,7 @@ class AdminRefundController extends Controller
 
     public function index(Request $request): Response
     {
-        $refunds = Refund::with(['order.store:id,name', 'requester:id,name'])
+        $refunds = Refund::with(['order.store:id,name', 'requester:id,name', 'payment:id,provider'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')))
             ->latest()
             ->paginate(20)
@@ -32,6 +32,9 @@ class AdminRefundController extends Controller
                 'amount' => (float) $r->amount,
                 'order_total' => (float) $r->order->grand_total,
                 'status' => $r->status,
+                'execution_mode' => $r->execution_mode,
+                'payment_provider' => $r->payment?->provider,
+                'transfer_reference' => $r->transfer_reference,
                 'reason' => $r->reason,
                 'admin_note' => $r->admin_note,
                 'requested_by' => $r->requester?->name,
@@ -51,10 +54,36 @@ class AdminRefundController extends Controller
 
         $note = $request->input('note');
 
-        $this->refunds->approve($refund, $request->user(), $note);
+        $refund = $this->refunds->approve($refund, $request->user(), $note);
         $this->audit->log('refund.approved', $refund, reason: $note);
 
-        return back()->with('success', 'Refund disetujui dan saldo seller disesuaikan.');
+        $message = $refund->status === 'COMPLETED'
+            ? 'Refund berhasil dikirim dan pembukuan sudah diselesaikan.'
+            : 'Pengajuan diterima. Kirim dana melalui dashboard provider, lalu konfirmasi nomor referensinya.';
+
+        return back()->with('success', $message);
+    }
+
+    public function complete(Request $request, Refund $refund)
+    {
+        $this->ensureFinance($request);
+
+        $data = $request->validate([
+            'transfer_reference' => ['required', 'string', 'min:4', 'max:255'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $refund = $this->refunds->completeManual(
+            $refund,
+            $request->user(),
+            $data['transfer_reference'],
+            $data['note'] ?? null,
+        );
+        $this->audit->log('refund.completed', $refund, reason: $data['note'] ?? null, after: [
+            'transfer_reference' => $data['transfer_reference'],
+        ]);
+
+        return back()->with('success', 'Dana refund dikonfirmasi terkirim. Saldo, komisi, dan jurnal sudah disesuaikan.');
     }
 
     public function reject(Request $request, Refund $refund)

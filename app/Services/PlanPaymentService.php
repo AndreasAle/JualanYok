@@ -42,6 +42,7 @@ class PlanPaymentService
     public function __construct(
         private readonly PlanService $plans,
         private readonly PaymentManager $manager,
+        private readonly MarketplaceLedgerService $marketplaceLedger,
     ) {}
 
     public function enabled(): bool
@@ -196,6 +197,8 @@ class PlanPaymentService
                 'review_note' => $note,
                 'subscription_id' => $subscription->id,
             ]);
+
+            $this->marketplaceLedger->recordSubscription($locked->fresh());
 
             return $locked->fresh();
         });
@@ -467,6 +470,8 @@ class PlanPaymentService
                 'subscription_id' => $subscription->id,
                 'gateway_error' => null,
             ])->save();
+
+            $this->marketplaceLedger->recordSubscription($locked->fresh());
 
             return $locked->fresh();
         });

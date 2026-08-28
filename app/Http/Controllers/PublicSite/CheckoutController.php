@@ -26,7 +26,7 @@ class CheckoutController extends Controller
 
         return Inertia::render('Checkout/Show', [
             'order' => $this->orderPayload($order),
-            'methods' => $this->manager->availableMethods(),
+            'methods' => $this->manager->availableMethods((float) $order->grand_total),
             'payment' => $order->latestPayment ? $this->paymentPayload($order->latestPayment) : null,
             'demo' => (bool) config('jualanyok.demo.enabled'),
         ]);

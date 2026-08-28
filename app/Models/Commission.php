@@ -17,6 +17,7 @@ class Commission extends Model
             'base_amount' => 'decimal:2',
             'rate' => 'decimal:4',
             'amount' => 'decimal:2',
+            'reversed_amount' => 'decimal:2',
             'available_at' => 'datetime',
             'approved_at' => 'datetime',
             'paid_at' => 'datetime',

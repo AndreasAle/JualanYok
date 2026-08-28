@@ -30,8 +30,8 @@ return [
         'static_payload' => env('QRIS_STATIC_PAYLOAD'),
         'window_minutes' => (int) env('QRIS_WINDOW_MINUTES', 30),
 
-        // Charged to the buyer on top of the order, mirroring what the wallet
-        // provider deducts from the merchant. Zero means the platform absorbs it.
+        // Provider cost for manual subscription QRIS. It is never silently
+        // added to a buyer's marketplace checkout total.
         'fee_percent' => (float) env('QRIS_FEE_PERCENT', 0.7),
         'fee_fixed' => (float) env('QRIS_FEE_FIXED', 0),
     ],

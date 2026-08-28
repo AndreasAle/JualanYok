@@ -3,12 +3,12 @@
 use App\Models\Store;
 use App\Services\AffiliateService;
 use App\Services\AnalyticsService;
-use App\Services\PaymentService;
 use App\Services\FulfillmentService;
+use App\Services\PaymentService;
 use App\Services\PlanPaymentService;
 use App\Services\PlanService;
-use App\Services\WithdrawalService;
 use App\Services\ShippingService;
+use App\Services\WithdrawalService;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -28,6 +28,11 @@ Schedule::call(fn () => app(PaymentService::class)->expireStale())
 Schedule::call(fn () => app(WithdrawalService::class)->releaseMaturedRevenue())
     ->hourly()
     ->name('balance:release-revenue')
+    ->withoutOverlapping();
+
+Schedule::call(fn () => app(WithdrawalService::class)->releaseMaturedReserves())
+    ->dailyAt('02:20')
+    ->name('release-matured-reserves')
     ->withoutOverlapping();
 
 // Courier callbacks are primary; polling closes gaps caused by delayed webhooks.

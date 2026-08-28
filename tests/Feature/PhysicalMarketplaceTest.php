@@ -210,6 +210,38 @@ class PhysicalMarketplaceTest extends TestCase
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '/v1/v1/'));
     }
 
+    public function test_identical_biteship_area_search_is_cached_and_charged_once(): void
+    {
+        config()->set('shipping.providers.biteship.token', 'test-token');
+        config()->set('shipping.providers.biteship.enabled', true);
+        config()->set('shipping.providers.biteship.base_url', 'https://api.biteship.test/v1');
+        config()->set('shipping.providers.biteship.costs.maps', 2);
+
+        Http::fake([
+            'https://api.biteship.test/v1/maps/areas*' => Http::response([
+                'success' => true,
+                'areas' => [[
+                    'id' => 'IDNP6IDNC148IDND780IDZ30161',
+                    'name' => 'Sematang Borang, Palembang, Sumatera Selatan, 30161',
+                    'postal_code' => '30161',
+                ]],
+            ]),
+        ]);
+
+        $provider = app(BiteshipShippingProvider::class);
+        $provider->searchAreas('Sematang Borang');
+        $provider->searchAreas('  sematang BORANG ');
+
+        Http::assertSentCount(1);
+        $this->assertDatabaseCount('provider_api_usages', 1);
+        $this->assertDatabaseHas('provider_api_usages', [
+            'provider' => 'biteship',
+            'operation' => 'maps',
+            'status' => 'SUCCESS',
+            'cost' => 2,
+        ]);
+    }
+
     /** @return array{0:Order,1:User} */
     private function paidPhysicalOrder(): array
     {

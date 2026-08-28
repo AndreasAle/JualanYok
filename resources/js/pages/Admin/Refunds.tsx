@@ -3,7 +3,7 @@ import { Receipt } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { DataList, PageHeader, Pagination, type Column } from '@/components/shared';
-import { Alert, Badge, Button, Card, EmptyState, Field, Select, Textarea } from '@/components/ui';
+import { Alert, Badge, Button, Card, EmptyState, Field, Input, Select, Textarea } from '@/components/ui';
 import { formatDate, formatIDR } from '@/lib/utils';
 import type { Paginated } from '@/types';
 
@@ -14,11 +14,23 @@ interface RefundRow {
     amount: number;
     order_total: number;
     status: string;
+    execution_mode: string | null;
+    payment_provider: string | null;
+    transfer_reference: string | null;
     reason: string | null;
     admin_note: string | null;
     requested_by: string | null;
     created_at: string;
 }
+
+type RefundAction = { row: RefundRow; mode: 'approve' | 'complete' | 'reject' };
+
+const statusLabel: Record<string, string> = {
+    REQUESTED: 'Menunggu keputusan',
+    APPROVED: 'Menunggu transfer',
+    COMPLETED: 'Dana dikembalikan',
+    REJECTED: 'Ditolak',
+};
 
 export default function AdminRefunds({
     refunds,
@@ -29,7 +41,7 @@ export default function AdminRefunds({
     filters: { status?: string };
     canProcess: boolean;
 }) {
-    const [acting, setActing] = useState<{ row: RefundRow; mode: 'approve' | 'reject' } | null>(null);
+    const [acting, setActing] = useState<RefundAction | null>(null);
 
     const columns: Column<RefundRow>[] = [
         {
@@ -65,34 +77,51 @@ export default function AdminRefunds({
             key: 'status',
             header: 'Status',
             render: (row) => (
-                <Badge
-                    tone={
-                        row.status === 'COMPLETED'
-                            ? 'success'
-                            : row.status === 'REJECTED'
-                              ? 'danger'
-                              : 'warning'
-                    }
-                >
-                    {row.status}
-                </Badge>
+                <span>
+                    <Badge
+                        tone={
+                            row.status === 'COMPLETED'
+                                ? 'success'
+                                : row.status === 'REJECTED'
+                                  ? 'danger'
+                                  : 'warning'
+                        }
+                    >
+                        {statusLabel[row.status] ?? row.status}
+                    </Badge>
+                    {row.status === 'APPROVED' && (
+                        <span className="mt-1 block text-xs text-muted">{row.payment_provider ?? 'Manual'}</span>
+                    )}
+                </span>
             ),
         },
         {
             key: 'actions',
             header: '',
             align: 'right',
-            render: (row) =>
-                canProcess && row.status === 'REQUESTED' ? (
-                    <span className="flex justify-end gap-1">
-                        <Button size="sm" variant="success" onClick={() => setActing({ row, mode: 'approve' })}>
-                            Setujui
+            render: (row) => {
+                if (!canProcess) return null;
+                if (row.status === 'REQUESTED') {
+                    return (
+                        <span className="flex justify-end gap-1">
+                            <Button size="sm" variant="success" onClick={() => setActing({ row, mode: 'approve' })}>
+                                Terima
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setActing({ row, mode: 'reject' })}>
+                                Tolak
+                            </Button>
+                        </span>
+                    );
+                }
+                if (row.status === 'APPROVED') {
+                    return (
+                        <Button size="sm" variant="success" onClick={() => setActing({ row, mode: 'complete' })}>
+                            Konfirmasi terkirim
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setActing({ row, mode: 'reject' })}>
-                            Tolak
-                        </Button>
-                    </span>
-                ) : null,
+                    );
+                }
+                return null;
+            },
         },
     ];
 
@@ -100,7 +129,7 @@ export default function AdminRefunds({
         <DashboardLayout title="Refund" area="admin">
             <PageHeader
                 title="Refund"
-                description="Menyetujui refund otomatis menyesuaikan saldo penjual dan membatalkan komisi affiliate."
+                description="Dana hanya dibukukan sebagai refund setelah gateway mengonfirmasi atau finance memasukkan referensi transfer."
             />
 
             {!canProcess && (
@@ -123,8 +152,9 @@ export default function AdminRefunds({
                     className="sm:w-56"
                 >
                     <option value="">Semua status</option>
-                    <option value="REQUESTED">Menunggu</option>
-                    <option value="COMPLETED">Disetujui</option>
+                    <option value="REQUESTED">Menunggu keputusan</option>
+                    <option value="APPROVED">Menunggu transfer</option>
+                    <option value="COMPLETED">Dana dikembalikan</option>
                     <option value="REJECTED">Ditolak</option>
                 </Select>
             </div>
@@ -136,37 +166,39 @@ export default function AdminRefunds({
                 empty={
                     <EmptyState
                         icon={<Receipt className="size-6" />}
-                        title="Nggak ada pengajuan refund"
-                        description="Pengajuan dari pembeli atau penjual muncul di sini."
+                        title="Belum ada pengajuan refund"
+                        description="Pengajuan dari pembeli atau penjual akan muncul di sini."
                     />
                 }
             />
 
             <Pagination meta={refunds} />
-
             {acting && <RefundDialog action={acting} onClose={() => setActing(null)} />}
         </DashboardLayout>
     );
 }
 
-function RefundDialog({
-    action,
-    onClose,
-}: {
-    action: { row: RefundRow; mode: 'approve' | 'reject' };
-    onClose: () => void;
-}) {
+function RefundDialog({ action, onClose }: { action: RefundAction; onClose: () => void }) {
     const { row, mode } = action;
-    const form = useForm({ note: '' });
+    const form = useForm({ note: '', transfer_reference: '' });
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-
-        form.post(
-            mode === 'approve' ? `/admin/refund/${row.id}/setujui` : `/admin/refund/${row.id}/tolak`,
-            { preserveScroll: true, onSuccess: onClose },
-        );
+        const endpoint =
+            mode === 'approve'
+                ? `/admin/refund/${row.id}/setujui`
+                : mode === 'complete'
+                  ? `/admin/refund/${row.id}/selesaikan`
+                  : `/admin/refund/${row.id}/tolak`;
+        form.post(endpoint, { preserveScroll: true, onSuccess: onClose });
     };
+
+    const title =
+        mode === 'approve'
+            ? 'Terima pengajuan refund'
+            : mode === 'complete'
+              ? 'Konfirmasi dana terkirim'
+              : 'Tolak refund';
 
     return (
         <div
@@ -176,9 +208,7 @@ function RefundDialog({
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
             <Card className="w-full max-w-md animate-rise p-6">
-                <h2 className="text-lg font-bold">
-                    {mode === 'approve' ? 'Setujui refund' : 'Tolak refund'}
-                </h2>
+                <h2 className="text-lg font-bold">{title}</h2>
                 <p className="mt-1 text-sm text-muted">
                     {row.order_number} · {formatIDR(row.amount)}
                 </p>
@@ -186,15 +216,41 @@ function RefundDialog({
                 {mode === 'approve' && (
                     <div className="mt-3">
                         <Alert tone="warning">
-                            Saldo penjual dipotong proporsional dan komisi affiliate untuk pesanan ini dibatalkan.
-                            Kalau refund penuh, akses produk digital dicabut.
+                            Penerimaan belum selalu berarti dana sudah kembali. Jika provider tidak mendukung refund
+                            otomatis, selesaikan transfer lalu masukkan nomor referensinya.
+                        </Alert>
+                    </div>
+                )}
+                {mode === 'complete' && (
+                    <div className="mt-3">
+                        <Alert tone="warning">
+                            Pastikan dana benar-benar sudah terkirim. Konfirmasi ini akan menyesuaikan saldo seller,
+                            komisi affiliate, akses produk, dan jurnal secara permanen.
                         </Alert>
                     </div>
                 )}
 
                 <form onSubmit={submit} className="mt-4 space-y-3">
+                    {mode === 'complete' && (
+                        <Field
+                            label="Nomor referensi transfer"
+                            required
+                            error={form.errors.transfer_reference}
+                            htmlFor="transfer_reference"
+                            hint="Salin nomor transaksi dari iPaymu, bank, atau provider pembayaran."
+                        >
+                            <Input
+                                id="transfer_reference"
+                                value={form.data.transfer_reference}
+                                onChange={(e) => form.setData('transfer_reference', e.target.value)}
+                                placeholder="Contoh: IPAYMU-RF-20260827-001"
+                                required
+                            />
+                        </Field>
+                    )}
+
                     <Field
-                        label={mode === 'approve' ? 'Catatan (opsional)' : 'Alasan penolakan'}
+                        label={mode === 'reject' ? 'Alasan penolakan' : 'Catatan (opsional)'}
                         required={mode === 'reject'}
                         error={form.errors.note}
                         htmlFor="note"
@@ -212,12 +268,12 @@ function RefundDialog({
                         <Button type="button" variant="ghost" onClick={onClose}>
                             Batal
                         </Button>
-                        <Button
-                            type="submit"
-                            variant={mode === 'approve' ? 'success' : 'danger'}
-                            loading={form.processing}
-                        >
-                            {mode === 'approve' ? 'Setujui Refund' : 'Tolak'}
+                        <Button type="submit" variant={mode === 'reject' ? 'danger' : 'success'} loading={form.processing}>
+                            {mode === 'approve'
+                                ? 'Terima pengajuan'
+                                : mode === 'complete'
+                                  ? 'Ya, dana sudah terkirim'
+                                  : 'Tolak'}
                         </Button>
                     </div>
                 </form>

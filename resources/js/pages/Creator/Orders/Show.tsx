@@ -10,6 +10,11 @@ import { formatDate, formatIDR } from '@/lib/utils';
 
 export default function OrderShow({ order }: { order: any }) {
     const [refundOpen, setRefundOpen] = useState(false);
+    const gatewayFee = order.settlement_version >= 2
+        ? order.gateway_fee_actual
+        : order.gateway_fee_estimated;
+    const pendingCredit = Math.max(0, order.seller_net - order.reserve_amount - order.debt_offset);
+    const providerPayment = order.payments.find((payment: any) => payment.status === 'PAID') ?? order.payments[0];
 
     const shipForm = useForm({ tracking_number: order.tracking_number ?? '', courier: order.shipping_method ?? '' });
     const refundForm = useForm({ amount: order.refundable, reason: '' });
@@ -69,7 +74,10 @@ export default function OrderShow({ order }: { order: any }) {
                             </ul>
 
                             <div className="mt-4 space-y-1.5 border-t border-line pt-4 text-sm">
-                                <Row label="Subtotal" value={formatIDR(order.subtotal)} />
+                                <p className="pb-1 text-xs font-extrabold uppercase tracking-[0.12em] text-muted">
+                                    Rincian pembayaran pembeli
+                                </p>
+                                <Row label="Subtotal produk" value={formatIDR(order.subtotal)} />
                                 {order.discount_total > 0 && (
                                     <Row
                                         label={`Diskon ${order.coupon_code ?? ''}`}
@@ -77,12 +85,32 @@ export default function OrderShow({ order }: { order: any }) {
                                     />
                                 )}
                                 {order.shipping_total > 0 && (
-                                    <Row label="Ongkir" value={formatIDR(order.shipping_total)} />
+                                    <Row
+                                        label={order.shipping_provider === 'biteship' ? 'Ongkir · diteruskan ke kurir' : 'Ongkir'}
+                                        value={formatIDR(order.shipping_total)}
+                                    />
                                 )}
-                                {order.payment_fee > 0 && (
-                                    <Row label="Biaya pembayaran" value={formatIDR(order.payment_fee)} />
+                                {order.tax_total > 0 && <Row label="Pajak" value={formatIDR(order.tax_total)} />}
+
+                                <div className="flex justify-between border-t border-line pt-2 font-bold">
+                                    <span>Dibayar pembeli</span>
+                                    <span className="tabular-nums">{formatIDR(order.grand_total)}</span>
+                                </div>
+
+                                <p className="pb-1 pt-4 text-xs font-extrabold uppercase tracking-[0.12em] text-muted">
+                                    Perhitungan pendapatanmu
+                                </p>
+                                <Row label="Nilai produk setelah diskon" value={formatIDR(order.commission_base)} />
+                                <Row
+                                    label={`Biaya platform · ${Number(order.platform_fee_rate ?? 0).toLocaleString('id-ID')}%`}
+                                    value={`−${formatIDR(order.platform_fee)}`}
+                                />
+                                {gatewayFee > 0 && (
+                                    <Row
+                                        label={`Biaya gateway${providerPayment?.method ? ` · ${providerPayment.method}` : ''}${order.settlement_version < 2 ? ' · estimasi' : ''}`}
+                                        value={order.gateway_fee_bearer === 'PLATFORM' ? `Ditanggung JualanYok · ${formatIDR(gatewayFee)}` : `−${formatIDR(gatewayFee)}`}
+                                    />
                                 )}
-                                <Row label="Biaya platform" value={`−${formatIDR(order.platform_fee)}`} />
                                 {order.affiliate_commission > 0 && (
                                     <Row
                                         label="Komisi affiliate"
@@ -91,12 +119,21 @@ export default function OrderShow({ order }: { order: any }) {
                                 )}
 
                                 <div className="flex justify-between border-t border-line pt-2 font-bold">
-                                    <span>Dibayar pembeli</span>
-                                    <span className="tabular-nums">{formatIDR(order.grand_total)}</span>
-                                </div>
-                                <div className="flex justify-between font-bold text-[var(--success)]">
-                                    <span>Masuk ke saldo kamu</span>
+                                    <span>Hak bersih penjual</span>
                                     <span className="tabular-nums">{formatIDR(order.seller_net)}</span>
+                                </div>
+                                {order.reserve_amount > 0 && (
+                                    <Row
+                                        label={`Dana cadangan${order.reserve_rate > 0 ? ` · ${Number(order.reserve_rate).toLocaleString('id-ID')}%` : ''}`}
+                                        value={`−${formatIDR(order.reserve_amount)}`}
+                                    />
+                                )}
+                                {order.debt_offset > 0 && (
+                                    <Row label="Pemulihan saldo minus" value={`−${formatIDR(order.debt_offset)}`} />
+                                )}
+                                <div className="flex justify-between border-t border-line pt-2 font-extrabold text-[var(--success)]">
+                                    <span>Masuk ke saldo tertahan</span>
+                                    <span className="tabular-nums">{formatIDR(pendingCredit)}</span>
                                 </div>
 
                                 {order.refunded_total > 0 && (
@@ -106,6 +143,21 @@ export default function OrderShow({ order }: { order: any }) {
                                     </div>
                                 )}
                             </div>
+
+                            {(order.funds_release_at || order.reserve_release_at || order.reserve_amount > 0) && (
+                                <Alert tone="info" title="Jadwal pencairan" className="mt-4">
+                                    <div className="space-y-1 text-sm">
+                                        <p>
+                                            Saldo tertahan dilepas {order.funds_release_at ? formatDate(order.funds_release_at, true) : 'setelah pesanan selesai'}.
+                                        </p>
+                                        {order.reserve_amount > 0 && (
+                                            <p>
+                                                Dana cadangan {formatIDR(order.reserve_amount)} dilepas {order.reserve_release_at ? formatDate(order.reserve_release_at, true) : 'setelah masa perlindungan berakhir'} selama tidak ada refund atau komplain.
+                                            </p>
+                                        )}
+                                    </div>
+                                </Alert>
+                            )}
                         </CardBody>
                     </Card>
 
@@ -216,9 +268,15 @@ export default function OrderShow({ order }: { order: any }) {
                                                     {payment.provider} · {payment.method}
                                                     {payment.channel ? ` (${payment.channel})` : ''}
                                                 </span>
-                                                <span className="block truncate font-mono text-xs text-muted">
-                                                    {payment.reference}
-                                                </span>
+                                                 <span className="block truncate font-mono text-xs text-muted">
+                                                     {payment.reference}
+                                                 </span>
+                                                 {payment.fee > 0 && (
+                                                     <span className="block text-xs text-muted">
+                                                         Biaya {formatIDR(payment.fee)} · {payment.fee_source === 'PROVIDER' ? 'aktual provider' : 'estimasi'}
+                                                         {payment.settlement_days > 0 ? ` · estimasi cair H+${payment.settlement_days}` : ''}
+                                                     </span>
+                                                 )}
                                             </span>
                                             <span className="shrink-0 text-right">
                                                 <span className="block font-bold">{formatIDR(payment.amount)}</span>

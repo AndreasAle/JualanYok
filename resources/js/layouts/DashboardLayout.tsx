@@ -2,7 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, BarChart3, Bell, Blocks, Boxes, ChevronLeft, CreditCard, ExternalLink, Eye, Gauge, Gift,
     Handshake, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
-    Search, ShieldCheck, ShoppingBag, Store, Ticket, Truck, UserCircle, Users, Wallet, X,
+    Search, ShieldCheck, ShoppingBag, Store, Ticket, TrendingUp, Truck, UserCircle, Users, Wallet, X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Badge, Button } from '@/components/ui';
@@ -65,7 +65,10 @@ const CREATOR_NAV: { group: string; items: NavItem[] }[] = [
 const ADMIN_NAV: { group: string; items: NavItem[] }[] = [
     {
         group: 'Ringkasan',
-        items: [{ label: 'Dashboard', href: '/admin', icon: <Gauge className="size-4.5" />, primary: true }],
+        items: [
+            { label: 'Dashboard', href: '/admin', icon: <Gauge className="size-4.5" />, primary: true },
+            { label: 'Unit Economics', href: '/admin/ekonomi', icon: <TrendingUp className="size-4.5" /> },
+        ],
     },
     {
         group: 'Komunitas',

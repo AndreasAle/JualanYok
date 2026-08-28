@@ -6,7 +6,7 @@ import {
 import { useState } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { AreaChart, BarList, StatCard, StatusBadge } from '@/components/shared';
-import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, CardTitle, EmptyState, Select } from '@/components/ui';
+import { Alert, Badge, Button, ButtonLink, Card, CardBody, CardHeader, CardTitle, EmptyState, Select } from '@/components/ui';
 import { formatIDR, formatNumber } from '@/lib/utils';
 
 interface Props {
@@ -24,7 +24,7 @@ interface Props {
     change: Record<string, number | null>;
     series: { date: string; views: number; orders: number; gross: number; net: number }[];
     topProducts: { product_id: number; name: string; quantity: number; revenue: number }[];
-    balance: { pending: number; available: number; held: number; withdrawn: number };
+    balance: { pending: number; available: number; held: number; reserve: number; negative: number; withdrawn: number };
     recentOrders: {
         number: string;
         customer_name: string;
@@ -209,6 +209,12 @@ export default function CreatorDashboard({
             </div>
 
             {/* Wallet bento */}
+            {balance.negative > 0 && (
+                <Alert tone="danger" title={`Saldo minus ${formatIDR(balance.negative)}`} className="mt-6">
+                    Penarikan ditahan sementara. Pendapatan berikutnya otomatis dipakai untuk memulihkan saldo akibat
+                    refund atau penyesuaian.
+                </Alert>
+            )}
             <div className="mt-6 grid gap-4 lg:grid-cols-[.9fr_1.6fr]">
                 <Card className="relative overflow-hidden border-transparent bg-[#1b1925] p-6 text-white">
                     <span className="absolute -right-12 -top-12 size-40 rounded-full bg-emerald-400/15 blur-2xl" />
@@ -220,13 +226,18 @@ export default function CreatorDashboard({
                         <ButtonLink href="/dashboard/penarikan" variant="ghost" size="sm" className="mt-5 rounded-xl bg-white text-[#171620] hover:bg-white/90 hover:text-[#171620]">Tarik saldo <ArrowRight /></ButtonLink>
                     </div>
                 </Card>
-                <Card className="grid overflow-hidden p-2 sm:grid-cols-3">
-                    {[['Saldo tertahan', balance.pending, 'Cair setelah masa refund'], ['Sedang ditarik', balance.held, 'Dalam proses finance'], ['Total ditarik', balance.withdrawn, 'Akumulasi pencairan']].map(([label, value, hint], index) => (
-                        <div key={label as string} className={index === 1 ? 'rounded-2xl border-y border-line p-5 sm:border-x sm:border-y-0' : 'rounded-2xl p-5'}>
+                <Card className="grid overflow-hidden p-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {[
+                        ['Saldo tertahan', balance.pending, 'Cair setelah masa refund'],
+                        ['Dana cadangan', balance.reserve, 'Proteksi risiko, dilepas otomatis'],
+                        ['Sedang ditarik', balance.held, 'Dalam proses finance'],
+                        ['Total ditarik', balance.withdrawn, 'Akumulasi pencairan'],
+                    ].map(([label, value, hint], index) => (
+                        <div key={label as string} className={index > 0 ? 'rounded-2xl border-t border-line p-5 sm:border-l sm:border-t-0' : 'rounded-2xl p-5'}>
                             <p className="text-[10px] font-black uppercase tracking-[.14em] text-muted">{label as string}</p>
                             <p className="mt-3 text-xl font-black tabular-nums">{formatIDR(value as number)}</p>
                             <p className="mt-1 text-xs leading-5 text-muted">{hint as string}</p>
-                            {index === 2 && <ButtonLink href="/dashboard/saldo" variant="ghost" size="sm" className="mt-3 -ml-3 text-violet-600">Lihat riwayat <ArrowRight /></ButtonLink>}
+                            {index === 3 && <ButtonLink href="/dashboard/saldo" variant="ghost" size="sm" className="mt-3 -ml-3 text-violet-600">Lihat riwayat <ArrowRight /></ButtonLink>}
                         </div>
                     ))}
                 </Card>

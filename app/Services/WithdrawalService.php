@@ -4,10 +4,13 @@ namespace App\Services;
 
 use App\Enums\BalanceBucket;
 use App\Enums\LedgerEntryType;
+use App\Enums\OrderStatus;
 use App\Enums\WithdrawalStatus;
+use App\Models\LedgerEntry;
 use App\Models\Order;
 use App\Models\PayoutMethod;
 use App\Models\PlatformSetting;
+use App\Models\Refund;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Support\Money;
@@ -24,7 +27,10 @@ use Illuminate\Validation\ValidationException;
  */
 class WithdrawalService
 {
-    public function __construct(private readonly LedgerService $ledger) {}
+    public function __construct(
+        private readonly LedgerService $ledger,
+        private readonly MarketplaceLedgerService $marketplaceLedger,
+    ) {}
 
     public function minimumAmount(): float
     {
@@ -65,11 +71,31 @@ class WithdrawalService
                 ]);
             }
 
+            if ((float) $wallet->negative_balance > 0) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Pencairan ditahan karena ada saldo negatif '.Money::format((float) $wallet->negative_balance).'. Pendapatan berikutnya akan melunasinya otomatis.',
+                ]);
+            }
+
+            $hasOpenRefund = Refund::query()
+                ->whereIn('status', ['REQUESTED', 'APPROVED'])
+                ->whereHas('order.store', fn ($query) => $query->where('user_id', $user->id))
+                ->exists();
+
+            if ($hasOpenRefund) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Pencairan sementara ditahan karena ada refund yang belum selesai. Dana bisa dicairkan lagi setelah finance menyelesaikan pengembalian dana.',
+                ]);
+            }
+
             $fee = $this->fee();
 
-            if ($amount + $fee > (float) $wallet->fresh()->available_balance + 0.001) {
+            // `amount` is the gross balance being withdrawn. The provider/admin
+            // fee is deducted from it to produce `net_amount`, so it must not
+            // be added once more during the balance check.
+            if ($amount > (float) $wallet->fresh()->available_balance + 0.001) {
                 throw ValidationException::withMessages([
-                    'amount' => 'Saldo tersedia tidak cukup (termasuk biaya admin '.Money::format($fee).').',
+                    'amount' => 'Saldo tersedia tidak cukup. Biaya pencairan '.Money::format($fee).' dipotong dari nominal penarikan.',
                 ]);
             }
 
@@ -164,6 +190,13 @@ class WithdrawalService
                 'transfer_reference' => $transferReference,
                 'paid_at' => now(),
             ]);
+
+            $this->marketplaceLedger->recordPayout(
+                $withdrawal,
+                (float) $withdrawal->amount,
+                (float) $withdrawal->fee,
+                (float) config('marketplace.payout.provider_cost', 0),
+            );
 
             return $withdrawal;
         });
@@ -265,13 +298,21 @@ class WithdrawalService
             ->with('store.owner')
             ->chunkById(100, function ($orders) use (&$released) {
                 foreach ($orders as $order) {
-                    $amount = (float) $order->seller_net;
+                    $amount = Money::round(
+                        (float) $order->seller_net
+                        - (float) $order->reserve_amount
+                        - (float) $order->debt_offset
+                    );
 
                     if ($amount <= 0) {
                         continue;
                     }
 
                     $wallet = $this->ledger->walletFor($order->store->owner);
+
+                    if (LedgerEntry::where('idempotency_key', 'order-release:'.$order->id.':in')->exists()) {
+                        continue;
+                    }
 
                     try {
                         $this->ledger->move(
@@ -289,6 +330,59 @@ class WithdrawalService
                         // Already released, or the pending bucket has been
                         // reduced by a refund — skip and keep going.
                     }
+                }
+            });
+
+        return $released;
+    }
+
+    /** Releases rolling reserves after the longer chargeback safety window. */
+    public function releaseMaturedReserves(): int
+    {
+        $released = 0;
+
+        Order::query()
+            ->whereIn('status', [
+                OrderStatus::Paid->value,
+                OrderStatus::Processing->value,
+                OrderStatus::Completed->value,
+                OrderStatus::PartiallyRefunded->value,
+                OrderStatus::Refunded->value,
+            ])
+            ->where('reserve_amount', '>', 0)
+            ->whereNotNull('reserve_release_at')
+            ->where('reserve_release_at', '<=', now())
+            ->whereDoesntHave('refunds', fn ($q) => $q->whereIn('status', ['REQUESTED', 'APPROVED']))
+            ->whereDoesntHave('disputes', fn ($q) => $q->whereIn('status', ['OPEN', 'SELLER_RESPONDED', 'UNDER_REVIEW']))
+            ->with('store.owner')
+            ->chunkById(100, function ($orders) use (&$released) {
+                foreach ($orders as $order) {
+                    $key = 'order-reserve-release:'.$order->id;
+                    if (LedgerEntry::where('idempotency_key', $key.':in')->exists()) {
+                        continue;
+                    }
+
+                    $wallet = $this->ledger->walletFor($order->store->owner);
+                    $clawedReserve = (float) $order->refunds()
+                        ->where('status', 'COMPLETED')
+                        ->sum('reserve_clawback');
+                    $orderReserveRemaining = Money::round(max(0, (float) $order->reserve_amount - $clawedReserve));
+                    $amount = min($orderReserveRemaining, (float) $wallet->reserve_balance);
+                    if ($amount <= 0) {
+                        continue;
+                    }
+
+                    $this->ledger->move(
+                        $wallet,
+                        BalanceBucket::Reserve,
+                        BalanceBucket::Available,
+                        $amount,
+                        LedgerEntryType::ReserveRelease,
+                        $order,
+                        'Dana cadangan '.$order->number.' dilepas',
+                        $key,
+                    );
+                    $released++;
                 }
             });
 

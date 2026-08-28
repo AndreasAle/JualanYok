@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDisputeController;
+use App\Http\Controllers\Admin\AdminEconomicsController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminRefundController;
 use App\Http\Controllers\Admin\AdminStoreController;
@@ -11,8 +12,8 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\LedgerController;
 use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\PlanPaymentController;
-use App\Http\Controllers\Admin\QrisPaymentController;
 use App\Http\Controllers\Admin\PlatformSettingController;
+use App\Http\Controllers\Admin\QrisPaymentController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'admin'])
@@ -20,6 +21,7 @@ Route::middleware(['auth', 'admin'])
     ->name('admin.')
     ->group(function () {
         Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/ekonomi', [AdminEconomicsController::class, 'index'])->name('economics.index');
 
         Route::get('/pengguna', [AdminUserController::class, 'index'])->name('users.index');
         Route::get('/pengguna/{user}', [AdminUserController::class, 'show'])->name('users.show');
@@ -40,6 +42,7 @@ Route::middleware(['auth', 'admin'])
         Route::get('/komplain', [AdminDisputeController::class, 'index'])->name('disputes.index');
         Route::post('/komplain/{dispute}/putuskan', [AdminDisputeController::class, 'resolve'])->name('disputes.resolve');
         Route::post('/refund/{refund}/setujui', [AdminRefundController::class, 'approve'])->name('refunds.approve');
+        Route::post('/refund/{refund}/selesaikan', [AdminRefundController::class, 'complete'])->name('refunds.complete');
         Route::post('/refund/{refund}/tolak', [AdminRefundController::class, 'reject'])->name('refunds.reject');
 
         Route::get('/ledger', [LedgerController::class, 'index'])->name('ledger.index');

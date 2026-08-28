@@ -867,6 +867,51 @@ Scheduler wajib aktif agar status tetap tersinkron bila webhook terlambat:
 * * * * * cd /path/aplikasi && php artisan schedule:run >> /dev/null 2>&1
 ```
 
+## Unit economics marketplace
+
+Angka biaya tidak ditanam secara acak di controller. Semua aturan berada di
+`config/marketplace.php`, dapat dioverride lewat environment, dan setiap order
+menyimpan snapshot estimasi serta biaya provider aktual. Dengan begitu perubahan
+tarif besok tidak mengubah histori transaksi kemarin.
+
+Default yang dipakai sebagai titik awal operasional:
+
+- QRIS reguler: `0,7%`, settlement H+2, menjadi rekomendasi utama untuk transaksi kecil.
+- QRIS cepat/e-wallet: `2,5%` dan `3,5%`; tampil transparan, bukan biaya tersembunyi.
+- Virtual account: biaya tetap per kanal; mesin rekomendasi membandingkan nominal
+  aktual sehingga VA baru disarankan ketika memang lebih hemat.
+- Komisi platform dihitung dari nilai barang setelah diskon, bukan dari ongkir.
+- Ongkir Biteship adalah pass-through. Selisih quote dengan biaya aktual masuk
+  akun selisih ongkir, bukan disamarkan sebagai pendapatan produk.
+- Seller baru dan produk fisik memiliki rolling reserve. Refund mengambil dana
+  dari reserve, pending, available, lalu mencatat utang seller bila masih kurang.
+- Refund manual memakai dua tahap: finance menerima pengajuan, mengirim dana di
+  iPaymu/bank, lalu memasukkan nomor referensi. Saldo seller dan jurnal baru
+  berubah setelah transfer dikonfirmasi. Payout seller ditahan selama refund terbuka.
+- Pencairan punya nominal minimum dan biaya tetap agar transfer kecil tidak
+  menggerus margin platform.
+- Panggilan Biteship Maps/Rates/Tracking dicache dan dicatat per request nyata,
+  sehingga refresh berulang tidak langsung menjadi biaya API baru.
+
+Seeder aturan pembayaran wajib dijalankan setelah migration. Seeder idempotent,
+jadi aman dijalankan kembali saat tarif diperbarui:
+
+```bash
+php artisan migrate --force
+php artisan db:seed --class=PaymentEconomicsSeeder --force
+php artisan jualanyok:economics-check
+```
+
+Panel **Admin -> Ekonomi** memisahkan GMV, pendapatan platform, biaya gateway,
+ongkir, affiliate, refund, payout, biaya API, dan contribution margin. Profit
+Guard memberi peringatan ketika margin negatif, biaya aktual melewati estimasi,
+saldo negatif membesar, atau data lama belum memakai settlement versi terbaru.
+
+Sebelum payout massal, jalankan `jualanyok:economics-check`. Perintah ini gagal
+bila cache wallet berbeda dari ledger, jurnal debit/kredit tidak seimbang atau
+kosong, order modern sudah lunas tanpa jurnal `ORDER_PAID`, maupun refund selesai
+tanpa jurnal `ORDER_REFUNDED`.
+
 ## Deployment checklist
 
 Jalankan ini dulu — perintahnya memeriksa semua poin di bawah dan keluar dengan
@@ -886,6 +931,8 @@ php artisan jualanyok:preflight
 - [ ] `FILESYSTEM_DISK=s3` (atau disk privat lain) untuk file produk berbayar
 - [ ] Mailer asli terkonfigurasi dan domain terverifikasi (SPF/DKIM)
 - [ ] `php artisan migrate --force`
+- [ ] `php artisan db:seed --class=PaymentEconomicsSeeder --force`
+- [ ] `php artisan jualanyok:economics-check`
 - [ ] `npm run build`
 - [ ] `php artisan config:cache route:cache view:cache`
 - [ ] Queue worker berjalan di bawah supervisor
@@ -926,10 +973,11 @@ php artisan jualanyok:preflight
 
 Beberapa detail tidak disebutkan spesifik, jadi diputuskan sebagai berikut:
 
-1. **Biaya gateway dibebankan ke pembeli**, bukan dipotong dari penjual. Harga
-   yang dilihat penjual adalah harga yang jadi dasar bagi hasil.
-2. **Biaya platform dihitung dari subtotal setelah diskon + ongkir**, sebelum
-   biaya gateway.
+1. **Biaya gateway dibebankan ke seller/platform sesuai aturan kanal** dan tidak
+   disamarkan sebagai surcharge QRIS kepada pembeli. Fee provider aktual menang
+   atas estimasi konfigurasi.
+2. **Biaya platform hanya dihitung dari nilai barang setelah diskon**. Ongkir,
+   pajak, tip, dan biaya gateway bukan basis komisi.
 3. **Komisi affiliate dipotong dari bagian penjual**, bukan ditambahkan di atas
    harga pembeli.
 4. **Masa tahan komisi affiliate (14 hari) lebih panjang dari masa tahan saldo
@@ -938,9 +986,12 @@ Beberapa detail tidak disebutkan spesifik, jadi diputuskan sebagai berikut:
 5. **Atribusi affiliate memakai last valid click** dengan cookie httpOnly.
 6. **Pembeli tidak wajib punya akun.** Identitas pembeli adalah email per toko;
    akun dibuat otomatis saat pertama kali login OTP.
-7. **Refund parsial memotong saldo penjual secara proporsional** terhadap total
-   order.
-8. **SQLite jadi default development** supaya aplikasi bisa langsung dijalankan;
+7. **Refund parsial memotong saldo penjual dan affiliate secara kumulatif dan
+   proporsional**. Urutannya reserve, pending, available, lalu saldo negatif;
+   pendapatan berikutnya otomatis menutup saldo negatif.
+8. **Reserve seller** dilepas terjadwal setelah jendela risiko. Dana reserve
+   tidak dihitung sebagai saldo yang boleh ditarik.
+9. **SQLite jadi default development** supaya aplikasi bisa langsung dijalankan;
    MySQL 8 tetap didukung penuh lewat env.
 
 ---

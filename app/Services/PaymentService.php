@@ -31,6 +31,8 @@ class PaymentService
         private readonly PaymentManager $manager,
         private readonly LedgerService $ledger,
         private readonly AffiliateService $affiliates,
+        private readonly PaymentEconomicsService $economics,
+        private readonly MarketplaceLedgerService $marketplaceLedger,
     ) {}
 
     /**
@@ -46,10 +48,16 @@ class PaymentService
             ]);
         }
 
-        $methodConfig = $this->manager->findMethod($providerKey, $method, $channel);
+        $methodConfig = $this->manager->findMethod($providerKey, $method, $channel, (float) $order->grand_total);
 
         if (! $methodConfig) {
             throw ValidationException::withMessages(['method' => 'Metode pembayaran tidak tersedia.']);
+        }
+
+        if (($methodConfig['economically_available'] ?? true) === false) {
+            throw ValidationException::withMessages([
+                'method' => 'Metode ini tidak efisien untuk nominal pesanan tersebut. Pilih metode yang direkomendasikan.',
+            ]);
         }
 
         return DB::transaction(function () use ($order, $providerKey, $method, $channel, $methodConfig) {
@@ -77,6 +85,9 @@ class PaymentService
                 'channel' => $channel,
                 'status' => PaymentStatus::Pending,
                 'amount' => $order->grand_total,
+                'fee_estimated' => $methodConfig['processing_fee_estimate'] ?? 0,
+                'fee_source' => 'ESTIMATE',
+                'settlement_days' => $methodConfig['settlement_days'] ?? 0,
                 'currency' => $order->currency,
             ]);
 
@@ -86,6 +97,7 @@ class PaymentService
             $payment->fill([
                 'reference' => $result->reference,
                 'fee' => $result->fee ?? 0,
+                'fee_source' => $result->fee !== null ? 'PROVIDER' : 'ESTIMATE',
                 'instructions' => $result->instructions,
                 'redirect_url' => $result->redirectUrl,
                 'expires_at' => $result->expiresAt ?? now()->addHours(24),
@@ -118,14 +130,20 @@ class PaymentService
             + (float) $order->tax_total
         );
 
-        $fee = Money::round(
-            $beforeFee * (float) ($methodConfig['fee_percent'] ?? 0) / 100
-            + (float) ($methodConfig['fee_fixed'] ?? 0)
-        );
+        $estimated = Money::round((float) ($methodConfig['processing_fee_estimate'] ?? 0));
+        $bearer = strtoupper((string) ($methodConfig['fee_bearer'] ?? config('marketplace.gateway_fee_bearer', 'SELLER')));
+        // QRIS MDR may not be surcharged to the buyer. Seller is therefore
+        // enforced even if a bad environment value says otherwise.
+        if (($methodConfig['method'] ?? null) === 'qris') {
+            $bearer = 'SELLER';
+        }
+        $buyerFee = $bearer === 'BUYER' ? $estimated : 0.0;
 
         $order->forceFill([
-            'payment_fee' => $fee,
-            'grand_total' => Money::round($beforeFee + $fee),
+            'payment_fee' => $buyerFee,
+            'gateway_fee_estimated' => $estimated,
+            'gateway_fee_bearer' => $bearer,
+            'grand_total' => Money::round($beforeFee + $buyerFee),
         ])->save();
     }
 
@@ -280,10 +298,13 @@ class PaymentService
                 ));
             }
 
+            $settledFee = $this->economics->settledFee($payment, $result->fee);
+
             $payment->update([
                 'status' => PaymentStatus::Paid,
                 'paid_at' => $result->paidAt ?? now(),
-                'fee' => $result->fee ?? $payment->fee,
+                'fee' => $settledFee['amount'],
+                'fee_source' => $settledFee['source'],
             ]);
 
             $order = Order::whereKey($payment->order_id)->lockForUpdate()->firstOrFail();
@@ -296,7 +317,7 @@ class PaymentService
                 ]);
 
                 $this->commitStock($order);
-                $this->creditSeller($order);
+                $this->creditSeller($order, $payment->fresh());
                 $this->affiliates->recordForPaidOrder($order);
                 $this->recordCouponUsage($order);
                 $this->updateCustomerStats($order);
@@ -354,44 +375,124 @@ class PaymentService
      * Books the sale on the ledger: gross in, fees out, net to the seller's
      * pending bucket where it matures after the holding period.
      */
-    private function creditSeller(Order $order): void
+    private function creditSeller(Order $order, Payment $payment): void
     {
         $wallet = $this->ledger->walletFor($order->store->owner);
 
-        $sellerNet = Money::round(
-            (float) $order->subtotal
-            - (float) $order->discount_total
-            // Platform-booked shipping is paid onwards to the courier. Manual
-            // shipping belongs to the seller, so only that one enters revenue.
+        $gatewayFee = Money::round((float) $payment->fee);
+        $sellerGross = Money::round(
+            (float) $order->commission_base
             + ($order->shipping_provider === 'biteship' ? 0 : (float) $order->shipping_total)
             - (float) $order->platform_fee
             - (float) $order->affiliate_commission
         );
+        $gatewayChargedToSeller = $order->gateway_fee_bearer === 'SELLER'
+            ? min(max(0, $sellerGross), $gatewayFee)
+            : 0.0;
+        $gatewaySubsidy = Money::round(max(0, $gatewayFee - $gatewayChargedToSeller));
 
-        $this->ledger->record(
-            wallet: $wallet,
-            type: LedgerEntryType::SellerRevenue,
-            bucket: BalanceBucket::Pending,
-            amount: max(0, $sellerNet),
-            reference: $order,
-            description: 'Penjualan '.$order->number,
-            idempotencyKey: 'order-revenue:'.$order->id,
-            meta: [
-                'gross' => (float) $order->grand_total,
-                'platform_fee' => (float) $order->platform_fee,
-                'payment_fee' => (float) $order->payment_fee,
-                'affiliate_commission' => (float) $order->affiliate_commission,
-            ],
+        $sellerNet = Money::round(
+            max(0, $sellerGross - $gatewayChargedToSeller)
+        );
+
+        $debtOffset = min($sellerNet, max(0, (float) $wallet->negative_balance));
+        $creditable = Money::round($sellerNet - $debtOffset);
+        $reserveRate = $this->reserveRate($order);
+        $reserveAmount = Money::percent($creditable, $reserveRate);
+        $pendingAmount = Money::round($creditable - $reserveAmount);
+
+        if ($pendingAmount > 0) {
+            $this->ledger->record(
+                wallet: $wallet,
+                type: LedgerEntryType::SellerRevenue,
+                bucket: BalanceBucket::Pending,
+                amount: $pendingAmount,
+                reference: $order,
+                description: 'Penjualan '.$order->number,
+                idempotencyKey: 'order-revenue:'.$order->id,
+                meta: [
+                    'gross' => (float) $order->grand_total,
+                    'commission_base' => (float) $order->commission_base,
+                    'platform_fee' => (float) $order->platform_fee,
+                    'gateway_fee' => $gatewayFee,
+                    'gateway_fee_source' => $payment->fee_source,
+                    'affiliate_commission' => (float) $order->affiliate_commission,
+                ],
+            );
+        }
+
+        if ($reserveAmount > 0) {
+            $this->ledger->record(
+                wallet: $wallet,
+                type: LedgerEntryType::Reserve,
+                bucket: BalanceBucket::Reserve,
+                amount: $reserveAmount,
+                reference: $order,
+                description: 'Cadangan risiko '.$order->number,
+                idempotencyKey: 'order-reserve:'.$order->id,
+            );
+        }
+
+        if ($debtOffset > 0) {
+            $this->ledger->record(
+                wallet: $wallet,
+                type: LedgerEntryType::DebtRecovery,
+                bucket: BalanceBucket::Negative,
+                amount: -$debtOffset,
+                reference: $order,
+                description: 'Pemulihan saldo negatif dari '.$order->number,
+                idempotencyKey: 'order-debt-offset:'.$order->id,
+            );
+        }
+
+        $contribution = Money::round(
+            (float) $order->platform_fee
+            - $gatewaySubsidy
+            - (float) $order->split_fee_actual
+            + (float) $order->shipping_variance
         );
 
         $order->update([
-            'seller_net' => max(0, $sellerNet),
+            'gateway_fee_actual' => $gatewayFee,
+            'seller_net' => $sellerNet,
+            'reserve_amount' => $reserveAmount,
+            'reserve_rate' => $reserveRate,
+            'debt_offset' => $debtOffset,
+            'contribution_margin' => $contribution,
+            'settlement_version' => 2,
             'status' => OrderStatus::Processing,
             // Physical revenue stays pending until delivery + complaint window.
             'funds_release_at' => $order->requiresShipping()
                 ? null
                 : now()->addDays((int) config('jualanyok.holding_period_days', 7)),
+            'reserve_release_at' => $reserveAmount > 0
+                ? now()->addDays((int) config('marketplace.reserve.release_days', 30))
+                : null,
         ]);
+
+        $this->marketplaceLedger->recordSale($order->fresh(['store.owner']), $payment);
+    }
+
+    private function reserveRate(Order $order): float
+    {
+        if (! (bool) config('marketplace.reserve.enabled', true)) {
+            return 0.0;
+        }
+
+        $base = $order->requiresShipping()
+            ? (float) config('marketplace.reserve.physical_percent', 5)
+            : (float) config('marketplace.reserve.base_percent', 2);
+
+        $paidBefore = Order::where('store_id', $order->store_id)
+            ->whereKeyNot($order->id)
+            ->paid()
+            ->count();
+
+        if ($paidBefore < (int) config('marketplace.reserve.new_seller_paid_orders', 10)) {
+            $base += (float) config('marketplace.reserve.new_seller_bonus_percent', 2);
+        }
+
+        return min((float) config('marketplace.reserve.maximum_percent', 10), max(0, $base));
     }
 
     private function recordCouponUsage(Order $order): void

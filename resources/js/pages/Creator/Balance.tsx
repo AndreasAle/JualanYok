@@ -28,6 +28,8 @@ export default function Balance({
         pending: number;
         available: number;
         held: number;
+        reserve: number;
+        negative: number;
         withdrawn: number;
         lifetime_earned: number;
         is_frozen: boolean;
@@ -131,7 +133,16 @@ export default function Balance({
                 </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {wallet.negative > 0 && (
+                <div className="mb-4">
+                    <Alert tone="danger" title={`Saldo minus ${formatIDR(wallet.negative)}`}>
+                        Refund atau penyesuaian terjadi setelah dana sempat dicairkan. Pendapatan berikutnya otomatis
+                        menutup saldo ini dan penarikan baru ditahan sampai kembali nol.
+                    </Alert>
+                </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <Card className="p-5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">Tersedia</p>
                     <p className="mt-1.5 text-2xl font-extrabold tabular-nums text-[var(--success)]">
@@ -153,6 +164,20 @@ export default function Balance({
                 </Card>
 
                 <Card className="p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">Dana cadangan</p>
+                    <p className="mt-1.5 text-2xl font-extrabold tabular-nums">{formatIDR(wallet.reserve)}</p>
+                    <p className="mt-2 text-xs text-muted">Perlindungan refund; dilepas otomatis sesuai jadwal.</p>
+                </Card>
+
+                <Card className={cn('p-5', wallet.negative > 0 && 'border-rose-200 bg-rose-50')}>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">Saldo minus</p>
+                    <p className={cn('mt-1.5 text-2xl font-extrabold tabular-nums', wallet.negative > 0 && 'text-[var(--danger)]')}>
+                        {wallet.negative > 0 ? `−${formatIDR(wallet.negative)}` : formatIDR(0)}
+                    </p>
+                    <p className="mt-2 text-xs text-muted">Dipulihkan otomatis dari pendapatan berikutnya.</p>
+                </Card>
+
+                <Card className="p-5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">Total pendapatan</p>
                     <p className="mt-1.5 text-2xl font-extrabold tabular-nums">{formatIDR(wallet.lifetime_earned)}</p>
                     <p className="mt-2 text-xs text-muted">Sudah ditarik {formatIDR(wallet.withdrawn)}.</p>
@@ -170,6 +195,8 @@ export default function Balance({
                     <option value="PENDING">Tertahan</option>
                     <option value="AVAILABLE">Tersedia</option>
                     <option value="HELD">Dibekukan</option>
+                    <option value="RESERVE">Dana cadangan</option>
+                    <option value="NEGATIVE">Saldo negatif</option>
                     <option value="WITHDRAWN">Sudah ditarik</option>
                 </Select>
 
@@ -183,6 +210,10 @@ export default function Balance({
                     <option value="SELLER_REVENUE">Pendapatan penjualan</option>
                     <option value="AFFILIATE_COMMISSION">Komisi affiliate</option>
                     <option value="RELEASE">Pencairan ke tersedia</option>
+                    <option value="RESERVE">Dana cadangan risiko</option>
+                    <option value="RESERVE_RELEASE">Pelepasan cadangan</option>
+                    <option value="DEBT">Saldo negatif</option>
+                    <option value="DEBT_RECOVERY">Pelunasan saldo negatif</option>
                     <option value="REFUND">Refund</option>
                     <option value="WITHDRAWAL">Penarikan</option>
                     <option value="ADJUSTMENT">Penyesuaian</option>

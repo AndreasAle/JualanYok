@@ -383,10 +383,12 @@ export function Alert({
     tone = 'info',
     title,
     children,
+    className,
 }: {
     tone?: 'info' | 'success' | 'warning' | 'danger';
     title?: string;
     children: ReactNode;
+    className?: string;
 }) {
     const tones = {
         info: 'bg-sky-50 border-sky-200 text-sky-900 dark:bg-sky-950/40 dark:border-sky-900 dark:text-sky-100',
@@ -399,7 +401,7 @@ export function Alert({
     };
 
     return (
-        <div className={cn('rounded-[var(--radius-field)] border px-4 py-3 text-sm', tones[tone])} role="alert">
+        <div className={cn('rounded-[var(--radius-field)] border px-4 py-3 text-sm', tones[tone], className)} role="alert">
             {title && <p className="font-bold mb-0.5">{title}</p>}
             <div>{children}</div>
         </div>

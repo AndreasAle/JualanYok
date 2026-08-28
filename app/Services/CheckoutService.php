@@ -93,6 +93,8 @@ class CheckoutService
                 'discount_total' => $quote['discount_total'],
                 'shipping_total' => $quote['shipping_total'],
                 'tax_total' => $quote['tax_total'],
+                'commission_base' => $quote['commission_base'],
+                'platform_fee_rate' => $quote['platform_fee_rate'],
                 'platform_fee' => $quote['platform_fee'],
                 'payment_fee' => $quote['payment_fee'],
                 'grand_total' => $quote['grand_total'],

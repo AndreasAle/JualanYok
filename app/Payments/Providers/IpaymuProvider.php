@@ -6,6 +6,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Payment;
 use App\Payments\PaymentProviderInterface;
 use App\Payments\PaymentResult;
+use App\Support\Money;
 use App\Support\QrImage;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -191,7 +192,7 @@ class IpaymuProvider implements PaymentProviderInterface
                 status: PaymentStatus::Pending,
                 reference: $this->stringValue($data, ['ReferenceId', 'referenceId', 'reference_id']) ?? $reference,
                 amount: (float) ($this->value($data, ['Total', 'total']) ?? $amount),
-                fee: ($fee = $this->value($data, ['Fee', 'fee'])) !== null ? (float) $fee : null,
+                fee: $this->extractFee($data),
                 instructions: $instructions,
                 redirectUrl: $redirectUrl,
                 expiresAt: $this->parseDate($this->value($data, ['Expired', 'expired', 'ExpiredAt', 'expired_at']))
@@ -288,7 +289,7 @@ class IpaymuProvider implements PaymentProviderInterface
                 amount: ($providerAmount = $this->value($data, ['Amount', 'amount', 'Total', 'total', 'SubTotal', 'subTotal', 'sub_total'])) !== null
                     ? (float) $providerAmount
                     : $amount,
-                fee: ($providerFee = $this->value($data, ['Fee', 'fee'])) !== null ? (float) $providerFee : $fee,
+                fee: $this->extractFee($data, $fee),
                 expiresAt: $this->parseDate($this->value($data, ['ExpiredDate', 'expiredDate', 'Expired', 'expired', 'expired_at']))
                     ?? $expiresAt,
                 paidAt: $status === PaymentStatus::Paid
@@ -367,7 +368,7 @@ class IpaymuProvider implements PaymentProviderInterface
             status: $status,
             reference: $reference !== null ? (string) $reference : null,
             amount: isset($data['amount']) ? (float) $data['amount'] : (isset($data['total']) ? (float) $data['total'] : null),
-            fee: isset($data['fee']) ? (float) $data['fee'] : null,
+            fee: $this->extractFee($data),
             paidAt: $status === PaymentStatus::Paid ? ($this->parseDate($data['paid_at'] ?? null) ?? now()) : null,
             eventId: (string) $eventId,
             raw: $data,
@@ -392,7 +393,6 @@ class IpaymuProvider implements PaymentProviderInterface
             error: 'Refund iPaymu diproses dari dashboard merchant oleh tim finance.',
         );
     }
-
 
     /**
      * iPaymu has to be able to reach us to report a payment.
@@ -618,6 +618,26 @@ class IpaymuProvider implements PaymentProviderInterface
         $value = $this->value($data, $keys);
 
         return is_scalar($value) && filled((string) $value) ? (string) $value : null;
+    }
+
+    /** iPaymu reports the settled charge under different keys per endpoint. */
+    private function extractFee(array $data, ?float $fallback = null): ?float
+    {
+        $nested = $this->value($data, ['TransactionFee', 'transactionFee', 'transaction_fee']);
+
+        if (is_array($nested)) {
+            $actual = $this->value($nested, ['ActualFee', 'actualFee', 'actual_fee', 'Fee', 'fee']);
+
+            if (is_numeric($actual)) {
+                return Money::round(max(0, (float) $actual));
+            }
+        }
+
+        $direct = $this->value($data, ['ActualFee', 'actualFee', 'actual_fee', 'Fee', 'fee']);
+
+        return is_numeric($direct)
+            ? Money::round(max(0, (float) $direct))
+            : ($fallback !== null ? Money::round(max(0, $fallback)) : null);
     }
 
     private function hasPayableInstructions(string $method, array $instructions, ?string $redirectUrl): bool

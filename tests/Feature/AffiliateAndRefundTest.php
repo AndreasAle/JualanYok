@@ -90,7 +90,12 @@ class AffiliateAndRefundTest extends TestCase
 
         // The seller's net is reduced by both the platform fee and the commission.
         $sellerWallet = $store->owner->walletOrCreate();
-        $this->assertEquals(145000, (float) $sellerWallet->pending_balance);
+        $order->refresh();
+        $this->assertEquals(
+            (float) $order->seller_net - (float) $order->reserve_amount,
+            (float) $sellerWallet->pending_balance,
+        );
+        $this->assertGreaterThan(0, (float) $sellerWallet->reserve_balance);
     }
 
     public function test_self_purchase_through_own_link_earns_nothing(): void

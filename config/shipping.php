@@ -19,6 +19,16 @@ return [
             'webhook_header' => env('BITESHIP_WEBHOOK_HEADER', 'X-Callback-Token'),
             'webhook_secret' => env('BITESHIP_WEBHOOK_SECRET'),
             'timeout' => (int) env('BITESHIP_TIMEOUT', 15),
+            'cache' => [
+                'areas_minutes' => (int) env('BITESHIP_AREAS_CACHE_MINUTES', 1440),
+                'rates_minutes' => (int) env('BITESHIP_RATES_CACHE_MINUTES', 10),
+                'tracking_minutes' => (int) env('BITESHIP_TRACKING_CACHE_MINUTES', 5),
+            ],
+            'costs' => [
+                'maps' => (float) env('BITESHIP_MAPS_COST', 2),
+                'rates' => (float) env('BITESHIP_RATES_COST', 5),
+                'tracking' => (float) env('BITESHIP_TRACKING_COST', 10),
+            ],
         ],
         'manual' => [
             'enabled' => true,

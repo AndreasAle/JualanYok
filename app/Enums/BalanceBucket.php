@@ -11,6 +11,8 @@ enum BalanceBucket: string
     case Pending = 'PENDING';
     case Available = 'AVAILABLE';
     case Held = 'HELD';
+    case Reserve = 'RESERVE';
+    case Negative = 'NEGATIVE';
     case Withdrawn = 'WITHDRAWN';
 
     public function label(): string
@@ -19,6 +21,8 @@ enum BalanceBucket: string
             self::Pending => 'Saldo Tertahan',
             self::Available => 'Saldo Tersedia',
             self::Held => 'Saldo Dibekukan',
+            self::Reserve => 'Dana Cadangan',
+            self::Negative => 'Saldo Negatif',
             self::Withdrawn => 'Sudah Ditarik',
         };
     }
@@ -29,6 +33,8 @@ enum BalanceBucket: string
             self::Pending => 'pending_balance',
             self::Available => 'available_balance',
             self::Held => 'held_balance',
+            self::Reserve => 'reserve_balance',
+            self::Negative => 'negative_balance',
             self::Withdrawn => 'withdrawn_balance',
         };
     }

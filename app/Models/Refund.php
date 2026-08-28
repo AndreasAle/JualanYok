@@ -13,7 +13,18 @@ class Refund extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'seller_clawback' => 'decimal:2',
+            'reserve_clawback' => 'decimal:2',
+            'seller_debt_created' => 'decimal:2',
+            'affiliate_clawback' => 'decimal:2',
+            'affiliate_debt_created' => 'decimal:2',
+            'platform_fee_reversal' => 'decimal:2',
+            'shipping_reversal' => 'decimal:2',
+            'tax_reversal' => 'decimal:2',
+            'platform_loss' => 'decimal:2',
             'processed_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'provider_response' => 'array',
         ];
     }
 
@@ -35,5 +46,10 @@ class Refund extends Model
     public function processor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'processed_by');
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }

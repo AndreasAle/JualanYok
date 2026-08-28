@@ -15,6 +15,7 @@ use App\Models\Shipment;
 use App\Models\Store;
 use App\Models\StoreShippingProfile;
 use App\Shipping\ShippingManager;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,10 @@ use Illuminate\Validation\ValidationException;
 
 class ShippingService
 {
-    public function __construct(private readonly ShippingManager $manager) {}
+    public function __construct(
+        private readonly ShippingManager $manager,
+        private readonly MarketplaceLedgerService $marketplaceLedger,
+    ) {}
 
     /** @return array<int, array<string, mixed>> */
     public function searchAreas(string $query): array
@@ -234,6 +238,7 @@ class ShippingService
 
         if (! $shipment) {
             Log::warning('shipping.webhook.unknown', ['external_id' => $externalId]);
+
             return ['status' => 'ignored'];
         }
 
@@ -256,12 +261,14 @@ class ShippingService
         $events = $result['history'] ?? $result['events'] ?? data_get($result, 'data.history', []);
 
         DB::transaction(function () use ($shipment, $result, $status, $events) {
+            $previousVariance = (float) $shipment->order->shipping_variance;
+            $actualPrice = (float) ($result['actual_price'] ?? $result['price'] ?? $shipment->actual_price ?? 0);
             $shipment->update([
                 'external_id' => $result['external_id'] ?? $result['id'] ?? $shipment->external_id,
                 'waybill_id' => $result['waybill_id'] ?? data_get($result, 'courier.waybill_id') ?? $shipment->waybill_id,
                 'tracking_id' => $result['tracking_id'] ?? data_get($result, 'courier.tracking_id') ?? $shipment->tracking_id,
                 'tracking_url' => $result['tracking_url'] ?? data_get($result, 'courier.tracking_url') ?? $shipment->tracking_url,
-                'actual_price' => $result['actual_price'] ?? $result['price'] ?? $shipment->actual_price,
+                'actual_price' => $actualPrice ?: $shipment->actual_price,
                 'status' => $status,
                 'request_payload' => $result['request_payload'] ?? $shipment->request_payload,
                 'provider_response' => $result['provider_response'] ?? $result,
@@ -271,6 +278,23 @@ class ShippingService
                 'delivered_at' => $status === ShipmentStatus::Delivered ? ($shipment->delivered_at ?? now()) : $shipment->delivered_at,
                 'cancelled_at' => $status === ShipmentStatus::Cancelled ? ($shipment->cancelled_at ?? now()) : $shipment->cancelled_at,
             ]);
+
+            if ($actualPrice > 0) {
+                $order = $shipment->order;
+                $variance = Money::round((float) $order->shipping_total - $actualPrice);
+                $delta = Money::round($variance - $previousVariance);
+                $order->update([
+                    'shipping_cost_actual' => $actualPrice,
+                    'shipping_variance' => $variance,
+                    'contribution_margin' => Money::round((float) $order->contribution_margin + $delta),
+                ]);
+                $this->marketplaceLedger->recordShippingVariance(
+                    $order,
+                    $shipment,
+                    $delta,
+                    'shipping-variance:'.$shipment->id.':'.md5((string) $actualPrice),
+                );
+            }
 
             foreach ($events as $index => $event) {
                 $eventId = (string) ($event['id'] ?? hash('sha256', json_encode([$index, $event])));
@@ -324,7 +348,7 @@ class ShippingService
     }
 
     /** @param array<int,array<string,mixed>> $lines
-     *  @return array<int,array<string,mixed>>
+     * @return array<int,array<string,mixed>>
      */
     private function shipmentItems(Store $store, array $lines): array
     {

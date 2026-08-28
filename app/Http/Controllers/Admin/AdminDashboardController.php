@@ -53,7 +53,7 @@ class AdminDashboardController extends Controller
             'series' => $series,
             'queues' => [
                 'withdrawals_open' => Withdrawal::whereIn('status', ['REQUESTED', 'UNDER_REVIEW'])->count(),
-                'refunds_open' => Refund::where('status', 'REQUESTED')->count(),
+                'refunds_open' => Refund::whereIn('status', ['REQUESTED', 'APPROVED'])->count(),
                 'commissions_pending' => Commission::where('status', 'PENDING')->count(),
             ],
             'recentWithdrawals' => Withdrawal::with('user:id,name,username')

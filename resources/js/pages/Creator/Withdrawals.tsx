@@ -42,7 +42,7 @@ export default function Withdrawals({
     payoutMethods,
     withdrawals,
 }: {
-    wallet: { available: number; pending: number; held: number; is_frozen: boolean };
+    wallet: { available: number; pending: number; held: number; reserve: number; negative: number; is_frozen: boolean };
     config: { minimum: number; fee: number };
     payoutMethods: PayoutMethod[];
     withdrawals: Paginated<WithdrawalRow>;
@@ -66,7 +66,7 @@ export default function Withdrawals({
 
     const amount = Number(withdrawForm.data.amount) || 0;
     const receives = Math.max(0, amount - config.fee);
-    const canSubmit = amount >= config.minimum && amount + config.fee <= wallet.available && !!withdrawForm.data.payout_method_id;
+    const canSubmit = amount >= config.minimum && amount <= wallet.available && wallet.negative === 0 && !!withdrawForm.data.payout_method_id;
 
     const submitWithdrawal = (e: FormEvent) => {
         e.preventDefault();
@@ -167,6 +167,15 @@ export default function Withdrawals({
                 </div>
             )}
 
+            {wallet.negative > 0 && (
+                <div className="mb-4">
+                    <Alert tone="danger" title={`Penarikan ditahan — saldo minus ${formatIDR(wallet.negative)}`}>
+                        Pendapatan berikutnya otomatis melunasi saldo ini. Kamu bisa menarik dana lagi setelah saldo
+                        minus kembali nol.
+                    </Alert>
+                </div>
+            )}
+
             <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
                 {/* Left: form */}
                 <div className="space-y-4">
@@ -177,6 +186,7 @@ export default function Withdrawals({
                         </p>
                         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                             <span>Tertahan: {formatIDR(wallet.pending)}</span>
+                            <span>Cadangan: {formatIDR(wallet.reserve)}</span>
                             <span>Diproses: {formatIDR(wallet.held)}</span>
                         </div>
                     </Card>
@@ -220,7 +230,7 @@ export default function Withdrawals({
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => withdrawForm.setData('amount', String(preset))}
-                                                disabled={preset + config.fee > wallet.available}
+                                                disabled={preset > wallet.available}
                                             >
                                                 {formatIDR(preset)}
                                             </Button>
@@ -232,7 +242,7 @@ export default function Withdrawals({
                                             onClick={() =>
                                                 withdrawForm.setData(
                                                     'amount',
-                                                    String(Math.max(0, wallet.available - config.fee)),
+                                                    String(Math.max(0, wallet.available)),
                                                 )
                                             }
                                         >
@@ -282,7 +292,7 @@ export default function Withdrawals({
                                         block
                                         size="lg"
                                         loading={withdrawForm.processing}
-                                        disabled={!canSubmit || wallet.is_frozen}
+                                        disabled={!canSubmit || wallet.is_frozen || wallet.negative > 0}
                                     >
                                         Ajukan Penarikan
                                     </Button>

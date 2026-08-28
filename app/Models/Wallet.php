@@ -17,6 +17,8 @@ class Wallet extends Model
             'pending_balance' => 'decimal:2',
             'available_balance' => 'decimal:2',
             'held_balance' => 'decimal:2',
+            'reserve_balance' => 'decimal:2',
+            'negative_balance' => 'decimal:2',
             'withdrawn_balance' => 'decimal:2',
             'lifetime_earned' => 'decimal:2',
             'is_frozen' => 'boolean',

@@ -294,7 +294,7 @@ class IpaymuPaymentTest extends TestCase
                         'statusDesc' => 'Success',
                         'paidStatus' => 'paid',
                         'amount' => 100000,
-                        'fee' => 125,
+                        'TransactionFee' => ['ActualFee' => 125],
                         'successDate' => now()->format('Y-m-d H:i:s'),
                     ]],
                 ]);
@@ -326,6 +326,8 @@ class IpaymuPaymentTest extends TestCase
             ->assertRedirect(route('checkout.status', $order->number));
 
         $this->assertSame(PaymentStatus::Paid, $payment->fresh()->status);
+        $this->assertEquals(125, (float) $payment->fresh()->fee);
+        $this->assertSame('PROVIDER', $payment->fresh()->fee_source);
         $this->assertTrue($order->fresh()->status->isSettled());
         $this->assertDatabaseHas('payment_attempts', [
             'payment_id' => $payment->id,

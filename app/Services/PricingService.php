@@ -69,12 +69,16 @@ class PricingService
             ? Money::round($grandTotal * (float) ($paymentMethod['fee_percent'] ?? 0) / 100 + (float) ($paymentMethod['fee_fixed'] ?? 0))
             : 0.0;
 
-        // The buyer pays the gateway fee on top; the seller is never surprised
-        // by a smaller payout than the sticker price minus platform fee.
+        // Only an explicitly buyer-borne surcharge may enter checkout totals.
+        // Marketplace processing rules currently expose zero here and settle
+        // the real provider charge against seller proceeds instead.
         $grandTotal = Money::round($grandTotal + $paymentFee);
 
         $plan = $store->owner->currentPlan();
-        $platformFee = $this->platformFee($plan, Money::round($taxable + $shipping));
+        // Commission is earned on merchandise only. Shipping and tax are
+        // clearing amounts, not platform revenue.
+        $commissionBase = Money::round($taxable);
+        $platformFee = $this->platformFee($plan, $commissionBase);
 
         return [
             'items' => $items,
@@ -82,6 +86,8 @@ class PricingService
             'discount_total' => $discount,
             'shipping_total' => Money::round($shipping),
             'tax_total' => $tax,
+            'commission_base' => $commissionBase,
+            'platform_fee_rate' => (float) $plan->transaction_fee_percent,
             'payment_fee' => $paymentFee,
             'platform_fee' => $platformFee,
             'grand_total' => $grandTotal,

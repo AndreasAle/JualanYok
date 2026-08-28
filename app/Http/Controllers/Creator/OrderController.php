@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Creator;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\DisputeService;
 use App\Services\FulfillmentService;
 use App\Services\RefundService;
 use App\Services\ShippingService;
-use App\Services\DisputeService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -117,12 +117,26 @@ class OrderController extends Controller
                 'requires_shipping' => $order->requiresShipping(),
                 'subtotal' => (float) $order->subtotal,
                 'discount_total' => (float) $order->discount_total,
+                'tax_total' => (float) $order->tax_total,
                 'shipping_total' => (float) $order->shipping_total,
+                'shipping_cost_actual' => (float) $order->shipping_cost_actual,
+                'shipping_variance' => (float) $order->shipping_variance,
+                'commission_base' => (float) $order->commission_base,
                 'platform_fee' => (float) $order->platform_fee,
+                'platform_fee_rate' => (float) $order->platform_fee_rate,
                 'payment_fee' => (float) $order->payment_fee,
+                'gateway_fee_estimated' => (float) $order->gateway_fee_estimated,
+                'gateway_fee_actual' => (float) $order->gateway_fee_actual,
+                'gateway_fee_bearer' => $order->gateway_fee_bearer,
                 'affiliate_commission' => (float) $order->affiliate_commission,
                 'grand_total' => (float) $order->grand_total,
                 'seller_net' => (float) $order->seller_net,
+                'reserve_amount' => (float) $order->reserve_amount,
+                'reserve_rate' => (float) $order->reserve_rate,
+                'debt_offset' => (float) $order->debt_offset,
+                'funds_release_at' => $order->funds_release_at?->toDateTimeString(),
+                'reserve_release_at' => $order->reserve_release_at?->toDateTimeString(),
+                'settlement_version' => (int) $order->settlement_version,
                 'refunded_total' => (float) $order->refunded_total,
                 'refundable' => $order->refundableAmount(),
                 'coupon_code' => $order->coupon_code,
@@ -145,6 +159,9 @@ class OrderController extends Controller
                     'status' => $p->status->value,
                     'status_label' => $p->status->label(),
                     'amount' => (float) $p->amount,
+                    'fee' => (float) $p->fee,
+                    'fee_source' => $p->fee_source,
+                    'settlement_days' => (int) $p->settlement_days,
                     'reference' => $p->reference,
                     'paid_at' => $p->paid_at?->toDateTimeString(),
                 ]),

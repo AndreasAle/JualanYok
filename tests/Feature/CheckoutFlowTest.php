@@ -179,7 +179,11 @@ class CheckoutFlowTest extends TestCase
         $this->assertSame(1, DigitalAccess::where('order_id', $order->id)->count());
 
         $wallet = $store->owner->walletOrCreate();
-        $this->assertEquals(92500, (float) $wallet->pending_balance);
+        $this->assertEquals(
+            (float) $order->seller_net - (float) $order->reserve_amount,
+            (float) $wallet->pending_balance,
+        );
+        $this->assertEquals((float) $order->reserve_amount, (float) $wallet->reserve_balance);
         $this->assertSame([], app(LedgerService::class)->reconcile($wallet));
     }
 
@@ -211,7 +215,11 @@ class CheckoutFlowTest extends TestCase
 
         $wallet = $store->owner->walletOrCreate();
 
-        $this->assertEquals(92500, (float) $wallet->pending_balance);
+        $order->refresh();
+        $this->assertEquals(
+            (float) $order->seller_net - (float) $order->reserve_amount,
+            (float) $wallet->pending_balance,
+        );
         $this->assertSame(1, DB::table('ledger_entries')
             ->where('idempotency_key', 'order-revenue:'.$order->id)
             ->count());

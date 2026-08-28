@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             PlanSeeder::class,
             PlatformSeeder::class,
+            PaymentEconomicsSeeder::class,
             StorefrontTemplateSeeder::class,
         ]);
 

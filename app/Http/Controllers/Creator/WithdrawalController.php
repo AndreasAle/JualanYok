@@ -24,6 +24,8 @@ class WithdrawalController extends Controller
                 'available' => (float) $wallet->available_balance,
                 'pending' => (float) $wallet->pending_balance,
                 'held' => (float) $wallet->held_balance,
+                'reserve' => (float) $wallet->reserve_balance,
+                'negative' => (float) $wallet->negative_balance,
                 'is_frozen' => (bool) $wallet->is_frozen,
             ],
             'config' => [

@@ -13,6 +13,11 @@ interface Method {
     label: string;
     fee_percent: number;
     fee_fixed: number;
+    processing_fee_estimate: number;
+    fee_bearer: 'SELLER' | 'BUYER';
+    settlement_days: number;
+    recommended: boolean;
+    economically_available: boolean;
 }
 
 interface Order {
@@ -98,11 +103,15 @@ export default function CheckoutShow({
     methods: Method[];
     payment: { is_open: boolean } | null;
 }) {
-    const [selected, setSelected] = useState<Method | null>(methods[0] ?? null);
+    const [selected, setSelected] = useState<Method | null>(
+        methods.find((method) => method.recommended && method.economically_available)
+            ?? methods.find((method) => method.economically_available)
+            ?? null,
+    );
 
     const { post, transform, processing } = useForm({});
 
-    const fee = selected
+    const buyerFee = selected?.fee_bearer === 'BUYER'
         ? Math.round((order.grand_total * selected.fee_percent) / 100 + selected.fee_fixed)
         : 0;
 
@@ -196,16 +205,14 @@ export default function CheckoutShow({
                                             selected?.method === method.method &&
                                             selected?.channel === method.channel;
 
-                                        const methodFee = Math.round(
-                                            (order.grand_total * method.fee_percent) / 100 + method.fee_fixed,
-                                        );
+                                        const unavailable = !method.economically_available;
 
                                         return (
                                             <button
                                                 key={`${method.provider}-${method.channel}`}
                                                 type="button"
                                                 onClick={() => setSelected(method)}
-                                                disabled={!order.is_payable}
+                                                disabled={!order.is_payable || unavailable}
                                                 className={cn(
                                                     'group flex w-full items-center justify-between gap-3 rounded-[var(--radius-field)] border p-3 text-left transition-all disabled:opacity-50 sm:p-3.5',
                                                     active
@@ -219,18 +226,19 @@ export default function CheckoutShow({
                                                     <span className="min-w-0">
                                                         <span className="block truncate text-sm font-semibold">
                                                             {method.label}
+                                                            {method.recommended && (
+                                                                <Badge tone="success" className="ml-2">Disarankan</Badge>
+                                                            )}
                                                         </span>
                                                         <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted sm:text-xs">
                                                             <span>
-                                                                {methodFee > 0
-                                                                    ? `Biaya pembeli ${formatIDR(methodFee)}`
-                                                                    : 'Tanpa biaya tambahan untuk pembeli'}
+                                                                {unavailable
+                                                                    ? 'Tidak tersedia untuk nominal ini'
+                                                                    : 'Tanpa biaya tambahan'}
                                                             </span>
                                                             <span aria-hidden="true">&bull;</span>
                                                             <span className="font-semibold text-foreground">
-                                                                {method.provider === 'ipaymu'
-                                                                    ? 'Otomatis via iPaymu'
-                                                                    : method.provider_name}
+                                                                Konfirmasi otomatis
                                                             </span>
                                                         </span>
                                                     </span>
@@ -289,13 +297,13 @@ export default function CheckoutShow({
                                     <Row label="Ongkir" value={formatIDR(order.shipping_total)} />
                                 )}
                                 {order.tax_total > 0 && <Row label="Pajak" value={formatIDR(order.tax_total)} />}
-                                {fee > 0 && <Row label="Biaya pembayaran" value={formatIDR(fee)} />}
+                                {buyerFee > 0 && <Row label="Biaya pembayaran" value={formatIDR(buyerFee)} />}
                             </div>
 
                             <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
                                 <span className="font-bold">Total bayar</span>
                                 <span className="text-xl font-extrabold tabular-nums">
-                                    {formatIDR(order.grand_total + fee - order.payment_fee)}
+                                    {formatIDR(order.grand_total + buyerFee - order.payment_fee)}
                                 </span>
                             </div>
 
@@ -305,14 +313,14 @@ export default function CheckoutShow({
                                 size="lg"
                                 className="mt-5"
                                 loading={processing}
-                                disabled={!selected || !order.is_payable}
+                                disabled={!selected || !selected.economically_available || !order.is_payable}
                                 onClick={pay}
                             >
                                 Bayar Sekarang
                             </Button>
 
                             <p className="mt-3 text-center text-xs text-muted">
-                                Dengan lanjut, kamu setuju dengan syarat pembelian yang berlaku.
+                                Biaya pemrosesan ditanggung penjual. Dengan lanjut, kamu setuju dengan syarat pembelian yang berlaku.
                             </p>
                         </Card>
                     </div>

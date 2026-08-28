@@ -109,6 +109,23 @@ class LedgerAndWithdrawalTest extends TestCase
         $this->assertEquals(195000, (float) $withdrawal->net_amount); // minus 5.000 fee
     }
 
+    public function test_creator_can_withdraw_the_exact_available_balance(): void
+    {
+        $user = $this->makeUser([Role::CREATOR]);
+        $wallet = $user->walletOrCreate();
+        $method = $this->makeVerifiedPayoutMethod($user);
+
+        app(LedgerService::class)->record(
+            $wallet, LedgerEntryType::SellerRevenue, BalanceBucket::Available, 200000,
+        );
+
+        $withdrawal = app(WithdrawalService::class)->request($user, 200000, $method);
+
+        $this->assertEquals(0, (float) $wallet->fresh()->available_balance);
+        $this->assertEquals(200000, (float) $wallet->fresh()->held_balance);
+        $this->assertEquals(195000, (float) $withdrawal->net_amount);
+    }
+
     public function test_double_withdrawal_of_the_same_balance_is_impossible(): void
     {
         $user = $this->makeUser([Role::CREATOR]);

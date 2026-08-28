@@ -3,13 +3,17 @@
 namespace App\Shipping\Providers;
 
 use App\Models\Order;
+use App\Models\ProviderApiUsage;
 use App\Models\Shipment;
 use App\Models\StoreShippingProfile;
 use App\Shipping\Contracts\ShippingProvider;
+use Closure;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -22,13 +26,15 @@ class BiteshipShippingProvider implements ShippingProvider
 
     public function searchAreas(string $query): array
     {
-        $response = $this->client()
-            ->retry(2, 250, fn (Throwable $exception) => $this->shouldRetry($exception))
-            ->get('/v1/maps/areas', [
-                'countries' => 'ID',
-                'input' => $query,
-                'type' => 'single',
-            ])->throw()->json();
+        $payload = ['countries' => 'ID', 'input' => trim($query), 'type' => 'single'];
+        $response = $this->cachedRequest(
+            'maps',
+            ['query' => mb_strtolower(trim($query))],
+            (int) config('shipping.providers.biteship.cache.areas_minutes', 1440),
+            fn () => $this->client()
+                ->retry(2, 250, fn (Throwable $exception) => $this->shouldRetry($exception))
+                ->get('/v1/maps/areas', $payload)->throw()->json(),
+        );
 
         return collect(data_get($response, 'areas', data_get($response, 'data.areas', [])))
             ->map(fn (array $area) => [
@@ -63,9 +69,14 @@ class BiteshipShippingProvider implements ShippingProvider
             $payload['courier_insurance'] = $insuranceValue;
         }
 
-        $response = $this->client()
-            ->retry(2, 250, fn (Throwable $exception) => $this->shouldRetry($exception))
-            ->post('/v1/rates/couriers', $payload)->throw()->json();
+        $response = $this->cachedRequest(
+            'rates',
+            $payload,
+            (int) config('shipping.providers.biteship.cache.rates_minutes', 10),
+            fn () => $this->client()
+                ->retry(2, 250, fn (Throwable $exception) => $this->shouldRetry($exception))
+                ->post('/v1/rates/couriers', $payload)->throw()->json(),
+        );
 
         return collect($response['pricing'] ?? [])
             ->filter(fn (array $rate) => ($rate['available_for_order'] ?? true) === true)
@@ -171,7 +182,12 @@ class BiteshipShippingProvider implements ShippingProvider
             throw new RuntimeException('ID pengiriman Biteship belum tersedia.');
         }
 
-        return $this->client()->get('/v1/orders/'.$shipment->external_id)->throw()->json();
+        return $this->cachedRequest(
+            'tracking',
+            ['external_id' => $shipment->external_id],
+            (int) config('shipping.providers.biteship.cache.tracking_minutes', 5),
+            fn () => $this->client()->get('/v1/orders/'.$shipment->external_id)->throw()->json(),
+        );
     }
 
     public function cancel(Shipment $shipment, string $reason): array
@@ -210,5 +226,65 @@ class BiteshipShippingProvider implements ShippingProvider
     {
         return $exception instanceof ConnectionException
             || ($exception instanceof RequestException && $exception->response->serverError());
+    }
+
+    /**
+     * Paid endpoints are cached by their complete payload. Only an actual
+     * upstream request is written to cost telemetry; cache hits cost Rp0.
+     */
+    private function cachedRequest(string $operation, array $payload, int $minutes, Closure $request): array
+    {
+        $normalised = $this->sortPayload($payload);
+        $hash = hash('sha256', json_encode($normalised, JSON_THROW_ON_ERROR));
+        $key = "shipping:biteship:{$operation}:{$hash}";
+
+        return Cache::remember($key, now()->addMinutes(max(1, $minutes)), function () use ($operation, $hash, $request) {
+            try {
+                $response = $request();
+                $this->recordUsage($operation, $hash, 'SUCCESS', 200);
+
+                return is_array($response) ? $response : [];
+            } catch (Throwable $exception) {
+                $status = $exception instanceof RequestException ? $exception->response->status() : null;
+                $this->recordUsage($operation, $hash, 'FAILED', $status, ['error' => $exception->getMessage()]);
+                throw $exception;
+            }
+        });
+    }
+
+    private function recordUsage(string $operation, string $hash, string $status, ?int $httpStatus, array $meta = []): void
+    {
+        try {
+            ProviderApiUsage::create([
+                'provider' => 'biteship',
+                'operation' => $operation,
+                'request_hash' => $hash,
+                'cost' => $status === 'SUCCESS'
+                    ? (float) config("shipping.providers.biteship.costs.{$operation}", 0)
+                    : 0,
+                'status' => $status,
+                'http_status' => $httpStatus,
+                'meta' => $meta ?: null,
+                'occurred_at' => now(),
+            ]);
+        } catch (Throwable $exception) {
+            // Telemetry must never make checkout unavailable.
+            Log::warning('biteship.cost_telemetry_failed', ['error' => $exception->getMessage()]);
+        }
+    }
+
+    private function sortPayload(array $payload): array
+    {
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->sortPayload($value);
+            }
+        }
+
+        if (! array_is_list($payload)) {
+            ksort($payload);
+        }
+
+        return $payload;
     }
 }

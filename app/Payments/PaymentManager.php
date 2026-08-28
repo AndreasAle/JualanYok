@@ -7,6 +7,7 @@ use App\Payments\Providers\ManualTransferProvider;
 use App\Payments\Providers\MidtransProvider;
 use App\Payments\Providers\MockProvider;
 use App\Payments\Providers\QrisProvider;
+use App\Services\PaymentEconomicsService;
 use InvalidArgumentException;
 
 /**
@@ -15,6 +16,8 @@ use InvalidArgumentException;
  */
 class PaymentManager
 {
+    public function __construct(private readonly PaymentEconomicsService $economics) {}
+
     /** @var array<string, PaymentProviderInterface> */
     private array $resolved = [];
 
@@ -66,7 +69,7 @@ class PaymentManager
      * Flattened list of selectable methods across all enabled providers, ready
      * for the checkout UI.
      */
-    public function availableMethods(): array
+    public function availableMethods(?float $amount = null): array
     {
         $methods = [];
 
@@ -79,12 +82,12 @@ class PaymentManager
             }
         }
 
-        return $methods;
+        return $amount === null ? $methods : $this->economics->decorateMethods($methods, $amount);
     }
 
-    public function findMethod(string $provider, string $method, ?string $channel): ?array
+    public function findMethod(string $provider, string $method, ?string $channel, ?float $amount = null): ?array
     {
-        return collect($this->availableMethods())->first(
+        return collect($this->availableMethods($amount))->first(
             fn ($m) => $m['provider'] === $provider
                 && $m['method'] === $method
                 && (string) $m['channel'] === (string) $channel

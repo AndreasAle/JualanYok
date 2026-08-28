@@ -185,8 +185,13 @@ class AffiliateService
         $released = 0;
 
         Commission::where('status', CommissionStatus::Pending)
+            ->whereColumn('reversed_amount', '<', 'amount')
             ->whereNotNull('available_at')
             ->where('available_at', '<=', now())
+            ->whereHas('order', function ($orders) {
+                $orders->whereDoesntHave('refunds', fn ($q) => $q->whereIn('status', ['REQUESTED', 'APPROVED']))
+                    ->whereDoesntHave('disputes', fn ($q) => $q->whereIn('status', ['OPEN', 'SELLER_RESPONDED', 'UNDER_REVIEW']));
+            })
             ->chunkById(200, function ($commissions) use (&$released) {
                 foreach ($commissions as $commission) {
                     DB::transaction(function () use ($commission, &$released) {
@@ -196,7 +201,7 @@ class AffiliateService
                             wallet: $wallet,
                             from: BalanceBucket::Pending,
                             to: BalanceBucket::Available,
-                            amount: (float) $commission->amount,
+                            amount: Money::round((float) $commission->amount - (float) $commission->reversed_amount),
                             type: LedgerEntryType::Release,
                             reference: $commission,
                             description: 'Komisi cair',
@@ -217,35 +222,51 @@ class AffiliateService
     }
 
     /** Reverses commission when the underlying order is refunded. */
-    public function reverseForOrder(Order $order, ?string $reason = null): void
+    /** @return array{amount:float,debt:float} */
+    public function reverseForOrder(Order $order, ?string $reason = null, float $cumulativeRatio = 1.0): array
     {
-        DB::transaction(function () use ($order, $reason) {
+        return DB::transaction(function () use ($order, $reason, $cumulativeRatio) {
+            $reversedNow = 0.0;
+            $debtCreated = 0.0;
+
             foreach ($order->commissions as $commission) {
-                if (in_array($commission->status, [CommissionStatus::Reversed, CommissionStatus::Paid], true)) {
+                if ($commission->status === CommissionStatus::Reversed) {
                     continue;
                 }
 
-                $bucket = $commission->status === CommissionStatus::Approved
-                    ? BalanceBucket::Available
-                    : BalanceBucket::Pending;
+                $target = Money::round((float) $commission->amount * min(1, max(0, $cumulativeRatio)));
+                $amount = Money::round(max(0, $target - (float) $commission->reversed_amount));
+
+                if ($amount <= 0) {
+                    continue;
+                }
 
                 $wallet = $this->ledger->walletFor($commission->affiliate);
 
-                $this->ledger->record(
+                $allocation = $this->ledger->clawback(
                     wallet: $wallet,
+                    amount: $amount,
                     type: LedgerEntryType::CommissionReversal,
-                    bucket: $bucket,
-                    amount: -(float) $commission->amount,
                     reference: $commission,
                     description: 'Komisi dibatalkan: pesanan '.$order->number.' direfund',
-                    idempotencyKey: 'commission-reverse:'.$commission->id,
+                    idempotencyKey: 'commission-reverse:'.$commission->id.':'.Money::round($target),
+                    useReserve: false,
                 );
+                $debtCreated = Money::round($debtCreated + $allocation['debt']);
 
+                $newReversed = Money::round((float) $commission->reversed_amount + $amount);
                 $commission->update([
-                    'status' => CommissionStatus::Reversed,
+                    'reversed_amount' => $newReversed,
+                    'status' => $newReversed >= (float) $commission->amount - 0.001
+                        ? CommissionStatus::Reversed
+                        : $commission->status,
                     'note' => $reason,
                 ]);
+
+                $reversedNow = Money::round($reversedNow + $amount);
             }
+
+            return ['amount' => $reversedNow, 'debt' => $debtCreated];
         });
     }
 
