@@ -22,12 +22,18 @@ class PayoutMethod extends Model
             'account_number' => 'encrypted',
             'is_default' => 'boolean',
             'verified_at' => 'datetime',
+            'reviewed_at' => 'datetime',
         ];
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     public function maskedNumber(): string

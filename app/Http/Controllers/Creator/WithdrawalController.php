@@ -40,6 +40,8 @@ class WithdrawalController extends Controller
                 'masked' => $m->maskedNumber(),
                 'status' => $m->status,
                 'is_default' => (bool) $m->is_default,
+                'review_note' => $m->review_note,
+                'reviewed_at' => $m->reviewed_at?->toDateTimeString(),
             ]),
             'withdrawals' => $user->withdrawals()
                 ->latest()

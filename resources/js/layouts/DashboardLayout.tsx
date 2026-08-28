@@ -1,7 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, BarChart3, Bell, Blocks, Boxes, ChevronLeft, CreditCard, ExternalLink, Eye, Gauge, Gift,
-    Handshake, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
+    Handshake, IdCard, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
     Search, ShieldCheck, ShoppingBag, Store, Ticket, TrendingUp, Truck, UserCircle, Users, Wallet, X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -15,6 +15,8 @@ interface NavItem {
     icon: ReactNode;
     /** Shown in the mobile bottom bar. */
     primary?: boolean;
+    /** Restricts sensitive links without exposing dead navigation to other admins. */
+    roles?: string[];
 }
 
 const CREATOR_NAV: { group: string; items: NavItem[] }[] = [
@@ -84,6 +86,7 @@ const ADMIN_NAV: { group: string; items: NavItem[] }[] = [
             { label: 'Refund', href: '/admin/refund', icon: <Receipt className="size-4.5" /> },
             { label: 'Komplain', href: '/admin/komplain', icon: <AlertTriangle className="size-4.5" /> },
             { label: 'Penarikan', href: '/admin/penarikan', icon: <CreditCard className="size-4.5" />, primary: true },
+            { label: 'Verifikasi Rekening', href: '/admin/rekening-pencairan', icon: <IdCard className="size-4.5" />, roles: ['finance-admin', 'super-admin'] },
             { label: 'Ledger', href: '/admin/ledger', icon: <PieChart className="size-4.5" /> },
         ],
     },
@@ -147,7 +150,11 @@ export default function DashboardLayout({
     const [collapsed, setCollapsed] = useState(false);
     const [bellOpen, setBellOpen] = useState(false);
 
-    const nav = NAV_BY_AREA[area];
+    const userRoles = auth.user?.roles ?? [];
+    const nav = NAV_BY_AREA[area].map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.roles || item.roles.some((role) => userRoles.includes(role))),
+    }));
     const primary = nav.flatMap((g) => g.items).filter((i) => i.primary).slice(0, 5);
 
     const isActive = (href: string) =>

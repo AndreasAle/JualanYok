@@ -222,6 +222,7 @@ class PageRenderingTest extends TestCase
             '/admin/refund',
             '/admin/ledger',
             '/admin/penarikan',
+            '/admin/rekening-pencairan',
             '/admin/paket',
             '/admin/pengaturan',
             '/admin/audit',
@@ -236,7 +237,7 @@ class PageRenderingTest extends TestCase
     {
         $finance = $this->financeAdmin();
 
-        foreach (['/admin', '/admin/penarikan', '/admin/refund', '/admin/ledger'] as $uri) {
+        foreach (['/admin', '/admin/penarikan', '/admin/rekening-pencairan', '/admin/refund', '/admin/ledger'] as $uri) {
             $this->actingAs($finance)->get($uri)->assertOk("Gagal render {$uri}");
         }
     }

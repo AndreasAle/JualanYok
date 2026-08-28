@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDisputeController;
 use App\Http\Controllers\Admin\AdminEconomicsController;
 use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\AdminPayoutMethodController;
 use App\Http\Controllers\Admin\AdminRefundController;
 use App\Http\Controllers\Admin\AdminStoreController;
 use App\Http\Controllers\Admin\AdminUserController;
@@ -54,6 +55,15 @@ Route::middleware(['auth', 'admin'])
             ->name('withdrawals.reject');
         Route::post('/penarikan/{withdrawal:number}/bayar', [AdminWithdrawalController::class, 'markPaid'])
             ->name('withdrawals.paid');
+
+        Route::middleware('admin:finance-admin,super-admin')->group(function () {
+            Route::get('/rekening-pencairan', [AdminPayoutMethodController::class, 'index'])
+                ->name('payout-methods.index');
+            Route::post('/rekening-pencairan/{payoutMethod}/setujui', [AdminPayoutMethodController::class, 'approve'])
+                ->name('payout-methods.approve');
+            Route::post('/rekening-pencairan/{payoutMethod}/tolak', [AdminPayoutMethodController::class, 'reject'])
+                ->name('payout-methods.reject');
+        });
 
         Route::get('/paket', [PlanController::class, 'index'])->name('plans.index');
         Route::put('/paket/{plan:slug}', [PlanController::class, 'update'])->name('plans.update');

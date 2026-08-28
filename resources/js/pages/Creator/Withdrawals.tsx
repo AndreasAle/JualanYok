@@ -17,6 +17,8 @@ interface PayoutMethod {
     masked: string;
     status: string;
     is_default: boolean;
+    review_note: string | null;
+    reviewed_at: string | null;
 }
 
 interface WithdrawalRow {
@@ -318,35 +320,42 @@ export default function Withdrawals({
                             {payoutMethods.map((method) => (
                                 <div
                                     key={method.id}
-                                    className="flex items-center justify-between gap-3 rounded-[var(--radius-field)] border border-line p-3"
+                                    className="rounded-[var(--radius-field)] border border-line p-3"
                                 >
-                                    <div className="flex min-w-0 items-center gap-3">
-                                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-2">
-                                            <Banknote className="size-5 text-[var(--primary)]" />
-                                        </span>
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-semibold">
-                                                {method.provider} {method.masked}
-                                            </p>
-                                            <p className="truncate text-xs text-muted">{method.account_name}</p>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-2">
+                                                <Banknote className="size-5 text-[var(--primary)]" />
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold">
+                                                    {method.provider} {method.masked}
+                                                </p>
+                                                <p className="truncate text-xs text-muted">{method.account_name}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex shrink-0 items-center gap-1">
+                                            <Badge tone={method.status === 'verified' ? 'success' : method.status === 'rejected' ? 'danger' : 'warning'}>
+                                                {method.status === 'verified' ? 'Terverifikasi' : method.status === 'rejected' ? 'Ditolak' : 'Menunggu'}
+                                            </Badge>
+                                            <ConfirmButton
+                                                title="Hapus rekening ini?"
+                                                message="Rekening akan dihapus dari daftar pencairan kamu."
+                                                confirmLabel="Ya, hapus"
+                                                onConfirm={() => router.delete(`/dashboard/rekening/${method.id}`)}
+                                            >
+                                                <Button variant="ghost" size="icon" aria-label="Hapus rekening">
+                                                    <Trash2 className="size-4 text-[var(--danger)]" />
+                                                </Button>
+                                            </ConfirmButton>
                                         </div>
                                     </div>
-
-                                    <div className="flex shrink-0 items-center gap-1">
-                                        <Badge tone={method.status === 'verified' ? 'success' : 'warning'}>
-                                            {method.status === 'verified' ? 'Terverifikasi' : 'Menunggu'}
-                                        </Badge>
-                                        <ConfirmButton
-                                            title="Hapus rekening ini?"
-                                            message="Rekening akan dihapus dari daftar pencairan kamu."
-                                            confirmLabel="Ya, hapus"
-                                            onConfirm={() => router.delete(`/dashboard/rekening/${method.id}`)}
-                                        >
-                                            <Button variant="ghost" size="icon" aria-label="Hapus rekening">
-                                                <Trash2 className="size-4 text-[var(--danger)]" />
-                                            </Button>
-                                        </ConfirmButton>
-                                    </div>
+                                    {method.review_note && (
+                                        <p className="mt-2 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
+                                            Catatan tim: {method.review_note}
+                                        </p>
+                                    )}
                                 </div>
                             ))}
 
