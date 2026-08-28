@@ -17,7 +17,9 @@ use App\Services\PaymentService;
 use App\Services\PricingService;
 use App\Services\RefundService;
 use App\Services\WithdrawalService;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -46,6 +48,24 @@ class MarketplaceEconomicsTest extends TestCase
         $this->assertEquals(100000, $quote['commission_base']);
         $this->assertEquals(7500, $quote['platform_fee']);
         $this->assertEquals(150000, $quote['grand_total']);
+    }
+
+    public function test_economics_migration_can_resume_after_a_partial_mysql_style_failure(): void
+    {
+        Schema::table('payment_cost_rules', function (Blueprint $table) {
+            $table->dropIndex('pcr_active_window_idx');
+        });
+
+        $migration = require database_path('migrations/2026_08_27_000001_create_marketplace_economics_tables.php');
+        $migration->up();
+
+        $this->assertTrue(Schema::hasIndex(
+            'payment_cost_rules',
+            ['is_active', 'effective_from', 'effective_until'],
+        ));
+        $this->assertTrue(Schema::hasTable('financial_accounts'));
+        $this->assertTrue(Schema::hasTable('financial_journals'));
+        $this->assertTrue(Schema::hasTable('financial_postings'));
     }
 
     public function test_checkout_recommends_the_cheapest_natural_channel_for_each_nominal(): void

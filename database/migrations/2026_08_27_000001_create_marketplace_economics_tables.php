@@ -8,139 +8,271 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('wallets', function (Blueprint $table) {
-            $table->decimal('reserve_balance', 16, 2)->default(0)->after('held_balance');
-            // Positive means money the user owes; display it as a negative balance.
-            $table->decimal('negative_balance', 16, 2)->default(0)->after('reserve_balance');
-        });
+        $addReserveBalance = ! Schema::hasColumn('wallets', 'reserve_balance');
+        $addNegativeBalance = ! Schema::hasColumn('wallets', 'negative_balance');
 
-        Schema::table('orders', function (Blueprint $table) {
-            $table->decimal('commission_base', 14, 2)->default(0)->after('tax_total');
-            $table->decimal('platform_fee_rate', 8, 4)->default(0)->after('commission_base');
-            $table->decimal('gateway_fee_estimated', 14, 2)->default(0)->after('payment_fee');
-            $table->decimal('gateway_fee_actual', 14, 2)->default(0)->after('gateway_fee_estimated');
-            $table->string('gateway_fee_bearer', 20)->default('SELLER')->after('gateway_fee_actual');
-            $table->decimal('reserve_amount', 14, 2)->default(0)->after('seller_net');
-            $table->decimal('reserve_rate', 8, 4)->default(0)->after('reserve_amount');
-            $table->decimal('debt_offset', 14, 2)->default(0)->after('reserve_rate');
-            $table->timestamp('reserve_release_at')->nullable()->after('funds_release_at');
-            $table->decimal('shipping_cost_actual', 14, 2)->default(0)->after('shipping_total');
-            $table->decimal('shipping_variance', 14, 2)->default(0)->after('shipping_cost_actual');
-            $table->decimal('split_fee_actual', 14, 2)->default(0)->after('gateway_fee_bearer');
-            $table->decimal('contribution_margin', 14, 2)->default(0)->after('split_fee_actual');
-            // Existing rows are legacy until they are explicitly backfilled.
-            // New payments are promoted to v2 only after the new settlement
-            // transaction and platform journal both succeed.
-            $table->unsignedSmallInteger('settlement_version')->default(1)->after('contribution_margin');
+        if ($addReserveBalance || $addNegativeBalance) {
+            Schema::table('wallets', function (Blueprint $table) use ($addReserveBalance, $addNegativeBalance) {
+                if ($addReserveBalance) {
+                    $table->decimal('reserve_balance', 16, 2)->default(0)->after('held_balance');
+                }
 
-            $table->index(['reserve_release_at', 'status']);
-        });
+                if ($addNegativeBalance) {
+                    $table->decimal('negative_balance', 16, 2)->default(0)->after('reserve_balance');
+                }
+            });
+        }
 
-        Schema::table('payments', function (Blueprint $table) {
-            $table->decimal('fee_estimated', 14, 2)->default(0)->after('fee');
-            $table->string('fee_source', 20)->default('ESTIMATE')->after('fee_estimated');
-            $table->unsignedSmallInteger('settlement_days')->default(0)->after('fee_source');
-        });
+        $orderColumns = [
+            'commission_base', 'platform_fee_rate', 'gateway_fee_estimated',
+            'gateway_fee_actual', 'gateway_fee_bearer', 'reserve_amount',
+            'reserve_rate', 'debt_offset', 'reserve_release_at', 'shipping_cost_actual',
+            'shipping_variance', 'split_fee_actual', 'contribution_margin', 'settlement_version',
+        ];
+        $missingOrderColumns = array_fill_keys(array_filter(
+            $orderColumns,
+            fn (string $column) => ! Schema::hasColumn('orders', $column),
+        ), true);
 
-        Schema::table('commissions', function (Blueprint $table) {
-            $table->decimal('reversed_amount', 14, 2)->default(0)->after('amount');
-        });
+        if ($missingOrderColumns !== []) {
+            Schema::table('orders', function (Blueprint $table) use ($missingOrderColumns) {
+                if (isset($missingOrderColumns['commission_base'])) {
+                    $table->decimal('commission_base', 14, 2)->default(0)->after('tax_total');
+                }
+                if (isset($missingOrderColumns['platform_fee_rate'])) {
+                    $table->decimal('platform_fee_rate', 8, 4)->default(0)->after('commission_base');
+                }
+                if (isset($missingOrderColumns['gateway_fee_estimated'])) {
+                    $table->decimal('gateway_fee_estimated', 14, 2)->default(0)->after('payment_fee');
+                }
+                if (isset($missingOrderColumns['gateway_fee_actual'])) {
+                    $table->decimal('gateway_fee_actual', 14, 2)->default(0)->after('gateway_fee_estimated');
+                }
+                if (isset($missingOrderColumns['gateway_fee_bearer'])) {
+                    $table->string('gateway_fee_bearer', 20)->default('SELLER')->after('gateway_fee_actual');
+                }
+                if (isset($missingOrderColumns['split_fee_actual'])) {
+                    $table->decimal('split_fee_actual', 14, 2)->default(0)->after('gateway_fee_bearer');
+                }
+                if (isset($missingOrderColumns['contribution_margin'])) {
+                    $table->decimal('contribution_margin', 14, 2)->default(0)->after('split_fee_actual');
+                }
+                if (isset($missingOrderColumns['settlement_version'])) {
+                    // Existing rows stay legacy until they are explicitly backfilled.
+                    $table->unsignedSmallInteger('settlement_version')->default(1)->after('contribution_margin');
+                }
+                if (isset($missingOrderColumns['reserve_amount'])) {
+                    $table->decimal('reserve_amount', 14, 2)->default(0)->after('seller_net');
+                }
+                if (isset($missingOrderColumns['reserve_rate'])) {
+                    $table->decimal('reserve_rate', 8, 4)->default(0)->after('reserve_amount');
+                }
+                if (isset($missingOrderColumns['debt_offset'])) {
+                    $table->decimal('debt_offset', 14, 2)->default(0)->after('reserve_rate');
+                }
+                if (isset($missingOrderColumns['reserve_release_at'])) {
+                    $table->timestamp('reserve_release_at')->nullable()->after('funds_release_at');
+                }
+                if (isset($missingOrderColumns['shipping_cost_actual'])) {
+                    $table->decimal('shipping_cost_actual', 14, 2)->default(0)->after('shipping_total');
+                }
+                if (isset($missingOrderColumns['shipping_variance'])) {
+                    $table->decimal('shipping_variance', 14, 2)->default(0)->after('shipping_cost_actual');
+                }
+            });
+        }
 
-        Schema::table('refunds', function (Blueprint $table) {
-            $table->decimal('seller_clawback', 14, 2)->default(0)->after('amount');
-            $table->decimal('reserve_clawback', 14, 2)->default(0)->after('seller_clawback');
-            $table->decimal('seller_debt_created', 14, 2)->default(0)->after('reserve_clawback');
-            $table->decimal('affiliate_clawback', 14, 2)->default(0)->after('seller_debt_created');
-            $table->decimal('affiliate_debt_created', 14, 2)->default(0)->after('affiliate_clawback');
-            $table->decimal('platform_fee_reversal', 14, 2)->default(0)->after('affiliate_debt_created');
-            $table->decimal('shipping_reversal', 14, 2)->default(0)->after('platform_fee_reversal');
-            $table->decimal('tax_reversal', 14, 2)->default(0)->after('shipping_reversal');
-            $table->decimal('platform_loss', 14, 2)->default(0)->after('tax_reversal');
-            $table->string('execution_mode', 20)->nullable()->after('status');
-            $table->string('order_status_before', 40)->nullable()->after('execution_mode');
-            $table->foreignId('approved_by')->nullable()->after('processed_by')->constrained('users')->nullOnDelete();
-            $table->timestamp('approved_at')->nullable()->after('processed_at');
-            $table->string('transfer_reference')->nullable()->after('admin_note');
-            $table->string('provider_reference')->nullable()->after('transfer_reference');
-            $table->json('provider_response')->nullable()->after('provider_reference');
+        if (! Schema::hasIndex('orders', ['reserve_release_at', 'status'])) {
+            Schema::table('orders', function (Blueprint $table) {
+                $table->index(['reserve_release_at', 'status']);
+            });
+        }
 
-            $table->index(['status', 'approved_at']);
-        });
+        $addFeeEstimated = ! Schema::hasColumn('payments', 'fee_estimated');
+        $addFeeSource = ! Schema::hasColumn('payments', 'fee_source');
+        $addSettlementDays = ! Schema::hasColumn('payments', 'settlement_days');
 
-        Schema::create('payment_cost_rules', function (Blueprint $table) {
-            $table->id();
-            $table->string('provider', 40);
-            $table->string('method', 40);
-            $table->string('channel', 40)->default('');
-            $table->decimal('fee_percent', 8, 4)->default(0);
-            $table->decimal('fee_fixed', 14, 2)->default(0);
-            $table->unsignedSmallInteger('settlement_days')->default(0);
-            $table->decimal('minimum_amount', 14, 2)->nullable();
-            $table->decimal('maximum_amount', 14, 2)->nullable();
-            $table->string('fee_bearer', 20)->default('SELLER');
-            $table->string('source', 30)->default('CONFIG');
-            $table->timestamp('effective_from')->nullable();
-            $table->timestamp('effective_until')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
+        if ($addFeeEstimated || $addFeeSource || $addSettlementDays) {
+            Schema::table('payments', function (Blueprint $table) use ($addFeeEstimated, $addFeeSource, $addSettlementDays) {
+                if ($addFeeEstimated) {
+                    $table->decimal('fee_estimated', 14, 2)->default(0)->after('fee');
+                }
+                if ($addFeeSource) {
+                    $table->string('fee_source', 20)->default('ESTIMATE')->after('fee_estimated');
+                }
+                if ($addSettlementDays) {
+                    $table->unsignedSmallInteger('settlement_days')->default(0)->after('fee_source');
+                }
+            });
+        }
 
-            $table->unique(['provider', 'method', 'channel']);
-            $table->index(['is_active', 'effective_from', 'effective_until']);
-        });
+        if (! Schema::hasColumn('commissions', 'reversed_amount')) {
+            Schema::table('commissions', function (Blueprint $table) {
+                $table->decimal('reversed_amount', 14, 2)->default(0)->after('amount');
+            });
+        }
 
-        Schema::create('financial_accounts', function (Blueprint $table) {
-            $table->id();
-            $table->string('code', 80)->unique();
-            $table->string('name');
-            $table->string('type', 20); // ASSET | LIABILITY | REVENUE | EXPENSE
-            $table->text('description')->nullable();
-            $table->timestamps();
-        });
+        $refundColumns = [
+            'seller_clawback', 'reserve_clawback', 'seller_debt_created',
+            'affiliate_clawback', 'affiliate_debt_created', 'platform_fee_reversal',
+            'shipping_reversal', 'tax_reversal', 'platform_loss', 'execution_mode',
+            'order_status_before', 'approved_by', 'approved_at', 'transfer_reference',
+            'provider_reference', 'provider_response',
+        ];
+        $missingRefundColumns = array_fill_keys(array_filter(
+            $refundColumns,
+            fn (string $column) => ! Schema::hasColumn('refunds', $column),
+        ), true);
 
-        Schema::create('provider_api_usages', function (Blueprint $table) {
-            $table->id();
-            $table->string('provider', 40);
-            $table->string('operation', 40);
-            $table->string('request_hash', 64)->nullable();
-            $table->decimal('cost', 14, 2)->default(0);
-            $table->string('status', 20)->default('SUCCESS');
-            $table->unsignedSmallInteger('http_status')->nullable();
-            $table->json('meta')->nullable();
-            $table->timestamp('occurred_at');
-            $table->timestamps();
+        if ($missingRefundColumns !== []) {
+            Schema::table('refunds', function (Blueprint $table) use ($missingRefundColumns) {
+                if (isset($missingRefundColumns['seller_clawback'])) {
+                    $table->decimal('seller_clawback', 14, 2)->default(0)->after('amount');
+                }
+                if (isset($missingRefundColumns['reserve_clawback'])) {
+                    $table->decimal('reserve_clawback', 14, 2)->default(0)->after('seller_clawback');
+                }
+                if (isset($missingRefundColumns['seller_debt_created'])) {
+                    $table->decimal('seller_debt_created', 14, 2)->default(0)->after('reserve_clawback');
+                }
+                if (isset($missingRefundColumns['affiliate_clawback'])) {
+                    $table->decimal('affiliate_clawback', 14, 2)->default(0)->after('seller_debt_created');
+                }
+                if (isset($missingRefundColumns['affiliate_debt_created'])) {
+                    $table->decimal('affiliate_debt_created', 14, 2)->default(0)->after('affiliate_clawback');
+                }
+                if (isset($missingRefundColumns['platform_fee_reversal'])) {
+                    $table->decimal('platform_fee_reversal', 14, 2)->default(0)->after('affiliate_debt_created');
+                }
+                if (isset($missingRefundColumns['shipping_reversal'])) {
+                    $table->decimal('shipping_reversal', 14, 2)->default(0)->after('platform_fee_reversal');
+                }
+                if (isset($missingRefundColumns['tax_reversal'])) {
+                    $table->decimal('tax_reversal', 14, 2)->default(0)->after('shipping_reversal');
+                }
+                if (isset($missingRefundColumns['platform_loss'])) {
+                    $table->decimal('platform_loss', 14, 2)->default(0)->after('tax_reversal');
+                }
+                if (isset($missingRefundColumns['execution_mode'])) {
+                    $table->string('execution_mode', 20)->nullable()->after('status');
+                }
+                if (isset($missingRefundColumns['order_status_before'])) {
+                    $table->string('order_status_before', 40)->nullable()->after('execution_mode');
+                }
+                if (isset($missingRefundColumns['approved_by'])) {
+                    $table->foreignId('approved_by')->nullable()->after('processed_by')->constrained('users')->nullOnDelete();
+                }
+                if (isset($missingRefundColumns['approved_at'])) {
+                    $table->timestamp('approved_at')->nullable()->after('processed_at');
+                }
+                if (isset($missingRefundColumns['transfer_reference'])) {
+                    $table->string('transfer_reference')->nullable()->after('admin_note');
+                }
+                if (isset($missingRefundColumns['provider_reference'])) {
+                    $table->string('provider_reference')->nullable()->after('transfer_reference');
+                }
+                if (isset($missingRefundColumns['provider_response'])) {
+                    $table->json('provider_response')->nullable()->after('provider_reference');
+                }
+            });
+        }
 
-            $table->index(['provider', 'operation', 'occurred_at']);
-            $table->index(['status', 'occurred_at']);
-        });
+        if (! Schema::hasIndex('refunds', ['status', 'approved_at'])) {
+            Schema::table('refunds', function (Blueprint $table) {
+                $table->index(['status', 'approved_at']);
+            });
+        }
 
-        Schema::create('financial_journals', function (Blueprint $table) {
-            $table->id();
-            $table->string('event_type', 60);
-            $table->nullableMorphs('reference');
-            $table->string('idempotency_key')->unique();
-            $table->string('currency', 3)->default('IDR');
-            $table->string('description')->nullable();
-            $table->json('meta')->nullable();
-            $table->timestamp('posted_at');
-            $table->timestamps();
+        if (! Schema::hasTable('payment_cost_rules')) {
+            Schema::create('payment_cost_rules', function (Blueprint $table) {
+                $table->id();
+                $table->string('provider', 40);
+                $table->string('method', 40);
+                $table->string('channel', 40)->default('');
+                $table->decimal('fee_percent', 8, 4)->default(0);
+                $table->decimal('fee_fixed', 14, 2)->default(0);
+                $table->unsignedSmallInteger('settlement_days')->default(0);
+                $table->decimal('minimum_amount', 14, 2)->nullable();
+                $table->decimal('maximum_amount', 14, 2)->nullable();
+                $table->string('fee_bearer', 20)->default('SELLER');
+                $table->string('source', 30)->default('CONFIG');
+                $table->timestamp('effective_from')->nullable();
+                $table->timestamp('effective_until')->nullable();
+                $table->boolean('is_active')->default(true);
+                $table->timestamps();
 
-            $table->index(['event_type', 'posted_at']);
-        });
+                $table->unique(['provider', 'method', 'channel']);
+            });
+        }
 
-        Schema::create('financial_postings', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('financial_journal_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('financial_account_id')->constrained()->restrictOnDelete();
-            $table->string('direction', 6); // DEBIT | CREDIT
-            $table->decimal('amount', 16, 2);
-            $table->foreignId('store_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->json('meta')->nullable();
-            $table->timestamp('created_at')->nullable();
+        if (! Schema::hasIndex('payment_cost_rules', ['is_active', 'effective_from', 'effective_until'])) {
+            Schema::table('payment_cost_rules', function (Blueprint $table) {
+                // MySQL limits identifiers to 64 characters, so use an explicit short name.
+                $table->index(['is_active', 'effective_from', 'effective_until'], 'pcr_active_window_idx');
+            });
+        }
 
-            $table->index(['financial_account_id', 'created_at']);
-            $table->index(['store_id', 'created_at']);
-        });
+        if (! Schema::hasTable('financial_accounts')) {
+            Schema::create('financial_accounts', function (Blueprint $table) {
+                $table->id();
+                $table->string('code', 80)->unique();
+                $table->string('name');
+                $table->string('type', 20); // ASSET | LIABILITY | REVENUE | EXPENSE
+                $table->text('description')->nullable();
+                $table->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('provider_api_usages')) {
+            Schema::create('provider_api_usages', function (Blueprint $table) {
+                $table->id();
+                $table->string('provider', 40);
+                $table->string('operation', 40);
+                $table->string('request_hash', 64)->nullable();
+                $table->decimal('cost', 14, 2)->default(0);
+                $table->string('status', 20)->default('SUCCESS');
+                $table->unsignedSmallInteger('http_status')->nullable();
+                $table->json('meta')->nullable();
+                $table->timestamp('occurred_at');
+                $table->timestamps();
+
+                $table->index(['provider', 'operation', 'occurred_at']);
+                $table->index(['status', 'occurred_at']);
+            });
+        }
+
+        if (! Schema::hasTable('financial_journals')) {
+            Schema::create('financial_journals', function (Blueprint $table) {
+                $table->id();
+                $table->string('event_type', 60);
+                $table->nullableMorphs('reference');
+                $table->string('idempotency_key')->unique();
+                $table->string('currency', 3)->default('IDR');
+                $table->string('description')->nullable();
+                $table->json('meta')->nullable();
+                $table->timestamp('posted_at');
+                $table->timestamps();
+
+                $table->index(['event_type', 'posted_at']);
+            });
+        }
+
+        if (! Schema::hasTable('financial_postings')) {
+            Schema::create('financial_postings', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('financial_journal_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('financial_account_id')->constrained()->restrictOnDelete();
+                $table->string('direction', 6); // DEBIT | CREDIT
+                $table->decimal('amount', 16, 2);
+                $table->foreignId('store_id')->nullable()->constrained()->nullOnDelete();
+                $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+                $table->json('meta')->nullable();
+                $table->timestamp('created_at')->nullable();
+
+                $table->index(['financial_account_id', 'created_at']);
+                $table->index(['store_id', 'created_at']);
+            });
+        }
     }
 
     public function down(): void
