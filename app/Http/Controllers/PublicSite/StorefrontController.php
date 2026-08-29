@@ -82,6 +82,13 @@ class StorefrontController extends Controller
         // rather than letting each one fetch its own copy.
         $product->variants->each->setRelation('product', $product);
 
+        $canonicalUrl = route('storefront.product', [$store->username, $product->slug]);
+        $socialDescription = Str::limit(
+            Str::squish(strip_tags($product->short_description ?: $product->description ?: "Beli {$product->name} dari {$store->name} di JualanYok.")),
+            180,
+            '',
+        );
+
         return Inertia::render('Storefront/Product', [
             'store' => $this->storePayload($store),
             'product' => $this->productPayload($product, $store->username, detailed: true),
@@ -94,6 +101,17 @@ class StorefrontController extends Controller
                 ->get()
                 ->map(fn ($p) => $this->productPayload($p, $store->username)),
             'cart' => $this->cartPayload($request, $store),
+        ])->withViewData('socialMeta', [
+            'title' => "{$product->name} — {$store->name}",
+            'description' => $socialDescription,
+            'url' => $canonicalUrl,
+            'type' => 'product',
+            'image' => $this->absolutePublicUrl(
+                $product->thumbnailUrl() ?: $store->coverUrl() ?: $store->avatarUrl(),
+            ),
+            'image_alt' => $product->name,
+            'price' => (float) $product->price,
+            'currency' => 'IDR',
         ]);
     }
 
@@ -444,6 +462,24 @@ class StorefrontController extends Controller
         $cart = Cart::where('store_id', $store->id)->where('token', $token)->first();
 
         return $cart ? $this->carts->payload($cart) : null;
+    }
+
+    /** Social crawlers require an absolute image URL in the initial HTML. */
+    private function absolutePublicUrl(?string $url): ?string
+    {
+        if (blank($url)) {
+            return null;
+        }
+
+        if (Str::startsWith($url, ['http://', 'https://'])) {
+            return $url;
+        }
+
+        if (Str::startsWith($url, '//')) {
+            return 'https:'.$url;
+        }
+
+        return url('/'.ltrim($url, '/'));
     }
 
     private function productPayload(Product $product, string $storeUsername, bool $detailed = false): array

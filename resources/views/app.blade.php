@@ -5,7 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title inertia>{{ config('jualanyok.name', 'JualanYok') }}</title>
+    <title inertia>{{ $socialMeta['title'] ?? config('jualanyok.name', 'JualanYok') }}</title>
+
+    @isset($socialMeta)
+        <meta name="description" content="{{ $socialMeta['description'] }}">
+        <link rel="canonical" href="{{ $socialMeta['url'] }}">
+
+        <meta property="og:locale" content="id_ID">
+        <meta property="og:site_name" content="{{ config('jualanyok.name', 'JualanYok') }}">
+        <meta property="og:type" content="{{ $socialMeta['type'] ?? 'website' }}">
+        <meta property="og:title" content="{{ $socialMeta['title'] }}">
+        <meta property="og:description" content="{{ $socialMeta['description'] }}">
+        <meta property="og:url" content="{{ $socialMeta['url'] }}">
+
+        @if (! empty($socialMeta['image']))
+            <meta property="og:image" content="{{ $socialMeta['image'] }}">
+            <meta property="og:image:secure_url" content="{{ $socialMeta['image'] }}">
+            <meta property="og:image:alt" content="{{ $socialMeta['image_alt'] ?? $socialMeta['title'] }}">
+            <meta name="twitter:card" content="summary_large_image">
+            <meta name="twitter:image" content="{{ $socialMeta['image'] }}">
+        @else
+            <meta name="twitter:card" content="summary">
+        @endif
+
+        <meta name="twitter:title" content="{{ $socialMeta['title'] }}">
+        <meta name="twitter:description" content="{{ $socialMeta['description'] }}">
+
+        @if (($socialMeta['type'] ?? null) === 'product')
+            <meta property="product:price:amount" content="{{ number_format((float) ($socialMeta['price'] ?? 0), 2, '.', '') }}">
+            <meta property="product:price:currency" content="{{ $socialMeta['currency'] ?? 'IDR' }}">
+        @endif
+    @endisset
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <meta name="theme-color" content="#fcfbfe">
