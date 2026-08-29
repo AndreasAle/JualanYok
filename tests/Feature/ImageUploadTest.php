@@ -189,6 +189,58 @@ class ImageUploadTest extends TestCase
         Storage::disk('public')->assertExists($second);
     }
 
+    public function test_a_creator_can_upload_multiple_product_gallery_images(): void
+    {
+        $store = $this->makeStore();
+
+        $this->actingAs($store->owner)
+            ->post('/dashboard/produk', [
+                'type' => 'DIGITAL',
+                'name' => 'Produk Dengan Galeri',
+                'price' => 50000,
+                'status' => 'ACTIVE',
+                'visibility' => 'public',
+                'min_quantity' => 1,
+                'gallery' => [
+                    UploadedFile::fake()->image('depan.jpg'),
+                    UploadedFile::fake()->image('samping.jpg'),
+                ],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $product = $store->products()->where('name', 'Produk Dengan Galeri')->firstOrFail();
+
+        $this->assertCount(2, $product->media);
+        $product->media->each(fn ($media) => Storage::disk('public')->assertExists($media->path));
+    }
+
+    public function test_a_creator_can_remove_and_add_product_gallery_images(): void
+    {
+        $store = $this->makeStore();
+        $product = $this->makeProduct($store);
+        $removed = $product->media()->create([
+            'path' => UploadedFile::fake()->image('lama.jpg')->store('products/gallery', 'public'),
+            'position' => 1,
+        ]);
+
+        $this->actingAs($store->owner)
+            ->put("/dashboard/produk/{$product->id}", [
+                'type' => 'DIGITAL',
+                'name' => $product->name,
+                'price' => 50000,
+                'status' => 'ACTIVE',
+                'visibility' => 'public',
+                'min_quantity' => 1,
+                'removed_media_ids' => [$removed->id],
+                'gallery' => [UploadedFile::fake()->image('baru.jpg')],
+            ])
+            ->assertSessionHasNoErrors();
+
+        Storage::disk('public')->assertMissing($removed->path);
+        $this->assertCount(1, $product->fresh()->media);
+        Storage::disk('public')->assertExists($product->fresh()->media->first()->path);
+    }
+
     public function test_a_creator_cannot_upload_to_another_store(): void
     {
         $mine = $this->makeStore();

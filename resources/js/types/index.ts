@@ -99,6 +99,8 @@ export interface StorefrontProduct {
     name: string;
     short_description: string | null;
     thumbnail_url: string | null;
+    media?: { url: string; alt: string | null }[];
+    share_url?: string;
     price: number;
     compare_at_price: number | null;
     discount_percent: number;

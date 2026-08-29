@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
+import { ProductCard } from '@/components/storefront/ProductCard';
 import { buildStorefrontTheme, type StorefrontTheme } from '@/lib/storefront-theme';
 import { cn, formatNumber } from '@/lib/utils';
 import type { StorefrontBlock, StorefrontProduct, StoreTheme } from '@/types';
@@ -71,6 +72,8 @@ export function StorefrontView({ store, blocks, isPreview, theme, onBuy, onAddTo
 
     const affiliateMode = store.template_slug === 'affiliate-creator'
         || (allProducts.length > 0 && allProducts.every((product) => product.type === 'EXTERNAL'));
+    const hasMixedCatalog = allProducts.some((product) => product.type === 'EXTERNAL')
+        && allProducts.some((product) => product.type !== 'EXTERNAL');
 
     const productCategories = useMemo(() => {
         const types = new Map<string, string>();
@@ -91,22 +94,27 @@ export function StorefrontView({ store, blocks, isPreview, theme, onBuy, onAddTo
 
     const visibleBlocks = useMemo(() => {
         const needle = query.trim().toLocaleLowerCase('id');
-        if (!needle && category === 'all') return blocks;
-        return blocks.map((block) => {
-            if (!PRODUCT_BLOCKS.has(block.type)) return block;
-            const products = ((block.content?.products ?? []) as StorefrontProduct[]).filter((product) => {
-                const haystack = `${product.name} ${product.short_description ?? ''} ${product.type_label}`.toLocaleLowerCase('id');
-                return matchesCategory(product) && (!needle || haystack.includes(needle));
-            });
-            return { ...block, content: { ...block.content, products } };
-        });
-    }, [affiliateMode, blocks, category, query]);
+        if (!hasMixedCatalog && !needle && category === 'all') return blocks;
+
+        return blocks
+            .map((block) => {
+                if (!PRODUCT_BLOCKS.has(block.type)) return block;
+                const products = ((block.content?.products ?? []) as StorefrontProduct[]).filter((product) => {
+                    const haystack = `${product.name} ${product.short_description ?? ''} ${product.type_label}`.toLocaleLowerCase('id');
+                    const belongsInPrimaryCatalog = !hasMixedCatalog || product.type !== 'EXTERNAL';
+                    return belongsInPrimaryCatalog && matchesCategory(product) && (!needle || haystack.includes(needle));
+                });
+                return { ...block, content: { ...block.content, products } };
+            })
+            .filter((block) => !PRODUCT_BLOCKS.has(block.type) || ((block.content?.products ?? []) as StorefrontProduct[]).length > 0);
+    }, [affiliateMode, blocks, category, hasMixedCatalog, query]);
 
     const matchingProducts = allProducts.filter((product) => {
         const needle = query.trim().toLocaleLowerCase('id');
         const haystack = `${product.name} ${product.short_description ?? ''} ${product.type_label}`.toLocaleLowerCase('id');
         return matchesCategory(product) && (!needle || haystack.includes(needle));
     });
+    const marketplaceProducts = matchingProducts.filter((product) => product.type === 'EXTERNAL');
 
     return (
         <div className="@container min-h-full" style={t.pageStyle}>
@@ -129,6 +137,32 @@ export function StorefrontView({ store, blocks, isPreview, theme, onBuy, onAddTo
                 ) : (
                     <div className={t.sectionSpacing}>
                         {visibleBlocks.map((block) => <BlockRenderer key={block.id} block={block} ctx={{ storeUsername: store.username, storeName: store.name, theme: t, productLayout: affiliateMode ? 'grid' : store.theme.product_layout ?? 'grid', affiliateMode, isPreview, onBuy, onAddToCart: affiliateMode ? undefined : onAddToCart }} />)}
+                        {hasMixedCatalog && marketplaceProducts.length > 0 && (
+                            <section className={cn(t.card, 'overflow-hidden p-4 sm:p-6')} aria-labelledby="marketplace-picks-title">
+                                <div className="mb-5 flex flex-col justify-between gap-3 border-b border-[var(--sf-line)] pb-4 sm:flex-row sm:items-end">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[.18em] text-[var(--sf-primary)]">Rekomendasi marketplace</p>
+                                        <h2 id="marketplace-picks-title" className="mt-1 text-xl font-black tracking-tight sm:text-2xl">Pilihan dari marketplace</h2>
+                                        <p className={cn('mt-1 max-w-2xl text-sm leading-6', t.muted)}>Produk affiliate dipisahkan dari produk toko. Harga, stok, pembayaran, dan pengiriman mengikuti marketplace tujuan.</p>
+                                    </div>
+                                    <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-extrabold text-amber-800"><ExternalLink className="size-3.5" /> Tautan affiliate</span>
+                                </div>
+                                <div className={cn(store.theme.product_layout === 'list' ? 'space-y-3' : 'grid grid-cols-2 gap-2.5 @2xl:gap-4 @3xl:grid-cols-3 @5xl:grid-cols-4')}>
+                                    {marketplaceProducts.map((product) => (
+                                        <ProductCard
+                                            key={`marketplace-${product.id}`}
+                                            product={product}
+                                            theme={t}
+                                            layout={store.theme.product_layout === 'list' ? 'list' : 'grid'}
+                                            onBuy={() => onBuy(product)}
+                                            onOpen={() => {
+                                                if (!isPreview) window.location.assign(`/${store.username}/p/${product.slug}`);
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </section>
+                        )}
                     </div>
                 )}
 

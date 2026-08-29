@@ -1298,6 +1298,73 @@ function ContentFields({
                 />
             );
 
+        case 'CAROUSEL': {
+            const slides = (content.slides ?? []) as { image?: string; title?: string; subtitle?: string; url?: string }[];
+            const updateSlide = (index: number, updates: Record<string, string>) => {
+                onChange({ slides: slides.map((slide, slideIndex) => slideIndex === index ? { ...slide, ...updates } : slide) });
+            };
+            const moveSlide = (index: number, direction: -1 | 1) => {
+                const target = index + direction;
+                if (target < 0 || target >= slides.length) return;
+                const next = [...slides];
+                [next[index], next[target]] = [next[target], next[index]];
+                onChange({ slides: next });
+            };
+
+            return (
+                <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="Rasio carousel">
+                            <Select value={content.aspect ?? 'wide'} onChange={(event) => onChange({ aspect: event.target.value })}>
+                                <option value="wide">Lebar 16:9</option>
+                                <option value="square">Kotak 1:1</option>
+                                <option value="tall">Vertikal 3:4</option>
+                            </Select>
+                        </Field>
+                        <div className="flex items-end rounded-xl border border-line px-3 py-2">
+                            <Switch
+                                checked={content.autoplay ?? true}
+                                onChange={(checked) => onChange({ autoplay: checked })}
+                                label="Putar otomatis"
+                                description="Geser slide secara otomatis di etalase."
+                            />
+                        </div>
+                    </div>
+
+                    {slides.map((slide, index) => (
+                        <div key={index} className="rounded-2xl border border-line bg-surface-2 p-4">
+                            <div className="mb-3 flex items-center justify-between gap-2">
+                                <p className="text-sm font-extrabold">Slide {index + 1}</p>
+                                <div className="flex gap-1">
+                                    <button type="button" onClick={() => moveSlide(index, -1)} disabled={index === 0} className="grid size-8 place-items-center rounded-lg border border-line bg-surface disabled:opacity-35" aria-label="Geser slide ke kiri"><ChevronUp className="size-4 -rotate-90" /></button>
+                                    <button type="button" onClick={() => moveSlide(index, 1)} disabled={index === slides.length - 1} className="grid size-8 place-items-center rounded-lg border border-line bg-surface disabled:opacity-35" aria-label="Geser slide ke kanan"><ChevronDown className="size-4 -rotate-90" /></button>
+                                    <button type="button" onClick={() => onChange({ slides: slides.filter((_, slideIndex) => slideIndex !== index) })} className="grid size-8 place-items-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600" aria-label="Hapus slide"><Trash2 className="size-4" /></button>
+                                </div>
+                            </div>
+                            <MediaPicker
+                                label="Gambar slide"
+                                value={slide.image ?? ''}
+                                onChange={(image) => updateSlide(index, { image })}
+                                hint="Upload gambar atau pakai URL. Rekomendasi minimal 1200 px."
+                            />
+                            <div className="mt-3 grid gap-3">
+                                <Field label="Judul (opsional)"><Input value={slide.title ?? ''} onChange={(event) => updateSlide(index, { title: event.target.value })} /></Field>
+                                <Field label="Keterangan (opsional)"><Input value={slide.subtitle ?? ''} onChange={(event) => updateSlide(index, { subtitle: event.target.value })} /></Field>
+                                <Field label="Link tujuan (opsional)"><Input type="url" placeholder="https://" value={slide.url ?? ''} onChange={(event) => updateSlide(index, { url: event.target.value })} /></Field>
+                            </div>
+                        </div>
+                    ))}
+
+                    {slides.length < 8 && (
+                        <Button type="button" variant="outline" block onClick={() => onChange({ slides: [...slides, { image: '', title: '', subtitle: '', url: '' }] })}>
+                            <ImageIcon className="size-4" /> Tambah slide gambar
+                        </Button>
+                    )}
+                    {slides.length === 0 && <p className="rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">Carousel masih kosong. Tambahkan minimal satu slide gambar.</p>}
+                </div>
+            );
+        }
+
         case 'VIDEO':
         case 'EMBED': {
             const target = toEmbedUrl(content.url ?? '');

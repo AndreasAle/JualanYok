@@ -88,6 +88,7 @@ class StorefrontController extends Controller
             'related' => $store->products()
                 ->publiclyListed()
                 ->whereKeyNot($product->id)
+                ->with('media')
                 ->withCount(['files', 'activeVariants'])
                 ->limit(4)
                 ->get()
@@ -402,6 +403,7 @@ class StorefrontController extends Controller
             $products = Product::whereIn('id', $ids)
                 ->where('store_id', $store->id)
                 ->active()
+                ->with('media')
                 ->withCount(['files', 'activeVariants'])
                 ->get()
                 ->map(fn ($p) => $this->productPayload($p, $store->username));
@@ -412,6 +414,7 @@ class StorefrontController extends Controller
         if (($block->type->value === 'FEATURED_PRODUCTS') && empty($content['products'])) {
             $content['products'] = $store->products()
                 ->publiclyListed()
+                ->with('media')
                 ->withCount(['files', 'activeVariants'])
                 ->latest()
                 ->limit((int) ($content['limit'] ?? 4))
@@ -456,6 +459,13 @@ class StorefrontController extends Controller
             'name' => $product->name,
             'short_description' => $product->short_description,
             'thumbnail_url' => $product->thumbnailUrl(),
+            'media' => $product->relationLoaded('media')
+                ? $product->media->map(fn ($media) => [
+                    'url' => Media::url($media->path),
+                    'alt' => $media->alt,
+                ])->values()
+                : [],
+            'share_url' => route('storefront.product', [$storeUsername, $product->slug]),
             'price' => (float) $product->price,
             'compare_at_price' => $product->compare_at_price ? (float) $product->compare_at_price : null,
             'discount_percent' => $product->discountPercent(),
@@ -486,10 +496,6 @@ class StorefrontController extends Controller
             'custom_fields' => $product->custom_fields ?? [],
             'min_quantity' => $product->min_quantity,
             'max_quantity' => $product->max_quantity,
-            'media' => $product->media->map(fn ($m) => [
-                'url' => Media::url($m->path),
-                'alt' => $m->alt,
-            ]),
             'variants' => $product->variants->where('is_active', true)->values()->map(fn ($v) => [
                 'id' => $v->id,
                 'name' => $v->name,

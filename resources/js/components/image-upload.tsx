@@ -171,3 +171,138 @@ export function ImageUpload({
         </div>
     );
 }
+
+export interface ExistingProductImage {
+    id: number;
+    url: string;
+    alt?: string | null;
+}
+
+/**
+ * Multi-image picker for a product gallery. Existing server images and newly
+ * selected files live in one ordered-looking grid, while removals are sent as
+ * explicit ids so an update cannot accidentally delete another product's
+ * media.
+ */
+export function ProductGalleryUpload({
+    existing = [],
+    files,
+    removedIds,
+    error,
+    maxImages = 8,
+    onFilesChange,
+    onRemovedIdsChange,
+}: {
+    existing?: ExistingProductImage[];
+    files: File[];
+    removedIds: number[];
+    error?: string;
+    maxImages?: number;
+    onFilesChange: (files: File[]) => void;
+    onRemovedIdsChange: (ids: number[]) => void;
+}) {
+    const input = useRef<HTMLInputElement>(null);
+    const [localError, setLocalError] = useState<string | null>(null);
+    const [previews, setPreviews] = useState<string[]>([]);
+    const visibleExisting = existing.filter((image) => !removedIds.includes(image.id));
+    const remaining = Math.max(0, maxImages - visibleExisting.length - files.length);
+
+    useEffect(() => {
+        const urls = files.map((file) => URL.createObjectURL(file));
+        setPreviews(urls);
+
+        return () => urls.forEach((url) => URL.revokeObjectURL(url));
+    }, [files]);
+
+    const addFiles = (list: FileList | null) => {
+        if (!list?.length) return;
+
+        const chosen = Array.from(list);
+        const invalid = chosen.find((file) => !ACCEPTED.includes(file.type) || file.size > 4096 * 1024);
+
+        if (invalid) {
+            setLocalError('Gunakan JPG, PNG, WEBP, atau GIF dengan ukuran maksimal 4 MB per gambar.');
+            return;
+        }
+
+        if (chosen.length > remaining) {
+            setLocalError(`Galeri maksimal ${maxImages} gambar. Kamu masih bisa menambah ${remaining}.`);
+            return;
+        }
+
+        setLocalError(null);
+        onFilesChange([...files, ...chosen]);
+        if (input.current) input.current.value = '';
+    };
+
+    const message = error ?? localError;
+
+    return (
+        <div className="mt-6 border-t border-line pt-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-sm font-semibold">Galeri produk</p>
+                    <p className="mt-1 text-xs leading-5 text-muted">Tambahkan beberapa sudut foto. Thumbnail tetap menjadi gambar utama di katalog.</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-bold text-muted">
+                    {visibleExisting.length + files.length}/{maxImages}
+                </span>
+            </div>
+
+            {(visibleExisting.length > 0 || files.length > 0) && (
+                <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {visibleExisting.map((image) => (
+                        <div key={`saved-${image.id}`} className="group relative overflow-hidden rounded-xl border border-line bg-surface-2">
+                            <img src={image.url} alt={image.alt ?? ''} className="aspect-square size-full object-cover" />
+                            <button
+                                type="button"
+                                onClick={() => onRemovedIdsChange([...removedIds, image.id])}
+                                className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-lg bg-black/70 text-white opacity-90 transition hover:bg-[var(--danger)]"
+                                aria-label="Hapus gambar tersimpan"
+                            >
+                                <Trash2 className="size-3.5" />
+                            </button>
+                        </div>
+                    ))}
+
+                    {files.map((file, index) => (
+                        <div key={`${file.name}-${file.lastModified}-${index}`} className="group relative overflow-hidden rounded-xl border border-line bg-surface-2">
+                            {previews[index] && <img src={previews[index]} alt="" className="aspect-square size-full object-cover" />}
+                            <button
+                                type="button"
+                                onClick={() => onFilesChange(files.filter((_, fileIndex) => fileIndex !== index))}
+                                className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-lg bg-black/70 text-white transition hover:bg-[var(--danger)]"
+                                aria-label={`Hapus ${file.name}`}
+                            >
+                                <Trash2 className="size-3.5" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {remaining > 0 && (
+                <button
+                    type="button"
+                    onClick={() => input.current?.click()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line bg-surface-2 px-4 py-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                >
+                    <ImagePlus className="size-5" />
+                    Tambah foto produk
+                </button>
+            )}
+
+            <input
+                ref={input}
+                type="file"
+                accept={ACCEPTED.join(',')}
+                multiple
+                className="sr-only"
+                aria-label="Tambah foto galeri produk"
+                onChange={(event) => addFiles(event.target.files)}
+            />
+
+            {message && <p className="mt-2 text-xs font-medium text-[var(--danger)]" role="alert">{message}</p>}
+        </div>
+    );
+}

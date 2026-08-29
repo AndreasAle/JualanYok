@@ -7,6 +7,8 @@ import { useState } from 'react';
 import { CartSheet } from '@/components/storefront/CartSheet';
 import { CheckoutSheet } from '@/components/storefront/CheckoutSheet';
 import { ProductCard } from '@/components/storefront/ProductCard';
+import { ShareProductButton } from '@/components/storefront/ShareProductButton';
+import { PurchaseChoiceSheet } from '@/components/storefront/PurchaseChoiceSheet';
 import { buildStorefrontTheme } from '@/lib/storefront-theme';
 import { cn, formatDate, formatIDR, formatNumber } from '@/lib/utils';
 import type { StorefrontStore } from '@/pages/Storefront/Show';
@@ -49,7 +51,9 @@ export default function StorefrontProductPage({
     cart: CartPayload | null;
 }) {
     const theme = buildStorefrontTheme(store.theme);
+    const productShareUrl = product.share_url ?? `/${store.username}/p/${product.slug}`;
     const [checkout, setCheckout] = useState<StorefrontProduct | null>(null);
+    const [purchaseChoice, setPurchaseChoice] = useState<StorefrontProduct | null>(null);
     const [cartOpen, setCartOpen] = useState(false);
     // Options must be chosen before buying: stock and price live on the variant.
     const [variantId, setVariantId] = useState<number | null>(
@@ -58,12 +62,10 @@ export default function StorefrontProductPage({
     const [cartCheckout, setCartCheckout] = useState(false);
     const [activeImage, setActiveImage] = useState(0);
 
-    const images =
-        product.media.length > 0
-            ? product.media
-            : product.thumbnail_url
-              ? [{ url: product.thumbnail_url, alt: product.name }]
-              : [];
+    const images = [
+        ...(product.thumbnail_url ? [{ url: product.thumbnail_url, alt: product.name }] : []),
+        ...(product.media ?? []),
+    ].filter((image, index, items) => items.findIndex((candidate) => candidate.url === image.url) === index);
 
     const selectedVariant = product.variants.find((v) => v.id === variantId) ?? null;
     const needsVariant = product.variants.length > 0 && !selectedVariant;
@@ -82,7 +84,7 @@ export default function StorefrontProductPage({
             return;
         }
 
-        setCheckout(product);
+        setPurchaseChoice(product);
     };
 
     const addToCart = (item: StorefrontProduct, variant: number | null = null) => {
@@ -381,6 +383,13 @@ export default function StorefrontProductPage({
                                     <li className="flex items-center gap-2"><Truck className="size-4 shrink-0 text-emerald-500" /> Bisa ajukan refund sesuai kebijakan</li>
                                 </ul>
                             )}
+
+                            <ShareProductButton
+                                url={productShareUrl}
+                                title={product.name}
+                                label
+                                className="mt-2.5 w-full"
+                            />
                         </div>
 
                         {/* Seller card */}
@@ -426,14 +435,9 @@ export default function StorefrontProductPage({
                                     key={item.id}
                                     product={item}
                                     theme={theme}
-                                    onBuy={() => item.external_url ? window.open(item.external_url, '_blank', 'noopener,noreferrer') : setCheckout(item)}
+                                    onBuy={() => item.external_url ? window.open(item.external_url, '_blank', 'noopener,noreferrer') : setPurchaseChoice(item)}
                                     onAddToCart={() => addToCart(item)}
                                     onOpen={() => {
-                                        if (item.external_url) {
-                                            window.open(item.external_url, '_blank', 'noopener,noreferrer');
-                                            return;
-                                        }
-
                                         window.location.href = `/${store.username}/p/${item.slug}`;
                                     }}
                                 />
@@ -492,6 +496,20 @@ export default function StorefrontProductPage({
                     isPreview={false}
                     theme={theme}
                     onClose={() => setCheckout(null)}
+                />
+            )}
+
+            {purchaseChoice && (
+                <PurchaseChoiceSheet
+                    product={purchaseChoice}
+                    storeName={store.name}
+                    whatsapp={store.whatsapp}
+                    theme={theme}
+                    onBuyDirect={() => {
+                        setCheckout(purchaseChoice);
+                        setPurchaseChoice(null);
+                    }}
+                    onClose={() => setPurchaseChoice(null)}
                 />
             )}
 

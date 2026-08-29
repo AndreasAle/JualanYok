@@ -2,7 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { BadgeCheck, Boxes, ExternalLink, Link2, ShoppingBag, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
-import { ImageUpload } from '@/components/image-upload';
+import { ImageUpload, ProductGalleryUpload } from '@/components/image-upload';
 import { ProductFiles, type ProductFileItem, type UploadLimits } from '@/components/product-files';
 import { ConfirmButton, PageHeader } from '@/components/shared';
 import {
@@ -71,6 +71,8 @@ export default function ProductForm({
         custom_fields: product?.custom_fields ?? [],
         initial_stock: 0,
         thumbnail: null as File | null,
+        gallery: [] as File[],
+        removed_media_ids: [] as number[],
     });
 
     // Laravel may return keys outside the form payload (e.g. plan limits).
@@ -90,7 +92,11 @@ export default function ProductForm({
             post(`/dashboard/produk/${product.id}`, {
                 preserveScroll: true,
                 forceFormData: true,
-                onSuccess: () => setData('thumbnail', null),
+                onSuccess: () => {
+                    setData('thumbnail', null);
+                    setData('gallery', []);
+                    setData('removed_media_ids', []);
+                },
             });
         } else {
             post('/dashboard/produk', { forceFormData: true });
@@ -678,6 +684,14 @@ export default function ProductForm({
                                     aspect="square"
                                     error={serverErrors.thumbnail}
                                     onSelect={(file) => setData('thumbnail', file)}
+                                />
+                                <ProductGalleryUpload
+                                    existing={product?.media ?? []}
+                                    files={data.gallery}
+                                    removedIds={data.removed_media_ids}
+                                    error={serverErrors.gallery ?? serverErrors['gallery.0']}
+                                    onFilesChange={(files) => setData('gallery', files)}
+                                    onRemovedIdsChange={(ids) => setData('removed_media_ids', ids)}
                                 />
                             </CardBody>
                         </Card>

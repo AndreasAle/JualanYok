@@ -3,6 +3,7 @@ import { Eye } from 'lucide-react';
 import { useState } from 'react';
 import { CartSheet } from '@/components/storefront/CartSheet';
 import { CheckoutSheet } from '@/components/storefront/CheckoutSheet';
+import { PurchaseChoiceSheet } from '@/components/storefront/PurchaseChoiceSheet';
 import { StorefrontView, type StorefrontStore } from '@/components/storefront/MarketplaceStorefrontView';
 import { buildStorefrontTheme } from '@/lib/storefront-theme';
 import type { CartPayload, StorefrontBlock, StorefrontProduct } from '@/types';
@@ -10,7 +11,7 @@ import type { CartPayload, StorefrontBlock, StorefrontProduct } from '@/types';
 export type { StorefrontStore };
 
 /** Which sheet is on screen. Only one at a time — they cover the same space. */
-type Sheet = { kind: 'product'; product: StorefrontProduct } | { kind: 'cart' } | { kind: 'checkout-cart' } | null;
+type Sheet = { kind: 'purchase-choice'; product: StorefrontProduct } | { kind: 'product'; product: StorefrontProduct } | { kind: 'cart' } | { kind: 'checkout-cart' } | null;
 
 export default function StorefrontShow({
     store,
@@ -42,7 +43,7 @@ export default function StorefrontShow({
             return;
         }
 
-        setSheet({ kind: 'product', product });
+        setSheet({ kind: 'purchase-choice', product });
     };
 
     return (
@@ -88,6 +89,17 @@ export default function StorefrontShow({
                     storeUsername={store.username}
                     isPreview={isPreview}
                     theme={theme}
+                    onClose={() => setSheet(null)}
+                />
+            )}
+
+            {sheet?.kind === 'purchase-choice' && (
+                <PurchaseChoiceSheet
+                    product={sheet.product}
+                    storeName={store.name}
+                    whatsapp={store.whatsapp}
+                    theme={theme}
+                    onBuyDirect={() => setSheet({ kind: 'product', product: sheet.product })}
                     onClose={() => setSheet(null)}
                 />
             )}

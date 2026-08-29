@@ -2,6 +2,7 @@ import { ArrowUpRight, BadgeCheck, ExternalLink, ImageIcon, Plus, ShoppingBag, S
 import { cn, formatIDR, formatNumber } from '@/lib/utils';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
 import type { StorefrontProduct } from '@/types';
+import { ShareProductButton } from '@/components/storefront/ShareProductButton';
 
 /**
  * Marketplace-style product tile. The visual priorities follow what shoppers
@@ -86,6 +87,7 @@ export function ProductCard({
                         <PriceBlock price={price} product={product} theme={theme} />
 
                         <div className="flex items-center gap-1.5">
+                            {product.share_url && <ShareProductButton url={product.share_url} title={product.name} />}
                             {cartable && (
                                 <button
                                     type="button"
@@ -116,7 +118,7 @@ export function ProductCard({
         <article
             className={cn(
                 theme.card,
-                '@container group flex flex-col overflow-hidden rounded-[1.35rem] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(16,24,40,.12)]',
+                '@container group relative flex flex-col overflow-hidden rounded-[1.35rem] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(16,24,40,.12)]',
             )}
         >
             <button
@@ -141,6 +143,14 @@ export function ProductCard({
                     </span>
                 )}
             </button>
+
+            {product.share_url && (
+                <ShareProductButton
+                    url={product.share_url}
+                    title={product.name}
+                    className="absolute right-2 top-2 z-10 border-white/70 bg-white/90 text-slate-900 shadow-sm backdrop-blur"
+                />
+            )}
 
             <div className="flex flex-1 flex-col p-3 @sm:p-4">
                 <div className="flex items-center justify-between gap-2">

@@ -13,7 +13,9 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Services\InventoryService;
 use App\Services\PlanService;
+use App\Support\Media;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -101,17 +103,21 @@ class ProductController extends Controller
             'produk',
         );
 
-        $data = $this->prepareMarketplaceData($this->normalizeTypeData($this->validated($request)));
+        $validated = $this->validated($request);
+        $gallery = $request->file('gallery', []);
+        unset($validated['gallery'], $validated['removed_media_ids']);
+        $data = $this->prepareMarketplaceData($this->normalizeTypeData($validated));
         $initialStock = (int) ($data['initial_stock'] ?? 0);
         unset($data['initial_stock']);
 
-        $product = DB::transaction(function () use ($store, $data, $request, $initialStock) {
+        $product = DB::transaction(function () use ($store, $data, $request, $initialStock, $gallery) {
             $product = $store->products()->create($data + [
                 'slug' => $this->uniqueSlug($store->id, $data['name']),
                 'thumbnail_path' => $this->storeThumbnail($request),
             ]);
 
             $this->syncTypeExtras($product);
+            $this->storeGallery($product, $gallery);
 
             if ($product->type === ProductType::Physical && $initialStock > 0) {
                 $this->inventory->setQuantity(
@@ -180,6 +186,11 @@ class ProductController extends Controller
                 'external_url' => $product->external_url,
                 'custom_fields' => $product->custom_fields ?? [],
                 'thumbnail_url' => $product->thumbnailUrl(),
+                'media' => $product->media->map(fn ($media) => [
+                    'id' => $media->id,
+                    'url' => Media::url($media->path),
+                    'alt' => $media->alt,
+                ])->values(),
                 'sku' => $product->sku,
                 'weight_gram' => $product->weight_gram,
                 'length_cm' => $product->length_cm,
@@ -227,7 +238,11 @@ class ProductController extends Controller
     {
         $this->authorizeProduct($request, $product);
 
-        $data = $this->prepareMarketplaceData($this->normalizeTypeData($this->validated($request, $product)), $product);
+        $validated = $this->validated($request, $product);
+        $gallery = $request->file('gallery', []);
+        $removedMediaIds = array_map('intval', $validated['removed_media_ids'] ?? []);
+        unset($validated['gallery'], $validated['removed_media_ids']);
+        $data = $this->prepareMarketplaceData($this->normalizeTypeData($validated), $product);
         unset($data['initial_stock']);
 
         if ($thumbnail = $this->storeThumbnail($request)) {
@@ -243,6 +258,8 @@ class ProductController extends Controller
 
         $product->update($data);
         $this->syncTypeExtras($product);
+        $this->removeGallery($product, $removedMediaIds);
+        $this->storeGallery($product, $gallery);
 
         return back()->with('success', 'Produk diperbarui.');
     }
@@ -311,7 +328,7 @@ class ProductController extends Controller
 
     private function validated(Request $request, ?Product $product = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'type' => ['required', Rule::enum(ProductType::class)],
             'name' => ['required', 'string', 'max:190'],
             'short_description' => ['nullable', 'string', 'max:500'],
@@ -362,7 +379,32 @@ class ProductController extends Controller
                 'min:0',
                 'max:100000000',
             ],
+            'gallery' => ['nullable', 'array', 'max:8'],
+            'gallery.*' => [
+                'image',
+                'mimes:'.implode(',', config('jualanyok.uploads.image_mimes')),
+                'max:'.config('jualanyok.uploads.image_max_kb'),
+            ],
+            'removed_media_ids' => ['nullable', 'array', 'max:8'],
+            'removed_media_ids.*' => ['integer'],
         ]);
+
+        $newImages = count($request->file('gallery', []));
+        $keptImages = 0;
+
+        if ($product) {
+            $removedIds = array_map('intval', $data['removed_media_ids'] ?? []);
+            $removedOwned = $removedIds === [] ? 0 : $product->media()->whereKey($removedIds)->count();
+            $keptImages = max(0, $product->media()->count() - $removedOwned);
+        }
+
+        if ($keptImages + $newImages > 8) {
+            throw ValidationException::withMessages([
+                'gallery' => 'Galeri produk maksimal berisi 8 gambar.',
+            ]);
+        }
+
+        return $data;
     }
 
     /** External products are catalog links, never JualanYok checkout lines. */
@@ -492,6 +534,36 @@ class ProductController extends Controller
 
         // Randomised name: the original filename never reaches the disk.
         return $request->file('thumbnail')->store('products/thumbnails', 'public');
+    }
+
+    /** @param array<int, UploadedFile> $files */
+    private function storeGallery(Product $product, array $files): void
+    {
+        $position = (int) $product->media()->max('position');
+
+        foreach ($files as $file) {
+            $product->media()->create([
+                'path' => $file->store('products/gallery', 'public'),
+                'alt' => $product->name,
+                'position' => ++$position,
+            ]);
+        }
+    }
+
+    /** @param array<int, int> $ids */
+    private function removeGallery(Product $product, array $ids): void
+    {
+        if ($ids === []) {
+            return;
+        }
+
+        $product->media()->whereKey($ids)->get()->each(function ($media) {
+            if (! str_starts_with($media->path, 'demo/')) {
+                Storage::disk('public')->delete($media->path);
+            }
+
+            $media->delete();
+        });
     }
 
     private function uniqueSlug(int $storeId, string $name): string

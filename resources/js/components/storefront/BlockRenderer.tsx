@@ -380,13 +380,6 @@ export function BlockRenderer({ block, ctx }: { block: StorefrontBlock; ctx: Ren
                                 onOpen={() => {
                                     trackClick();
 
-                                    if (product.type === 'EXTERNAL') {
-                                        if (product.external_url && !ctx.isPreview) {
-                                            window.location.assign(product.external_url);
-                                        }
-                                        return;
-                                    }
-
                                     if (product.slug && !ctx.isPreview) {
                                         router.visit(`/${ctx.storeUsername}/p/${product.slug}`);
                                         return;
