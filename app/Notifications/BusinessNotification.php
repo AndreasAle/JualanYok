@@ -40,7 +40,7 @@ class BusinessNotification extends Notification implements ShouldQueue
     {
         $mail = (new MailMessage)
             ->subject((string) ($this->payload['email_subject'] ?? $this->payload['title'] ?? 'Notifikasi JualanYok'))
-            ->greeting('Halo '.($notifiable->name ?? '').',')
+            ->greeting(filled($notifiable->name ?? null) ? 'Halo '.$notifiable->name.',' : 'Halo,')
             ->line((string) ($this->payload['message'] ?? 'Ada pembaruan penting di akun JualanYok kamu.'));
 
         foreach ((array) ($this->payload['email_lines'] ?? []) as $line) {

@@ -75,6 +75,7 @@ Route::middleware(['auth', 'creator'])
         Route::get('/pesanan', [OrderController::class, 'index'])->name('orders.index');
         Route::get('/pesanan/{order:number}', [OrderController::class, 'show'])->name('orders.show');
         Route::post('/pesanan/{order:number}/kirim', [OrderController::class, 'ship'])->name('orders.ship');
+        Route::patch('/pesanan/{order:number}/status-pelacakan', [OrderController::class, 'updateTracking'])->name('orders.tracking.update');
         Route::post('/pesanan/{order:number}/selesai', [OrderController::class, 'complete'])->name('orders.complete');
         Route::post('/pesanan/{order:number}/refund', [OrderController::class, 'requestRefund'])->name('orders.refund');
         Route::post('/pesanan/{order:number}/pesan-kurir', [OrderController::class, 'bookShipment'])->name('orders.shipment.book');

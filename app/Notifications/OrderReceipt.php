@@ -28,13 +28,18 @@ class OrderReceipt extends Notification implements ShouldQueue
             ->subject("Pesanan {$order->number} berhasil dibayar")
             ->greeting("Halo {$order->customer_name}!")
             ->line("Pembayaran kamu di toko {$order->store->name} sudah kami terima. Makasih ya!")
-            ->line('Nomor pesanan: **'.$order->number.'**');
+            ->line('Nomor pesanan: **'.$order->number.'**')
+            ->line('ID pembelian untuk tracking: **'.$order->tracking_code.'**');
 
         foreach ($order->items as $item) {
             $mail->line(sprintf('• %s ×%d — %s', $item->name, $item->quantity, Money::format((float) $item->total)));
         }
 
         $mail->line('Total dibayar: **'.Money::format((float) $order->grand_total).'**');
+
+        if ($order->requiresShipping()) {
+            $mail->line('Pantau proses penjual dan perjalanan paket di: '.$order->trackingUrl());
+        }
 
         $hasFiles = $order->digitalAccesses()->exists();
 

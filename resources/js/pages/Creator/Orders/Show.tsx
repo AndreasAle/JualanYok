@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { PageHeader, StatusBadge } from '@/components/shared';
 import {
-    Alert, Button, Card, CardBody, CardHeader, CardTitle, Field, Input, Textarea,
+    Alert, Button, Card, CardBody, CardHeader, CardTitle, Field, Input, Select, Textarea,
 } from '@/components/ui';
 import { formatDate, formatIDR } from '@/lib/utils';
 
@@ -19,6 +19,7 @@ export default function OrderShow({ order }: { order: any }) {
     const shipForm = useForm({ tracking_number: order.tracking_number ?? '', courier: order.shipping_method ?? '' });
     const refundForm = useForm({ amount: order.refundable, reason: '' });
     const disputeForm = useForm({ response: order.open_dispute?.seller_response ?? '' });
+    const trackingForm = useForm({ stage: 'processing', description: '' });
 
     const ship = (e: FormEvent) => {
         e.preventDefault();
@@ -180,6 +181,18 @@ export default function OrderShow({ order }: { order: any }) {
                                 ) : (
                                     <Alert tone="warning">Pembeli belum mengisi alamat pengiriman.</Alert>
                                 )}
+
+                                <div className="mb-4 rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
+                                    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-extrabold">Update proses untuk pembeli</p><p className="mt-1 text-xs leading-5 text-muted">Tahap persiapan diisi oleh toko. Setelah paket diambil, status Biteship diperbarui otomatis.</p></div>{order.public_tracking_url && <a href={order.public_tracking_url} target="_blank" rel="noreferrer" className="text-xs font-extrabold text-violet-700">Buka tracking pembeli ↗</a>}</div>
+                                    <form className="mt-4 grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)_auto]" onSubmit={(event) => { event.preventDefault(); trackingForm.patch(`/dashboard/pesanan/${order.number}/status-pelacakan`, { preserveScroll: true, onSuccess: () => trackingForm.setData('description', '') }); }}>
+                                        <Select value={trackingForm.data.stage} onChange={(event) => trackingForm.setData('stage', event.target.value)}><option value="processing">Sedang diproses</option><option value="packed">Sudah dikemas</option><option value="ready_for_pickup">Siap diserahkan ke kurir</option></Select>
+                                        <Input value={trackingForm.data.description} onChange={(event) => trackingForm.setData('description', event.target.value)} placeholder="Catatan opsional untuk pembeli" />
+                                        <Button type="submit" loading={trackingForm.processing}>Perbarui</Button>
+                                    </form>
+                                    {trackingForm.errors.stage && <p className="mt-2 text-xs font-semibold text-red-600">{trackingForm.errors.stage}</p>}
+                                    {order.tracking?.timeline?.length > 0 && <ol className="mt-4 space-y-2 border-t border-violet-100 pt-4">{[...order.tracking.timeline].reverse().slice(0, 4).map((event: any, index: number) => <li key={`${event.stage}-${event.occurred_at}-${index}`} className="flex items-start gap-2"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-violet-500" /><div><p className="text-xs font-extrabold">{event.title}</p><p className="text-[10px] text-muted">{event.description ? `${event.description} · ` : ''}{formatDate(event.occurred_at, true)}</p></div></li>)}</ol>}
+                                    <div className="mt-4 border-t border-violet-100 pt-4"><p className="text-[10px] font-black uppercase tracking-wider text-muted">ID pembelian</p><code className="mt-1 block text-xs font-black">{order.tracking_code}</code></div>
+                                </div>
 
                                 {!order.shipment && order.payment_status === 'PAID' && (
                                     <Button type="button" variant="gradient" block onClick={() => shipForm.post(`/dashboard/pesanan/${order.number}/pesan-kurir`, { preserveScroll: true })} loading={shipForm.processing}>

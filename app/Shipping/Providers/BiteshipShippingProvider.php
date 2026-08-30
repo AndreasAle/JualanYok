@@ -169,7 +169,11 @@ class BiteshipShippingProvider implements ShippingProvider
             'status' => $body['status'] ?? 'confirmed',
             'waybill_id' => data_get($body, 'courier.waybill_id'),
             'tracking_id' => data_get($body, 'courier.tracking_id'),
-            'tracking_url' => data_get($body, 'courier.tracking_url'),
+            'tracking_url' => data_get($body, 'courier.link') ?? data_get($body, 'courier.tracking_url'),
+            'driver_name' => data_get($body, 'courier.driver_name'),
+            'driver_phone' => data_get($body, 'courier.driver_phone'),
+            'driver_photo_url' => data_get($body, 'courier.driver_photo_url'),
+            'driver_plate_number' => data_get($body, 'courier.driver_plate_number'),
             'actual_price' => data_get($body, 'price'),
             'request_payload' => $payload,
             'provider_response' => $response,
@@ -178,15 +182,19 @@ class BiteshipShippingProvider implements ShippingProvider
 
     public function track(Shipment $shipment): array
     {
-        if (! $shipment->external_id) {
+        if (! $shipment->tracking_id && ! $shipment->external_id) {
             throw new RuntimeException('ID pengiriman Biteship belum tersedia.');
         }
 
+        $endpoint = $shipment->tracking_id
+            ? '/v1/trackings/'.$shipment->tracking_id
+            : '/v1/orders/'.$shipment->external_id;
+
         return $this->cachedRequest(
             'tracking',
-            ['external_id' => $shipment->external_id],
+            ['tracking_id' => $shipment->tracking_id, 'external_id' => $shipment->external_id],
             (int) config('shipping.providers.biteship.cache.tracking_minutes', 5),
-            fn () => $this->client()->get('/v1/orders/'.$shipment->external_id)->throw()->json(),
+            fn () => $this->client()->get($endpoint)->throw()->json(),
         );
     }
 

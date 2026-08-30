@@ -127,6 +127,8 @@ class CheckoutController extends Controller
     {
         return [
             'number' => $order->number,
+            'tracking_code' => $order->tracking_code,
+            'tracking_url' => $order->trackingUrl(),
             'status' => $order->status->value,
             'status_label' => $order->status->label(),
             'payment_status' => $order->payment_status->value,

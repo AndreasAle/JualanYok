@@ -153,6 +153,7 @@ class Order extends Model
     {
         static::creating(function (self $order) {
             $order->access_token ??= Str::random(48);
+            $order->tracking_code ??= static::generateTrackingCode();
         });
     }
 
@@ -160,6 +161,25 @@ class Order extends Model
     public function deliveryUrl(): string
     {
         return route('order.access', $this->access_token);
+    }
+
+    public static function generateTrackingCode(): string
+    {
+        do {
+            $code = 'JYT-'.Str::upper(Str::random(16));
+        } while (static::where('tracking_code', $code)->exists());
+
+        return $code;
+    }
+
+    public function trackingUrl(): string
+    {
+        return route('tracking.show', $this->tracking_code);
+    }
+
+    public function trackingEvents(): HasMany
+    {
+        return $this->hasMany(OrderTrackingEvent::class)->orderBy('occurred_at');
     }
 
     public function digitalAccesses(): HasMany

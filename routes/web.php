@@ -7,6 +7,7 @@ use App\Http\Controllers\PublicSite\LandingController;
 use App\Http\Controllers\PublicSite\MarketplaceController;
 use App\Http\Controllers\PublicSite\MarketplaceSeoController;
 use App\Http\Controllers\PublicSite\OrderAccessController;
+use App\Http\Controllers\PublicSite\OrderTrackingController;
 use App\Http\Controllers\PublicSite\PaymentWebhookController;
 use App\Http\Controllers\PublicSite\ShippingWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,13 @@ Route::post('/contact', [LandingController::class, 'submitContact'])
 Route::get('/faq', [LandingController::class, 'faq'])->name('faq');
 Route::get('/sitemap.xml', [MarketplaceSeoController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [MarketplaceSeoController::class, 'robots'])->name('robots');
+Route::get('/lacak', [OrderTrackingController::class, 'index'])->name('tracking.index');
+Route::post('/lacak', [OrderTrackingController::class, 'lookup'])
+    ->middleware('throttle:10,1')
+    ->name('tracking.lookup');
+Route::get('/lacak/{trackingCode}', [OrderTrackingController::class, 'show'])
+    ->middleware('throttle:60,1')
+    ->name('tracking.show');
 
 /* Creator marketplace. Commerce actions continue through the established
  * storefront so cart, checkout, payment, fulfilment, and ledger logic stay

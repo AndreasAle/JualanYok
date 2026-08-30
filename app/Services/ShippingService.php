@@ -27,6 +27,7 @@ class ShippingService
     public function __construct(
         private readonly ShippingManager $manager,
         private readonly MarketplaceLedgerService $marketplaceLedger,
+        private readonly NotificationCenterService $notifications,
     ) {}
 
     /** @return array<int, array<string, mixed>> */
@@ -256,18 +257,23 @@ class ShippingService
     /** @param array<string,mixed> $result */
     private function fillShipment(Shipment $shipment, array $result): void
     {
+        $previousStatus = $shipment->status;
         $rawStatus = strtolower((string) ($result['status'] ?? data_get($result, 'data.status') ?? $shipment->status->value));
         $status = ShipmentStatus::tryFrom($rawStatus) ?? $shipment->status;
-        $events = $result['history'] ?? $result['events'] ?? data_get($result, 'data.history', []);
+        $events = (array) ($result['history'] ?? $result['events'] ?? data_get($result, 'data.history', []));
 
         DB::transaction(function () use ($shipment, $result, $status, $events) {
             $previousVariance = (float) $shipment->order->shipping_variance;
             $actualPrice = (float) ($result['actual_price'] ?? $result['price'] ?? $shipment->actual_price ?? 0);
             $shipment->update([
-                'external_id' => $result['external_id'] ?? $result['id'] ?? $shipment->external_id,
-                'waybill_id' => $result['waybill_id'] ?? data_get($result, 'courier.waybill_id') ?? $shipment->waybill_id,
-                'tracking_id' => $result['tracking_id'] ?? data_get($result, 'courier.tracking_id') ?? $shipment->tracking_id,
-                'tracking_url' => $result['tracking_url'] ?? data_get($result, 'courier.tracking_url') ?? $shipment->tracking_url,
+                'external_id' => $result['external_id'] ?? (($result['object'] ?? null) === 'order' ? ($result['id'] ?? null) : null) ?? $shipment->external_id,
+                'waybill_id' => $result['waybill_id'] ?? $result['courier_waybill_id'] ?? data_get($result, 'courier.waybill_id') ?? $shipment->waybill_id,
+                'tracking_id' => $result['tracking_id'] ?? $result['courier_tracking_id'] ?? data_get($result, 'courier.tracking_id') ?? (($result['object'] ?? null) === 'tracking' ? ($result['id'] ?? null) : null) ?? $shipment->tracking_id,
+                'tracking_url' => $result['tracking_url'] ?? $result['courier_link'] ?? data_get($result, 'courier.link') ?? data_get($result, 'courier.tracking_url') ?? $shipment->tracking_url,
+                'driver_name' => $result['courier_driver_name'] ?? data_get($result, 'courier.driver_name') ?? $shipment->driver_name,
+                'driver_phone' => $result['courier_driver_phone'] ?? data_get($result, 'courier.driver_phone') ?? $shipment->driver_phone,
+                'driver_photo_url' => $result['courier_driver_photo_url'] ?? data_get($result, 'courier.driver_photo_url') ?? $shipment->driver_photo_url,
+                'driver_plate_number' => $result['courier_driver_plate_number'] ?? data_get($result, 'courier.driver_plate_number') ?? $shipment->driver_plate_number,
                 'actual_price' => $actualPrice ?: $shipment->actual_price,
                 'status' => $status,
                 'request_payload' => $result['request_payload'] ?? $shipment->request_payload,
@@ -310,8 +316,60 @@ class ShippingService
                 );
             }
 
+            if ($shipment->wasChanged('status') && $events === []) {
+                $eventId = 'status:'.hash('sha256', json_encode([
+                    $status->value,
+                    $result['updated_at'] ?? data_get($result, 'data.updated_at') ?? null,
+                ]));
+                $shipment->events()->firstOrCreate(
+                    ['external_event_id' => $eventId],
+                    [
+                        'status' => $status->value,
+                        'description' => $status->label(),
+                        'location' => $result['location'] ?? data_get($result, 'data.location'),
+                        'event_at' => $result['updated_at'] ?? data_get($result, 'data.updated_at') ?? now(),
+                        'raw' => $result,
+                    ],
+                );
+            }
+
             $this->syncOrderFromShipment($shipment->fresh());
         });
+
+        if ($previousStatus !== $status) {
+            $this->notifyBuyerOfShipmentUpdate($shipment->fresh(['order.user', 'order.store']), $status);
+        }
+    }
+
+    private function notifyBuyerOfShipmentUpdate(Shipment $shipment, ShipmentStatus $status): void
+    {
+        if (! in_array($status, [
+            ShipmentStatus::Picked,
+            ShipmentStatus::DroppingOff,
+            ShipmentStatus::Delivered,
+            ShipmentStatus::OnHold,
+            ShipmentStatus::ReturnInTransit,
+            ShipmentStatus::Returned,
+        ], true)) {
+            return;
+        }
+
+        $order = $shipment->order;
+        $payload = [
+            'type' => 'shipping.status_updated',
+            'category' => 'shipping',
+            'priority' => in_array($status, [ShipmentStatus::OnHold, ShipmentStatus::ReturnInTransit, ShipmentStatus::Returned], true) ? 'high' : 'normal',
+            'title' => $status->label(),
+            'message' => "Status paket {$order->number} dari {$order->store->name} sudah diperbarui.",
+            'url' => $order->trackingUrl(),
+            'action_label' => 'Lacak barangmu',
+            'group_key' => 'buyer-shipping:'.$shipment->id.':'.$status->value,
+            'tone' => $status === ShipmentStatus::Delivered ? 'success' : (in_array($status, [ShipmentStatus::OnHold, ShipmentStatus::ReturnInTransit, ShipmentStatus::Returned], true) ? 'warning' : 'info'),
+            'email_required' => true,
+            'meta' => ['order_id' => $order->id, 'shipment_id' => $shipment->id],
+        ];
+
+        $this->notifications->sendToMail($order->customer_email, $payload);
     }
 
     private function syncOrderFromShipment(Shipment $shipment): void

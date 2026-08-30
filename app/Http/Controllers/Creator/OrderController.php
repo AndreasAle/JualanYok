@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Services\DisputeService;
 use App\Services\FulfillmentService;
 use App\Services\NotificationCenterService;
+use App\Services\OrderTrackingService;
 use App\Services\RefundService;
 use App\Services\ShippingService;
 use App\Support\Money;
@@ -23,6 +24,7 @@ class OrderController extends Controller
         private readonly ShippingService $shipping,
         private readonly DisputeService $disputes,
         private readonly NotificationCenterService $notifications,
+        private readonly OrderTrackingService $tracking,
     ) {}
 
     public function index(Request $request): Response
@@ -79,6 +81,9 @@ class OrderController extends Controller
         return Inertia::render('Creator/Orders/Show', [
             'order' => [
                 'number' => $order->number,
+                'tracking_code' => $order->tracking_code,
+                'public_tracking_url' => $order->trackingUrl(),
+                'tracking' => $order->requiresShipping() ? $this->tracking->payload($order) : null,
                 'status' => $order->status->value,
                 'status_label' => $order->status->label(),
                 'payment_status' => $order->payment_status->value,
@@ -192,6 +197,19 @@ class OrderController extends Controller
         $this->fulfillment->markShipped($order, $data['tracking_number'], $data['courier'] ?? null);
 
         return back()->with('success', 'Pesanan ditandai sudah dikirim.');
+    }
+
+    public function updateTracking(Request $request, Order $order)
+    {
+        $this->authorizeOrder($request, $order);
+        $data = $request->validate([
+            'stage' => ['required', 'in:processing,packed,ready_for_pickup'],
+            'description' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->tracking->creatorUpdate($order->loadMissing('items'), $request->user(), $data['stage'], $data['description'] ?? null);
+
+        return back()->with('success', 'Status persiapan pesanan diperbarui.');
     }
 
     public function complete(Request $request, Order $order)

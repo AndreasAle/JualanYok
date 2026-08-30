@@ -50,6 +50,8 @@ export default function OrderAccess({
 }: {
     order: {
         number: string;
+        tracking_code: string;
+        tracking_url: string;
         token: string;
         status: string;
         status_label: string;
@@ -189,6 +191,8 @@ export default function OrderAccess({
                                 </a>
                             )}
                         </div>
+
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-violet-50 p-4 dark:bg-violet-950/30"><div><p className="text-[10px] font-black uppercase tracking-wider text-violet-600">ID pembelian</p><code className="mt-1 block text-xs font-black">{order.tracking_code}</code></div><a href={order.tracking_url} className="inline-flex h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black text-white"><Truck className="size-4" /> Buka tracking publik</a></div>
 
                         {order.shipment?.events?.length ? (
                             <ol className="mt-6 space-y-0">

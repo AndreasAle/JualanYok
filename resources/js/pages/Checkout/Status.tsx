@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { CheckCircle2, Clock, Copy, PartyPopper, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, Copy, PartyPopper, RefreshCw, Truck, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, ButtonLink, Card, statusTone } from '@/components/ui';
 import { Logo } from '@/layouts/MarketingLayout';
@@ -114,6 +114,7 @@ export default function CheckoutStatus({
                         <div className="mx-auto mt-5 max-w-sm rounded-xl bg-surface-2 px-4 py-3">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Nomor pesanan</p>
                             <p className="mt-1 font-mono text-sm font-black">{order.number}</p>
+                            {order.tracking_code && <div className="mt-3 border-t border-line pt-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted">ID pembelian untuk tracking</p><div className="mt-1 flex items-center justify-center gap-2"><p className="font-mono text-sm font-black">{order.tracking_code}</p><button type="button" onClick={() => copy(order.tracking_code)} className="grid size-7 place-items-center rounded-lg border border-line" aria-label="Salin ID tracking"><Copy className="size-3.5" /></button></div></div>}
                             <p className="mt-1 text-xs text-muted">Konfirmasi dikirim ke {order.customer_email}</p>
                         </div>
 
@@ -126,6 +127,7 @@ export default function CheckoutStatus({
                             <ButtonLink href={`/${order.store.username}`} variant="outline">
                                 Belanja lagi
                             </ButtonLink>
+                            {order.tracking_url && <ButtonLink href={order.tracking_url} variant="outline"><Truck className="size-4" /> Lacak barangmu</ButtonLink>}
                         </div>
                         <p className="mt-3 text-xs text-muted">
                             Tautannya juga kami kirim ke emailmu — tanpa perlu login, kapan pun kamu butuh.

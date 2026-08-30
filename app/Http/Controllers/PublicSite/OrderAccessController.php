@@ -10,8 +10,8 @@ use App\Services\DigitalDeliveryService;
 use App\Services\DisputeService;
 use App\Services\FulfillmentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 /**
@@ -40,10 +40,11 @@ class OrderAccessController extends Controller
 
         $order->load(['items.product', 'store', 'digitalAccesses.file', 'shipment.events', 'openDispute']);
 
-
         return Inertia::render('Order/Access', [
             'order' => [
                 'number' => $order->number,
+                'tracking_code' => $order->tracking_code,
+                'tracking_url' => $order->trackingUrl(),
                 'token' => $order->access_token,
                 'status' => $order->status->value,
                 'status_label' => $order->status->label(),

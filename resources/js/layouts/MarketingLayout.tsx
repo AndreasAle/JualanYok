@@ -7,6 +7,7 @@ import type { PageProps } from '@/types';
 
 const NAV = [
     { label: 'Jelajahi', href: '/explore' },
+    { label: 'Lacak Barangmu', href: '/lacak' },
     { label: 'Fitur', href: '/features' },
     { label: 'Template', href: '/templates' },
     { label: 'Harga', href: '/pricing' },
