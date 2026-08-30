@@ -23,6 +23,7 @@ class Shipment extends Model
             'delivered_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'last_synced_at' => 'datetime',
+            'waybill_notified_at' => 'datetime',
             'request_payload' => 'array',
             'provider_response' => 'array',
         ];

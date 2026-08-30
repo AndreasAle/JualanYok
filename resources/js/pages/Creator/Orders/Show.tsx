@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, Package, RefreshCw, Truck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Package, Printer, RefreshCw, Truck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { PageHeader, StatusBadge } from '@/components/shared';
@@ -202,7 +202,7 @@ export default function OrderShow({ order }: { order: any }) {
 
                                 {order.shipment && (
                                     <div className="mt-4 space-y-3 rounded-2xl border border-line bg-surface-2 p-4">
-                                        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-violet-600">{order.shipment.provider}</p><p className="font-extrabold">{order.shipping_courier || 'Pengiriman penjual'} · {order.shipping_service || 'Reguler'}</p><p className="text-xs text-muted">{order.shipment.status_label}{order.shipment.waybill_id ? ` · Resi ${order.shipment.waybill_id}` : ''}</p></div><Button type="button" variant="outline" size="sm" onClick={() => shipForm.post(`/dashboard/pesanan/${order.number}/sinkron-kurir`, { preserveScroll: true })}><RefreshCw className="size-3.5" /> Sinkron</Button></div>
+                                        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-violet-600">{order.shipment.provider}</p><p className="font-extrabold">{order.shipping_courier || 'Pengiriman penjual'} · {order.shipping_service || 'Reguler'}</p><p className="text-xs text-muted">{order.shipment.status_label}{order.shipment.waybill_id ? ` · Resi ${order.shipment.waybill_id}` : ''}</p></div><div className="flex flex-wrap justify-end gap-2">{order.shipment.waybill_id && <a href={`/dashboard/pesanan/${order.number}/cetak-resi`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-field)] border border-line bg-surface px-3 text-xs font-bold transition hover:bg-surface-2"><Printer className="size-3.5" /> Cetak resi</a>}<Button type="button" variant="outline" size="sm" onClick={() => shipForm.post(`/dashboard/pesanan/${order.number}/sinkron-kurir`, { preserveScroll: true })}><RefreshCw className="size-3.5" /> Sinkron</Button></div></div>
                                         {order.shipment.last_error && <Alert tone="danger" title="Kurir belum berhasil dipesan">{order.shipment.last_error}</Alert>}
                                         {order.shipment.events?.length > 0 && <ol className="space-y-3 border-l border-violet-200 pl-4">{order.shipment.events.map((event: any, index: number) => <li key={index}><p className="text-sm font-bold">{event.description}</p><p className="text-xs text-muted">{event.location ? `${event.location} · ` : ''}{formatDate(event.event_at, true)}</p></li>)}</ol>}
                                     </div>

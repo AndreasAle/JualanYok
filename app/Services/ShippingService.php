@@ -336,9 +336,67 @@ class ShippingService
             $this->syncOrderFromShipment($shipment->fresh());
         });
 
-        if ($previousStatus !== $status) {
-            $this->notifyBuyerOfShipmentUpdate($shipment->fresh(['order.user', 'order.store']), $status);
+        $shipment = $shipment->fresh(['order.user', 'order.store']);
+        $waybillNotificationSent = $this->notifyBuyerOfWaybill($shipment);
+
+        if ($previousStatus !== $status && ! $waybillNotificationSent) {
+            $this->notifyBuyerOfShipmentUpdate($shipment, $status);
         }
+    }
+
+    /**
+     * Notify a guest or registered buyer exactly once when the courier waybill
+     * first becomes available. The database claim also protects webhook and
+     * manual-sync requests that arrive at nearly the same time.
+     */
+    private function notifyBuyerOfWaybill(Shipment $shipment): bool
+    {
+        $order = $shipment->order;
+
+        if (blank($shipment->waybill_id) || blank($order->customer_email)) {
+            return false;
+        }
+
+        $claimed = Shipment::query()
+            ->whereKey($shipment->id)
+            ->whereNull('waybill_notified_at')
+            ->update(['waybill_notified_at' => now()]);
+
+        if ($claimed === 0) {
+            return false;
+        }
+
+        $courier = collect([
+            $shipment->courier_name ?: $shipment->courier_company,
+            $shipment->courier_type,
+        ])->filter()->implode(' - ');
+
+        $this->notifications->sendToMail($order->customer_email, [
+            'type' => 'shipping.waybill_available',
+            'category' => 'shipping',
+            'priority' => 'normal',
+            'title' => 'Nomor resi pesananmu sudah tersedia',
+            'email_subject' => "Nomor resi pesanan {$order->number}",
+            'message' => "Pesanan {$order->number} dari {$order->store->name} sudah diserahkan ke proses pengiriman.",
+            'email_lines' => array_values(array_filter([
+                'Nomor resi: '.$shipment->waybill_id,
+                $courier !== '' ? 'Kurir: '.$courier : null,
+                'ID pembelian: '.$order->tracking_code,
+                'Simpan nomor resi atau ID pembelian ini untuk memantau perjalanan paketmu.',
+            ])),
+            'url' => $order->trackingUrl(),
+            'action_label' => 'Lacak barangmu',
+            'group_key' => 'buyer-shipping:'.$shipment->id.':waybill:'.$shipment->waybill_id,
+            'tone' => 'info',
+            'email_required' => true,
+            'meta' => [
+                'order_id' => $order->id,
+                'shipment_id' => $shipment->id,
+                'waybill_id' => $shipment->waybill_id,
+            ],
+        ]);
+
+        return true;
     }
 
     private function notifyBuyerOfShipmentUpdate(Shipment $shipment, ShipmentStatus $status): void

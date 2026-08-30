@@ -16,6 +16,7 @@ use App\Http\Controllers\Creator\PlanPaymentController;
 use App\Http\Controllers\Creator\ProductController;
 use App\Http\Controllers\Creator\ProductFileController;
 use App\Http\Controllers\Creator\ShippingController;
+use App\Http\Controllers\Creator\ShippingLabelController;
 use App\Http\Controllers\Creator\StoreBuilderController;
 use App\Http\Controllers\Creator\StoreSettingsController;
 use App\Http\Controllers\Creator\SubscriptionController;
@@ -80,6 +81,7 @@ Route::middleware(['auth', 'creator'])
         Route::post('/pesanan/{order:number}/refund', [OrderController::class, 'requestRefund'])->name('orders.refund');
         Route::post('/pesanan/{order:number}/pesan-kurir', [OrderController::class, 'bookShipment'])->name('orders.shipment.book');
         Route::post('/pesanan/{order:number}/sinkron-kurir', [OrderController::class, 'syncShipment'])->name('orders.shipment.sync');
+        Route::get('/pesanan/{order:number}/cetak-resi', ShippingLabelController::class)->name('orders.shipment.label');
         Route::post('/pesanan/{order:number}/respons-komplain', [OrderController::class, 'respondDispute'])->name('orders.dispute.respond');
         Route::get('/pengiriman', [ShippingController::class, 'edit'])->name('shipping.edit');
         Route::put('/pengiriman', [ShippingController::class, 'update'])->name('shipping.update');

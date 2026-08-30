@@ -8,8 +8,8 @@ use App\Models\Order;
 use App\Services\OrderTrackingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class OrderTrackingController extends Controller
 {

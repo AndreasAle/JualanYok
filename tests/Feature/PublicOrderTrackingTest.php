@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\Shipment;
 use App\Models\StoreShippingProfile;
 use App\Models\User;
+use App\Notifications\BusinessNotification;
 use App\Notifications\OrderReceipt;
 use App\Payments\PaymentResult;
 use App\Services\CheckoutService;
@@ -19,6 +20,7 @@ use App\Services\ShippingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Inertia\Inertia;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -32,6 +34,26 @@ class PublicOrderTrackingTest extends TestCase
         $this->seedPlatform();
         config()->set('shipping.default', 'manual');
         config()->set('shipping.providers.manual.flat_rate', 18000);
+    }
+
+    public function test_tracking_landing_page_is_available_for_guests_and_authenticated_users(): void
+    {
+        $this->get('/lacak')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Marketing/TrackOrder')
+                ->where('tracking', null));
+
+        $user = $this->makeUser();
+
+        $this->actingAs($user)
+            ->withHeader('X-Inertia', 'true')
+            ->withHeader('X-Inertia-Version', (string) Inertia::getVersion())
+            ->get('/lacak')
+            ->assertOk()
+            ->assertHeader('X-Inertia', 'true')
+            ->assertJsonPath('component', 'Marketing/TrackOrder')
+            ->assertJsonPath('props.tracking', null);
     }
 
     public function test_paid_purchase_gets_a_private_tracking_id_shown_in_email_and_checkout(): void
@@ -75,6 +97,15 @@ class PublicOrderTrackingTest extends TestCase
         $response->assertDontSee('fisik@example.test');
         $response->assertDontSee('Jl. Pembeli Nomor 2');
         $response->assertDontSee('143000');
+
+        $this->withHeaders([
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => (string) Inertia::getVersion(),
+        ])->get($paid->trackingUrl())
+            ->assertOk()
+            ->assertHeader('X-Inertia', 'true')
+            ->assertJsonPath('component', 'Marketing/TrackOrder')
+            ->assertJsonPath('props.tracking.tracking_code', $paid->tracking_code);
 
         $this->post('/lacak', ['tracking_code' => $unpaid->tracking_code])
             ->assertSessionHasErrors('tracking_code');
@@ -151,6 +182,58 @@ class PublicOrderTrackingTest extends TestCase
                 ->where('tracking.status', 'picked')
                 ->where('tracking.shipment.driver_name', 'Budi Kurir')
                 ->where('tracking.shipment.waybill_id', 'JNE-9988'));
+    }
+
+    public function test_buyer_receives_the_waybill_email_once_as_soon_as_biteship_confirms_it(): void
+    {
+        config()->set('shipping.providers.biteship.webhook_secret', 'webhook-secret');
+        config()->set('shipping.providers.biteship.webhook_header', 'X-Callback-Token');
+        [$order] = $this->paidPhysicalOrder();
+        $shipment = Shipment::create([
+            'order_id' => $order->id,
+            'provider' => 'biteship',
+            'external_id' => 'biteship-order-waybill',
+            'courier_company' => 'tiki',
+            'courier_type' => 'reg',
+            'courier_name' => 'TIKI',
+            'status' => ShipmentStatus::Pending,
+        ]);
+        Notification::fake();
+
+        $payload = [
+            'event' => 'order.status',
+            'order_id' => 'biteship-order-waybill',
+            'status' => 'confirmed',
+            'courier_waybill_id' => 'TIKIBTS100000135408',
+            'updated_at' => now()->toIso8601String(),
+        ];
+
+        $this->withHeader('X-Callback-Token', 'webhook-secret')
+            ->postJson('/webhooks/shipping/biteship', $payload)
+            ->assertOk();
+
+        $shipment->refresh();
+        $this->assertSame(ShipmentStatus::Confirmed, $shipment->status);
+        $this->assertSame('TIKIBTS100000135408', $shipment->waybill_id);
+        $this->assertNotNull($shipment->waybill_notified_at);
+
+        Notification::assertSentOnDemand(
+            BusinessNotification::class,
+            function (BusinessNotification $notification) use ($order) {
+                $this->assertSame('shipping.waybill_available', $notification->payload['type']);
+                $this->assertSame('TIKIBTS100000135408', $notification->payload['meta']['waybill_id']);
+                $this->assertContains('Nomor resi: TIKIBTS100000135408', $notification->payload['email_lines']);
+                $this->assertSame($order->trackingUrl(), $notification->payload['url']);
+
+                return true;
+            },
+        );
+
+        // A repeated webhook or a manual sync must not send the same resi twice.
+        $this->withHeader('X-Callback-Token', 'webhook-secret')
+            ->postJson('/webhooks/shipping/biteship', $payload)
+            ->assertOk();
+        Notification::assertCount(1);
     }
 
     public function test_biteship_sync_uses_tracking_endpoint_without_overwriting_the_order_id(): void
