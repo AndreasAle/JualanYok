@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\NotificationCenterService;
 use App\Services\PlanService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -62,15 +63,15 @@ class HandleInertiaRequests extends Middleware
             ],
 
             'notifications' => $user
-                ? fn () => $user->unreadNotifications()->latest()->limit(10)->get()
-                    ->map(fn ($n) => [
-                        'id' => $n->id,
-                        'title' => $n->data['title'] ?? 'Notifikasi',
-                        'message' => $n->data['message'] ?? '',
-                        'url' => $n->data['url'] ?? null,
-                        'created_at' => $n->created_at->diffForHumans(),
-                    ])
-                : [],
+                ? fn () => app(NotificationCenterService::class)->header($user)
+                : [
+                    'items' => [],
+                    'unread_count' => 0,
+                    'action_count' => 0,
+                    'poll_seconds' => (int) config('notifications.poll_seconds', 45),
+                    'index_url' => '/notifikasi',
+                    'read_all_url' => '/notifikasi/tandai-semua-dibaca',
+                ],
 
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

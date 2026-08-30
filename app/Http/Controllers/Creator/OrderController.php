@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Creator;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Role;
 use App\Services\DisputeService;
 use App\Services\FulfillmentService;
+use App\Services\NotificationCenterService;
 use App\Services\RefundService;
 use App\Services\ShippingService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,6 +22,7 @@ class OrderController extends Controller
         private readonly RefundService $refunds,
         private readonly ShippingService $shipping,
         private readonly DisputeService $disputes,
+        private readonly NotificationCenterService $notifications,
     ) {}
 
     public function index(Request $request): Response
@@ -208,7 +212,21 @@ class OrderController extends Controller
             'reason' => ['required', 'string', 'max:1000'],
         ]);
 
-        $this->refunds->request($order, (float) $data['amount'], $data['reason'], $request->user());
+        $refund = $this->refunds->request($order, (float) $data['amount'], $data['reason'], $request->user());
+
+        $this->notifications->sendToAdmins([Role::FINANCE_ADMIN, Role::SUPER_ADMIN], [
+            'type' => 'refund.requested',
+            'category' => 'refunds',
+            'priority' => 'high',
+            'title' => 'Refund menunggu keputusan',
+            'message' => "Pesanan {$order->number} mengajukan refund ".Money::format((float) $refund->amount).'.',
+            'url' => route('admin.refunds.index', ['status' => 'REQUESTED']),
+            'action_label' => 'Proses refund',
+            'action_required' => true,
+            'group_key' => 'finance:refunds:pending',
+            'tone' => 'warning',
+            'meta' => ['refund_id' => $refund->id, 'order_id' => $order->id],
+        ]);
 
         return back()->with('success', 'Pengajuan refund dikirim ke tim JualanYok.');
     }
@@ -216,7 +234,12 @@ class OrderController extends Controller
     public function bookShipment(Request $request, Order $order)
     {
         $this->authorizeOrder($request, $order);
-        $shipment = $this->shipping->createShipment($order);
+        try {
+            $shipment = $this->shipping->createShipment($order);
+        } catch (\Throwable $exception) {
+            $this->notifyShippingFailure($request, $order, $exception->getMessage());
+            throw $exception;
+        }
 
         return back()->with('success', $shipment->provider === 'manual'
             ? 'Pesanan siap dikirim. Masukkan resi setelah paket diserahkan.'
@@ -227,7 +250,12 @@ class OrderController extends Controller
     {
         $this->authorizeOrder($request, $order);
         abort_unless($order->shipment, 404);
-        $this->shipping->sync($order->shipment);
+        try {
+            $this->shipping->sync($order->shipment);
+        } catch (\Throwable $exception) {
+            $this->notifyShippingFailure($request, $order, $exception->getMessage());
+            throw $exception;
+        }
 
         return back()->with('success', 'Status kurir sudah diperbarui.');
     }
@@ -245,5 +273,23 @@ class OrderController extends Controller
     private function authorizeOrder(Request $request, Order $order): void
     {
         abort_unless($order->store_id === $request->user()->store->id, 403);
+    }
+
+    private function notifyShippingFailure(Request $request, Order $order, string $error): void
+    {
+        $this->notifications->send($request->user(), [
+            'type' => 'shipping.failed',
+            'category' => 'shipping',
+            'priority' => 'high',
+            'title' => 'Pengiriman membutuhkan perhatian',
+            'message' => "Pesanan {$order->number} belum dapat diproses kurir. ".str($error)->squish()->limit(120),
+            'url' => route('creator.orders.show', $order->number),
+            'action_label' => 'Periksa pengiriman',
+            'action_required' => true,
+            'group_key' => 'shipping:order:'.$order->id,
+            'tone' => 'danger',
+            'email_required' => true,
+            'meta' => ['order_id' => $order->id],
+        ]);
     }
 }

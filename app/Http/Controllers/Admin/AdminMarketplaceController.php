@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\Store;
 use App\Services\AuditLogger;
+use App\Services\NotificationCenterService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -21,7 +22,10 @@ use Inertia\Response;
 
 class AdminMarketplaceController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly NotificationCenterService $notifications,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -106,6 +110,25 @@ class AdminMarketplaceController extends Controller
             ])->save();
             $this->audit->log('marketplace.product.'.$data['decision'], $locked, $before, $locked->fresh()->only(array_keys($before)), $data['reason'] ?? null);
         });
+
+        $product->loadMissing('store.owner');
+        $approved = $next === MarketplaceStatus::Approved;
+        $this->notifications->send($product->store->owner, [
+            'type' => $approved ? 'marketplace.approved' : ($next === MarketplaceStatus::Rejected ? 'marketplace.rejected' : 'marketplace.suspended'),
+            'category' => 'marketplace',
+            'priority' => $approved ? 'normal' : 'high',
+            'title' => $approved ? 'Produk tayang di marketplace' : ($next === MarketplaceStatus::Rejected ? 'Produk perlu diperbaiki' : 'Distribusi produk ditangguhkan'),
+            'message' => $approved
+                ? "{$product->name} sudah dapat ditemukan dari halaman Jelajahi JualanYok."
+                : (trim((string) ($data['reason'] ?? '')) ?: 'Buka produk untuk melihat tindakan yang diperlukan.'),
+            'url' => route('creator.products.edit', $product),
+            'action_label' => $approved ? 'Lihat produk' : 'Perbaiki produk',
+            'action_required' => ! $approved,
+            'group_key' => 'marketplace:product:'.$product->id,
+            'tone' => $approved ? 'success' : 'danger',
+            'email_required' => ! $approved,
+            'meta' => ['product_id' => $product->id, 'decision' => $data['decision']],
+        ]);
 
         return back()->with('success', 'Keputusan moderasi tersimpan dan tercatat di Audit Log.');
     }

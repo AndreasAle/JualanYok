@@ -4,15 +4,21 @@ namespace App\Http\Controllers\Creator;
 
 use App\Http\Controllers\Controller;
 use App\Models\PayoutMethod;
+use App\Models\Role;
 use App\Models\Withdrawal;
+use App\Services\NotificationCenterService;
 use App\Services\WithdrawalService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class WithdrawalController extends Controller
 {
-    public function __construct(private readonly WithdrawalService $withdrawals) {}
+    public function __construct(
+        private readonly WithdrawalService $withdrawals,
+        private readonly NotificationCenterService $notifications,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -72,6 +78,33 @@ class WithdrawalController extends Controller
         $method = PayoutMethod::whereKey($data['payout_method_id'])->firstOrFail();
 
         $withdrawal = $this->withdrawals->request($request->user(), (float) $data['amount'], $method);
+
+        $this->notifications->send($request->user(), [
+            'type' => 'withdrawal.requested',
+            'category' => 'finance',
+            'priority' => 'normal',
+            'title' => 'Penarikan berhasil diajukan',
+            'message' => "{$withdrawal->number} senilai ".Money::format((float) $withdrawal->net_amount).' sedang diperiksa tim finance.',
+            'url' => route('creator.withdrawals.index'),
+            'action_label' => 'Lihat penarikan',
+            'group_key' => 'withdrawal:'.$withdrawal->id,
+            'tone' => 'info',
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
+
+        $this->notifications->sendToAdmins([Role::FINANCE_ADMIN, Role::SUPER_ADMIN], [
+            'type' => 'withdrawal.review_requested',
+            'category' => 'finance',
+            'priority' => 'high',
+            'title' => 'Penarikan menunggu pemeriksaan',
+            'message' => "{$request->user()->name} mengajukan {$withdrawal->number} senilai ".Money::format((float) $withdrawal->amount).'.',
+            'url' => route('admin.withdrawals.index', ['status' => 'REQUESTED']),
+            'action_label' => 'Proses penarikan',
+            'action_required' => true,
+            'group_key' => 'finance:withdrawals:pending',
+            'tone' => 'warning',
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
 
         return back()->with('success', "Penarikan {$withdrawal->number} diajukan. Kami proses maksimal 2 hari kerja.");
     }

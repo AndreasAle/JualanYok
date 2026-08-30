@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\NotificationCenterController;
 use App\Http\Controllers\PublicSite\CheckoutController;
 use App\Http\Controllers\PublicSite\DownloadController;
 use App\Http\Controllers\PublicSite\LandingController;
@@ -111,3 +112,12 @@ Route::post('/webhooks/shipping/biteship', ShippingWebhookController::class)
 Route::get('/downloads/{token}', [DownloadController::class, 'serve'])
     ->middleware('signed')
     ->name('downloads.serve');
+Route::middleware('auth')->prefix('notifikasi')->name('notifications.')->group(function () {
+    Route::get('/', [NotificationCenterController::class, 'index'])->name('index');
+    Route::get('/{notification}/buka', [NotificationCenterController::class, 'open'])->name('open');
+    Route::patch('/{notification}/baca', [NotificationCenterController::class, 'read'])->name('read');
+    Route::post('/tandai-semua-dibaca', [NotificationCenterController::class, 'readAll'])->name('read-all');
+    Route::patch('/{notification}/selesai', [NotificationCenterController::class, 'resolve'])->name('resolve');
+    Route::patch('/{notification}/arsip', [NotificationCenterController::class, 'archive'])->name('archive');
+    Route::put('/preferensi/email', [NotificationCenterController::class, 'updatePreferences'])->name('preferences');
+});

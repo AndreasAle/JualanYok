@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Order;
+use App\Models\User;
+use App\Services\NotificationPreferenceService;
 use App\Support\Money;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,11 +15,16 @@ class NewOrderReceived extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public readonly Order $order) {}
+    public function __construct(public readonly Order $order)
+    {
+        $this->afterCommit();
+    }
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return $notifiable instanceof User
+            ? app(NotificationPreferenceService::class)->channels($notifiable, 'orders')
+            : ['database'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -37,6 +44,8 @@ class NewOrderReceived extends Notification implements ShouldQueue
     {
         return [
             'type' => 'order.paid',
+            'category' => 'orders',
+            'priority' => 'high',
             'title' => 'Pesanan baru masuk',
             'message' => sprintf(
                 '%s beli %s — %s',
@@ -45,6 +54,10 @@ class NewOrderReceived extends Notification implements ShouldQueue
                 Money::format((float) $this->order->grand_total),
             ),
             'url' => route('creator.orders.show', $this->order->number),
+            'action_label' => 'Lihat pesanan',
+            'action_required' => $this->order->requiresShipping(),
+            'group_key' => 'orders:paid:'.$this->order->store_id,
+            'tone' => 'success',
             'order_number' => $this->order->number,
         ];
     }

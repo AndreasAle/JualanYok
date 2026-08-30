@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Creator;
 
 use App\Http\Controllers\Controller;
 use App\Models\PayoutMethod;
+use App\Models\Role;
+use App\Services\NotificationCenterService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class PayoutMethodController extends Controller
 {
+    public function __construct(private readonly NotificationCenterService $notifications) {}
+
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -22,12 +26,12 @@ class PayoutMethodController extends Controller
             'account_number.regex' => 'Nomor rekening hanya boleh angka.',
         ]);
 
-        DB::transaction(function () use ($request, $data) {
+        $method = DB::transaction(function () use ($request, $data) {
             if ($data['is_default'] ?? false) {
                 $request->user()->payoutMethods()->update(['is_default' => false]);
             }
 
-            $request->user()->payoutMethods()->create([
+            return $request->user()->payoutMethods()->create([
                 'type' => $data['type'],
                 'provider' => $data['provider'],
                 'account_name' => $data['account_name'],
@@ -39,6 +43,20 @@ class PayoutMethodController extends Controller
                 'status' => 'unverified',
             ]);
         });
+
+        $this->notifications->sendToAdmins([Role::FINANCE_ADMIN, Role::SUPER_ADMIN], [
+            'type' => 'payout_method.review_requested',
+            'category' => 'finance',
+            'priority' => 'high',
+            'title' => 'Rekening baru menunggu verifikasi',
+            'message' => "{$request->user()->name} menambahkan {$method->provider} {$method->maskedNumber()}.",
+            'url' => route('admin.payout-methods.index', ['status' => 'unverified']),
+            'action_label' => 'Verifikasi rekening',
+            'action_required' => true,
+            'group_key' => 'finance:payout-methods:pending',
+            'tone' => 'warning',
+            'meta' => ['payout_method_id' => $method->id, 'user_id' => $request->user()->id],
+        ]);
 
         return back()->with('success', 'Rekening ditambahkan. Menunggu verifikasi tim kami.');
     }

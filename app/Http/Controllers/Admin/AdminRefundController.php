@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Refund;
 use App\Models\Role;
 use App\Services\AuditLogger;
+use App\Services\NotificationCenterService;
 use App\Services\RefundService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,6 +18,7 @@ class AdminRefundController extends Controller
     public function __construct(
         private readonly RefundService $refunds,
         private readonly AuditLogger $audit,
+        private readonly NotificationCenterService $notifications,
     ) {}
 
     public function index(Request $request): Response
@@ -56,6 +59,7 @@ class AdminRefundController extends Controller
 
         $refund = $this->refunds->approve($refund, $request->user(), $note);
         $this->audit->log('refund.approved', $refund, reason: $note);
+        $this->notifyOutcome($refund, $refund->status === 'COMPLETED' ? 'completed' : 'approved', $note);
 
         $message = $refund->status === 'COMPLETED'
             ? 'Refund berhasil dikirim dan pembukuan sudah diselesaikan.'
@@ -82,6 +86,7 @@ class AdminRefundController extends Controller
         $this->audit->log('refund.completed', $refund, reason: $data['note'] ?? null, after: [
             'transfer_reference' => $data['transfer_reference'],
         ]);
+        $this->notifyOutcome($refund, 'completed', $data['note'] ?? null);
 
         return back()->with('success', 'Dana refund dikonfirmasi terkirim. Saldo, komisi, dan jurnal sudah disesuaikan.');
     }
@@ -92,8 +97,9 @@ class AdminRefundController extends Controller
 
         $data = $request->validate(['note' => ['required', 'string', 'min:5', 'max:1000']]);
 
-        $this->refunds->reject($refund, $request->user(), $data['note']);
+        $refund = $this->refunds->reject($refund, $request->user(), $data['note']);
         $this->audit->log('refund.rejected', $refund, reason: $data['note']);
+        $this->notifyOutcome($refund, 'rejected', $data['note']);
 
         return back()->with('success', 'Refund ditolak.');
     }
@@ -105,5 +111,35 @@ class AdminRefundController extends Controller
             403,
             'Hanya finance admin yang bisa memproses refund.',
         );
+    }
+
+    private function notifyOutcome(Refund $refund, string $outcome, ?string $note): void
+    {
+        $refund->loadMissing('order.store.owner');
+        $completed = $outcome === 'completed';
+        $rejected = $outcome === 'rejected';
+        $title = $completed ? 'Refund sudah dikirim' : ($rejected ? 'Pengajuan refund ditolak' : 'Refund disetujui');
+        $message = $completed
+            ? 'Refund '.Money::format((float) $refund->amount)." untuk pesanan {$refund->order->number} sudah diselesaikan."
+            : ($rejected ? ($note ?: 'Pengajuan tidak memenuhi ketentuan refund.') : 'Tim finance sedang menyelesaikan pengiriman dana refund.');
+
+        $payload = [
+            'type' => 'refund.'.$outcome,
+            'category' => 'refunds',
+            'priority' => 'high',
+            'title' => $title,
+            'message' => $message,
+            'url' => route('creator.orders.show', $refund->order->number),
+            'action_label' => 'Lihat pesanan',
+            'action_required' => $rejected,
+            'group_key' => 'refund:'.$refund->id,
+            'tone' => $rejected ? 'danger' : 'success',
+            'meta' => ['refund_id' => $refund->id, 'order_id' => $refund->order_id],
+        ];
+
+        $this->notifications->send($refund->order->store->owner, $payload);
+        $this->notifications->sendToMail($refund->order->customer_email, array_replace($payload, [
+            'url' => route('checkout.status', $refund->order->number),
+        ]));
     }
 }

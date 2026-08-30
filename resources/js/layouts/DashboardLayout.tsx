@@ -1,11 +1,12 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
-    AlertTriangle, BarChart3, Bell, Blocks, Boxes, ChevronLeft, CreditCard, ExternalLink, Eye, Gauge, Gift,
+    AlertTriangle, BarChart3, Blocks, Boxes, ChevronLeft, CreditCard, ExternalLink, Eye, Gauge, Gift,
     Handshake, IdCard, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
     Search, ShieldCheck, ShoppingBag, Store, Ticket, TrendingUp, Truck, UserCircle, Users, Wallet, X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Badge, Button } from '@/components/ui';
+import NotificationBell from '@/components/notifications/NotificationBell';
 import { cn, initials } from '@/lib/utils';
 import type { PageProps } from '@/types';
 
@@ -145,11 +146,10 @@ export default function DashboardLayout({
     title: string;
     area?: DashboardArea;
 }) {
-    const { auth, notifications } = usePage<PageProps>().props;
+    const { auth } = usePage<PageProps>().props;
     const { url } = usePage();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
-    const [bellOpen, setBellOpen] = useState(false);
 
     const userRoles = auth.user?.roles ?? [];
     const nav = NAV_BY_AREA[area].map((group) => ({
@@ -312,47 +312,7 @@ export default function DashboardLayout({
 
                         <div className="flex-1 xl:hidden" />
 
-                        <div className="relative">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="rounded-full"
-                                onClick={() => setBellOpen((v) => !v)}
-                                aria-label="Notifikasi"
-                                aria-expanded={bellOpen}
-                            >
-                                <Bell className="size-5" />
-                                {notifications.length > 0 && (
-                                    <span className="absolute right-2 top-2 size-2 rounded-full bg-[var(--danger)]" />
-                                )}
-                            </Button>
-
-                            {bellOpen && (
-                                <div className="absolute right-0 top-12 z-50 w-80 rounded-[var(--radius-card)] border border-line bg-surface p-2 shadow-lift">
-                                    <p className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted">
-                                        Notifikasi
-                                    </p>
-                                    {notifications.length === 0 ? (
-                                        <p className="px-3 pb-3 text-sm text-muted">Belum ada notifikasi baru.</p>
-                                    ) : (
-                                        <ul className="max-h-80 overflow-y-auto">
-                                            {notifications.map((n) => (
-                                                <li key={n.id}>
-                                                    <Link
-                                                        href={n.url ?? '#'}
-                                                        className="block rounded-[var(--radius-field)] px-3 py-2.5 hover:bg-surface-2"
-                                                    >
-                                                        <p className="text-sm font-semibold">{n.title}</p>
-                                                        <p className="text-xs text-muted">{n.message}</p>
-                                                        <p className="mt-0.5 text-[11px] text-muted">{n.created_at}</p>
-                                                    </Link>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                        <NotificationBell area={area} />
 
                         <div className="flex items-center gap-2 rounded-full bg-surface-2/70 py-1 pl-2 pr-1 sm:pl-3">
                             <span className="hidden text-right sm:block">

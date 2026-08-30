@@ -43,6 +43,7 @@ class PlanPaymentService
         private readonly PlanService $plans,
         private readonly PaymentManager $manager,
         private readonly MarketplaceLedgerService $marketplaceLedger,
+        private readonly NotificationCenterService $notifications,
     ) {}
 
     public function enabled(): bool
@@ -171,7 +172,7 @@ class PlanPaymentService
             ]);
         }
 
-        return DB::transaction(function () use ($payment, $admin, $note) {
+        $settled = DB::transaction(function () use ($payment, $admin, $note) {
             // Re-read under a lock so two admins clicking at once cannot both
             // create a subscription for the same payment.
             $locked = PlanPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
@@ -202,6 +203,10 @@ class PlanPaymentService
 
             return $locked->fresh();
         });
+
+        $this->notifyActivated($settled);
+
+        return $settled;
     }
 
     public function reject(PlanPayment $payment, User $admin, string $reason): PlanPayment
@@ -434,7 +439,7 @@ class PlanPaymentService
 
     private function settleIpaymu(PlanPayment $payment, PaymentResult $result): PlanPayment
     {
-        return DB::transaction(function () use ($payment, $result) {
+        $settled = DB::transaction(function () use ($payment, $result) {
             $locked = PlanPayment::with(['user', 'plan'])
                 ->whereKey($payment->id)
                 ->lockForUpdate()
@@ -475,6 +480,27 @@ class PlanPaymentService
 
             return $locked->fresh();
         });
+
+        $this->notifyActivated($settled);
+
+        return $settled;
+    }
+
+    private function notifyActivated(PlanPayment $payment): void
+    {
+        $payment->loadMissing(['user', 'plan']);
+        $this->notifications->sendOnce($payment->user, [
+            'type' => 'subscription.activated',
+            'category' => 'subscription',
+            'priority' => 'high',
+            'title' => 'Paket '.$payment->plan->name.' sudah aktif',
+            'message' => 'Pembayaran '.$payment->reference.' berhasil diverifikasi dan limit akunmu sudah diperbarui.',
+            'url' => route('creator.subscription'),
+            'action_label' => 'Lihat paket',
+            'group_key' => 'subscription:payment:'.$payment->id,
+            'tone' => 'success',
+            'meta' => ['plan_payment_id' => $payment->id, 'plan_id' => $payment->plan_id],
+        ], 720);
     }
 
     private function closeGatewayPayment(PlanPayment $payment, PlanPaymentStatus $status): PlanPayment

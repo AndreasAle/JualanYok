@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\Withdrawal;
 use App\Services\AuditLogger;
+use App\Services\NotificationCenterService;
 use App\Services\WithdrawalService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,6 +19,7 @@ class AdminWithdrawalController extends Controller
     public function __construct(
         private readonly WithdrawalService $withdrawals,
         private readonly AuditLogger $audit,
+        private readonly NotificationCenterService $notifications,
     ) {}
 
     public function index(Request $request): Response
@@ -66,8 +69,10 @@ class AdminWithdrawalController extends Controller
 
         $note = $request->input('note');
 
-        $this->withdrawals->approve($withdrawal, $request->user(), $note);
+        $withdrawal = $this->withdrawals->approve($withdrawal, $request->user(), $note);
         $this->audit->log('withdrawal.approved', $withdrawal, reason: $note);
+
+        $this->notifyOwner($withdrawal, 'withdrawal.approved', 'Penarikan disetujui', "{$withdrawal->number} sedang disiapkan untuk ditransfer.", 'success');
 
         return back()->with('success', "Penarikan {$withdrawal->number} disetujui.");
     }
@@ -80,8 +85,10 @@ class AdminWithdrawalController extends Controller
             'reason' => ['required', 'string', 'min:5', 'max:1000'],
         ]);
 
-        $this->withdrawals->reverse($withdrawal, WithdrawalStatus::Rejected, $request->user(), $data['reason']);
+        $withdrawal = $this->withdrawals->reverse($withdrawal, WithdrawalStatus::Rejected, $request->user(), $data['reason']);
         $this->audit->log('withdrawal.rejected', $withdrawal, reason: $data['reason']);
+
+        $this->notifyOwner($withdrawal, 'withdrawal.rejected', 'Penarikan ditolak', $data['reason'], 'danger', true);
 
         return back()->with('success', 'Penarikan ditolak dan saldo dikembalikan.');
     }
@@ -94,8 +101,10 @@ class AdminWithdrawalController extends Controller
             'transfer_reference' => ['required', 'string', 'max:120'],
         ]);
 
-        $this->withdrawals->markPaid($withdrawal, $request->user(), $data['transfer_reference']);
+        $withdrawal = $this->withdrawals->markPaid($withdrawal, $request->user(), $data['transfer_reference']);
         $this->audit->log('withdrawal.paid', $withdrawal, after: $data);
+
+        $this->notifyOwner($withdrawal, 'withdrawal.paid', 'Dana penarikan sudah dikirim', "{$withdrawal->number} senilai ".Money::format((float) $withdrawal->net_amount).' sudah ditransfer.', 'success');
 
         return back()->with('success', "Penarikan {$withdrawal->number} ditandai sudah cair.");
     }
@@ -108,5 +117,22 @@ class AdminWithdrawalController extends Controller
             403,
             'Hanya finance admin yang bisa memproses penarikan.',
         );
+    }
+
+    private function notifyOwner(Withdrawal $withdrawal, string $type, string $title, string $message, string $tone, bool $action = false): void
+    {
+        $this->notifications->send($withdrawal->user, [
+            'type' => $type,
+            'category' => 'finance',
+            'priority' => 'high',
+            'title' => $title,
+            'message' => $message,
+            'url' => route('creator.withdrawals.index'),
+            'action_label' => 'Lihat penarikan',
+            'action_required' => $action,
+            'group_key' => 'withdrawal:'.$withdrawal->id,
+            'tone' => $tone,
+            'meta' => ['withdrawal_id' => $withdrawal->id],
+        ]);
     }
 }

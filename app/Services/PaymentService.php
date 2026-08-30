@@ -33,6 +33,7 @@ class PaymentService
         private readonly AffiliateService $affiliates,
         private readonly PaymentEconomicsService $economics,
         private readonly MarketplaceLedgerService $marketplaceLedger,
+        private readonly NotificationCenterService $notifications,
     ) {}
 
     /**
@@ -363,6 +364,35 @@ class PaymentService
             if ($item->product_variant_id) {
                 ProductVariant::whereKey($item->product_variant_id)
                     ->update(['stock' => $inventory->quantity]);
+            }
+
+            if ($inventory->isLowStock()) {
+                $product = Product::with('store.owner')->find($item->product_id);
+                $owner = $product?->store?->owner;
+                $available = $inventory->availableQuantity();
+                $empty = $available === 0;
+
+                if ($owner && $product) {
+                    $this->notifications->sendOnce($owner, [
+                        'type' => $empty ? 'inventory.out' : 'inventory.low',
+                        'category' => 'inventory',
+                        'priority' => $empty ? 'high' : 'normal',
+                        'title' => $empty ? 'Stok produk habis setelah penjualan' : 'Stok produk mulai menipis',
+                        'message' => sprintf('%s kini tersisa %d unit setelah pesanan %s dibayar.', $product->name, $available, $order->number),
+                        'url' => route('creator.products.edit', $product),
+                        'action_label' => 'Perbarui stok',
+                        'action_required' => true,
+                        'group_key' => 'inventory:'.$inventory->id.':'.($empty ? 'out' : 'low'),
+                        'tone' => $empty ? 'danger' : 'warning',
+                        'email_required' => $empty,
+                        'meta' => [
+                            'product_id' => $product->id,
+                            'inventory_id' => $inventory->id,
+                            'order_id' => $order->id,
+                            'available' => $available,
+                        ],
+                    ], 24);
+                }
             }
         }
 

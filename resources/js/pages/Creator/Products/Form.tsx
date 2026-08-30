@@ -854,7 +854,7 @@ function StockRow({ productId, inventory }: { productId: number; inventory: Inve
                 </Field>
             </div>
             {error && <p className="mt-3 text-xs font-semibold text-rose-600">{error}</p>}
-            <button type="button" onClick={save} disabled={busy || quantity < inventory.reserved} className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-ink px-4 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50">
+            <button type="button" onClick={save} disabled={busy || quantity < inventory.reserved} className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#171722] px-4 text-sm font-bold text-white transition hover:bg-black disabled:opacity-50">
                 {busy ? 'Menyimpan...' : 'Perbarui stok'}
             </button>
         </div>

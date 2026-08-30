@@ -9,6 +9,7 @@ use App\Services\PlanPaymentService;
 use App\Services\PlanService;
 use App\Services\ShippingService;
 use App\Services\WithdrawalService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -82,3 +83,18 @@ Schedule::call(function () {
     ->withoutOverlapping();
 
 Schedule::command('queue:prune-batches --hours=48')->daily();
+
+Schedule::command('jualanyok:notification-digests')
+    ->dailyAt('08:00')
+    ->timezone('Asia/Jakarta')
+    ->withoutOverlapping();
+
+Schedule::command('jualanyok:notification-reminders')
+    ->dailyAt('07:30')
+    ->timezone('Asia/Jakarta')
+    ->withoutOverlapping();
+
+Schedule::call(function () {
+    $days = max(30, (int) config('notifications.retention_days', 90));
+    DB::table('notifications')->whereNotNull('archived_at')->where('created_at', '<', now()->subDays($days))->delete();
+})->dailyAt('02:45')->name('notifications:prune-archives')->withoutOverlapping();

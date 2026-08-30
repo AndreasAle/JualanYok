@@ -30,10 +30,32 @@ export interface PlanSnapshot {
 
 export interface NotificationItem {
     id: string;
+    type: string;
+    category: string;
+    priority: string;
     title: string;
     message: string;
     url: string | null;
+    action_label: string | null;
+    action_required: boolean;
+    group_key: string | null;
+    group_count?: number;
+    tone: 'info' | 'success' | 'warning' | 'danger' | string;
+    meta: Record<string, unknown>;
+    is_read: boolean;
+    is_resolved: boolean;
     created_at: string;
+    created_at_human: string;
+    open_url: string;
+}
+
+export interface NotificationSummary {
+    items: NotificationItem[];
+    unread_count: number;
+    action_count: number;
+    poll_seconds: number;
+    index_url: string;
+    read_all_url: string;
 }
 
 export interface PageProps {
@@ -50,7 +72,7 @@ export interface PageProps {
         plan: PlanSnapshot | null;
         impersonating: boolean;
     };
-    notifications: NotificationItem[];
+    notifications: NotificationSummary;
     flash: {
         success: string | null;
         error: string | null;

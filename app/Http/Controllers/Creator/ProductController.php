@@ -12,6 +12,7 @@ use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Services\InventoryService;
+use App\Services\NotificationCenterService;
 use App\Services\PlanService;
 use App\Support\Media;
 use Illuminate\Http\Request;
@@ -29,6 +30,7 @@ class ProductController extends Controller
     public function __construct(
         private readonly PlanService $plans,
         private readonly InventoryService $inventory,
+        private readonly NotificationCenterService $notifications,
     ) {}
 
     public function index(Request $request): Response
@@ -317,6 +319,24 @@ class ProductController extends Controller
             $data['note'] ?? null,
             $data['low_stock_threshold'],
         );
+
+        if ($updated->availableQuantity() <= $updated->low_stock_threshold) {
+            $empty = $updated->availableQuantity() === 0;
+            $this->notifications->sendOnce($request->user(), [
+                'type' => $empty ? 'inventory.out' : 'inventory.low',
+                'category' => 'inventory',
+                'priority' => $empty ? 'high' : 'normal',
+                'title' => $empty ? 'Stok produk habis' : 'Stok produk menipis',
+                'message' => sprintf('%s tersisa %d unit dan perlu diperiksa.', $product->name, $updated->availableQuantity()),
+                'url' => route('creator.products.edit', $product),
+                'action_label' => 'Perbarui stok',
+                'action_required' => true,
+                'group_key' => 'inventory:'.$updated->id.':'.($empty ? 'out' : 'low'),
+                'tone' => $empty ? 'danger' : 'warning',
+                'email_required' => $empty,
+                'meta' => ['product_id' => $product->id, 'inventory_id' => $updated->id],
+            ], 12);
+        }
 
         return back()->with('success', sprintf(
             'Stok %s diperbarui menjadi %d unit (%d tersedia).',

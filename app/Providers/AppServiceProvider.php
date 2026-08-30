@@ -4,12 +4,16 @@ namespace App\Providers;
 
 use App\Events\OrderPaid;
 use App\Listeners\HandleOrderPaid;
+use App\Listeners\NotifyPasswordChanged;
+use App\Listeners\RecordLoginDevice;
 use App\Listeners\SendWelcomeEmail;
 use App\Payments\PaymentManager;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\PasswordReset as PasswordResetEvent;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
@@ -26,6 +30,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Event::listen(OrderPaid::class, HandleOrderPaid::class);
         Event::listen(Registered::class, SendWelcomeEmail::class);
+        Event::listen(Login::class, RecordLoginDevice::class);
+        Event::listen(PasswordResetEvent::class, NotifyPasswordChanged::class);
 
         $this->localiseAuthEmails();
 

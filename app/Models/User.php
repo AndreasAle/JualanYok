@@ -93,6 +93,21 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Subscription::class);
     }
 
+    public function notificationPreferences(): HasMany
+    {
+        return $this->hasMany(NotificationPreference::class);
+    }
+
+    public function notificationDigestState(): HasOne
+    {
+        return $this->hasOne(NotificationDigestState::class);
+    }
+
+    public function loginDevices(): HasMany
+    {
+        return $this->hasMany(UserLoginDevice::class);
+    }
+
     /* --------------------------------------------------------------------
      | Authorization helpers
      |
