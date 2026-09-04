@@ -83,25 +83,103 @@ class IpaymuDoctorCommand extends Command
         return $this->attempt($config, $user, $phone);
     }
 
+    /**
+     * Tries several shapes of the same charge.
+     *
+     * "Suspicious buyer" is returned for anything iPaymu's risk engine dislikes,
+     * so a single failed request says nothing about which part it disliked.
+     * Running a small matrix — a different endpoint, channel and amount — turns
+     * one opaque refusal into a comparison that points at the cause.
+     *
+     * Each probe is a real, unpaid charge on the live account. They are left to
+     * expire on their own; nothing is captured.
+     */
     private function attempt(array $config, User $user, string $phone): int
     {
         $amount = max(1000, (int) $this->option('amount'));
-        $reference = 'DOCTOR-'.now()->format('YmdHis');
+
+        $base = ($config['production'] ?? false)
+            ? 'https://my.ipaymu.com/api/v2'
+            : 'https://sandbox.ipaymu.com/api/v2';
+
+        $probes = [
+            ['label' => 'Direct QRIS', 'path' => '/payment/direct', 'method' => 'qris', 'channel' => 'mpm', 'amount' => $amount],
+            ['label' => 'Direct VA BCA', 'path' => '/payment/direct', 'method' => 'va', 'channel' => 'bca', 'amount' => $amount],
+            ['label' => 'Direct QRIS nominal besar', 'path' => '/payment/direct', 'method' => 'qris', 'channel' => 'mpm', 'amount' => max($amount, 50_000)],
+            ['label' => 'Halaman checkout iPaymu', 'path' => '/payment', 'method' => null, 'channel' => null, 'amount' => $amount],
+        ];
+
+        $this->newLine();
+        $this->components->info('Menguji '.count($probes).' jalur ke '.$base);
+        $this->line('  <fg=gray>Setiap uji membuat tagihan asli yang tidak dibayar, dan akan kedaluwarsa sendiri.</>');
+
+        $working = [];
+
+        foreach ($probes as $probe) {
+            $result = $this->probe($config, $base, $user, $phone, $probe);
+
+            $this->newLine();
+            $this->line(sprintf(
+                '  %s <options=bold>%s</> — HTTP %s',
+                $result['ok'] ? '<fg=green>BERHASIL</>' : '<fg=red>DITOLAK </>',
+                $probe['label'],
+                $result['status'],
+            ));
+            $this->line('    <fg=gray>'.str($result['body'])->squish()->limit(180).'</>');
+
+            if ($result['ok']) {
+                $working[] = $probe['label'];
+            }
+        }
+
+        $this->newLine();
+
+        if ($working === []) {
+            $this->components->error('Semua jalur ditolak.');
+            $this->line('  Konfigurasi, tanda tangan, nomor, dan email sudah benar — kalau salah,');
+            $this->line('  iPaymu membalas pesan lain. Penolakan ini datang dari sisi akun mereka.');
+            $this->line('  Hubungi support iPaymu, sertakan VA merchant dan balasan mentah di atas.');
+
+            return self::FAILURE;
+        }
+
+        $this->components->info('Jalur yang diterima: '.implode(', ', $working));
+        $this->line('  Pakai jalur itu untuk pembayaran, dan tanyakan ke iPaymu kenapa sisanya ditolak.');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array{label: string, path: string, method: ?string, channel: ?string, amount: int}  $probe
+     * @return array{ok: bool, status: int|string, body: string}
+     */
+    private function probe(array $config, string $base, User $user, string $phone, array $probe): array
+    {
+        $reference = 'DOCTOR-'.now()->format('YmdHis').'-'.random_int(100, 999);
 
         $payload = [
             'name' => $user->name,
             'phone' => $phone,
             'email' => $user->email,
-            'amount' => $amount,
+            'amount' => $probe['amount'],
             'notifyUrl' => route('webhooks.payments', ['provider' => 'ipaymu']),
             'referenceId' => $reference,
-            'paymentMethod' => 'qris',
-            'paymentChannel' => 'mpm',
             'comments' => 'Uji diagnosa JualanYok',
             'feeDirection' => 'MERCHANT',
             'returnUrl' => config('app.url'),
             'cancelUrl' => config('app.url'),
         ];
+
+        if ($probe['method'] !== null) {
+            $payload['paymentMethod'] = $probe['method'];
+            $payload['paymentChannel'] = $probe['channel'];
+        } else {
+            // The hosted page prices per line rather than as a single total.
+            $payload['product'] = ['Uji diagnosa'];
+            $payload['qty'] = [1];
+            $payload['price'] = [$probe['amount']];
+            unset($payload['amount']);
+        }
 
         $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $va = trim((string) $config['va']);
@@ -113,13 +191,6 @@ class IpaymuDoctorCommand extends Command
             $apiKey,
         );
 
-        $base = ($config['production'] ?? false)
-            ? 'https://my.ipaymu.com/api/v2'
-            : 'https://sandbox.ipaymu.com/api/v2';
-
-        $this->newLine();
-        $this->components->info("Mengirim satu tagihan uji Rp {$amount} ke {$base}");
-
         try {
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
@@ -128,27 +199,15 @@ class IpaymuDoctorCommand extends Command
                 'timestamp' => now()->format('YmdHis'),
             ])->withBody((string) $body, 'application/json')
                 ->timeout(20)
-                ->post($base.'/payment/direct');
+                ->post($base.$probe['path']);
 
-            $this->newLine();
-            $this->components->info('Balasan mentah iPaymu (HTTP '.$response->status().')');
-            $this->line($response->body());
-
-            if ($response->successful()) {
-                $this->newLine();
-                $this->components->info('Tagihan uji berhasil dibuat. Konfigurasinya sehat.');
-
-                return self::SUCCESS;
-            }
-
-            $this->newLine();
-            $this->components->error('iPaymu menolak. Pesan di atas adalah alasan sebenarnya — kirimkan itu ke support iPaymu kalau tidak jelas.');
-
-            return self::FAILURE;
+            return [
+                'ok' => $response->successful(),
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ];
         } catch (Throwable $e) {
-            $this->components->error('Gagal menghubungi iPaymu: '.$e->getMessage());
-
-            return self::FAILURE;
+            return ['ok' => false, 'status' => 'error', 'body' => $e->getMessage()];
         }
     }
 
