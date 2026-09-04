@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Payments\PaymentProviderInterface;
 use App\Payments\PaymentResult;
 use App\Support\Money;
+use App\Support\Phone;
 use App\Support\QrImage;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -87,17 +88,23 @@ class IpaymuProvider implements PaymentProviderInterface
             return new PaymentResult(status: PaymentStatus::Failed, error: $unreachable);
         }
 
-        if (blank($order->customer_phone)) {
+        // Normalised rather than passed through: a number carrying spaces or a
+        // +62 prefix is enough for the risk check to reject the whole charge.
+        $phone = Phone::local($order->customer_phone);
+
+        if ($phone === null) {
             return new PaymentResult(
                 status: PaymentStatus::Failed,
-                error: 'Nomor WhatsApp diperlukan untuk pembayaran iPaymu.',
+                error: blank($order->customer_phone)
+                    ? 'Nomor WhatsApp diperlukan untuk pembayaran iPaymu.'
+                    : 'Nomor WhatsApp pembeli belum berformat nomor HP Indonesia yang valid (contoh: 081234567890).',
             );
         }
 
         $reference = $order->number.'-'.$payment->id;
         $payload = [
             'name' => $order->customer_name,
-            'phone' => $order->customer_phone,
+            'phone' => $phone,
             'email' => $order->customer_email,
             'amount' => (int) round((float) $payment->amount),
             'notifyUrl' => route('webhooks.payments', ['provider' => $this->key()]),
@@ -205,7 +212,20 @@ class IpaymuProvider implements PaymentProviderInterface
                 $rawResponse = is_array($errorResponse) ? $errorResponse : [];
             }
 
-            Log::error('ipaymu.create_failed', $logContext + ['error' => $e->getMessage()]);
+            /*
+             * The whole reply, not just the exception message.
+             *
+             * iPaymu answers a risk rejection with one vague phrase, and
+             * `getMessage()` on a RequestException truncates even that. Without
+             * the body and the shape of what we sent, a live failure leaves
+             * nothing to diagnose from.
+             */
+            Log::error('ipaymu.create_failed', $logContext + [
+                'error' => $e->getMessage(),
+                'status' => $e instanceof RequestException ? $e->response->status() : null,
+                'response' => $rawResponse,
+                'sent' => $this->redactedPayload($payload),
+            ]);
 
             return new PaymentResult(
                 status: PaymentStatus::Failed,
@@ -435,6 +455,46 @@ class IpaymuProvider implements PaymentProviderInterface
         $stringToSign = strtoupper($method).':'.$va.':'.$bodyHash.':'.$apiKey;
 
         return hash_hmac('sha256', $stringToSign, $apiKey);
+    }
+
+    /**
+     * The submitted fields, safe to write to a log.
+     *
+     * Contact details are reduced to what reveals a shape problem — a stray
+     * space, a country code, an empty field — without copying a customer's full
+     * email and phone number into a file that gets passed around while
+     * debugging.
+     */
+    private function redactedPayload(array $payload): array
+    {
+        $mask = function (?string $value): string {
+            $value = (string) $value;
+
+            if ($value === '') {
+                return '(kosong)';
+            }
+
+            return strlen($value) <= 4
+                ? str_repeat('*', strlen($value))
+                : substr($value, 0, 2).str_repeat('*', strlen($value) - 4).substr($value, -2);
+        };
+
+        $phone = (string) ($payload['phone'] ?? '');
+        $email = (string) ($payload['email'] ?? '');
+
+        return [
+            'referenceId' => $payload['referenceId'] ?? null,
+            'amount' => $payload['amount'] ?? null,
+            'paymentMethod' => $payload['paymentMethod'] ?? null,
+            'paymentChannel' => $payload['paymentChannel'] ?? null,
+            'feeDirection' => $payload['feeDirection'] ?? null,
+            'notifyUrl' => $payload['notifyUrl'] ?? null,
+            'name' => $mask($payload['name'] ?? null),
+            // The format itself is usually the fault, so keep its shape.
+            'phone_shape' => preg_replace('/\d/', '#', $phone),
+            'phone_digits' => strlen((string) preg_replace('/\D/', '', $phone)),
+            'email_domain' => str_contains($email, '@') ? '@'.explode('@', $email)[1] : '(tidak valid)',
+        ];
     }
 
     private function publicError(Throwable $error): string

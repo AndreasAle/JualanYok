@@ -13,6 +13,7 @@ use App\Payments\PaymentManager;
 use App\Payments\PaymentResult;
 use App\Payments\Providers\IpaymuProvider;
 use App\Support\Money;
+use App\Support\Phone;
 use App\Support\Qris;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -367,11 +368,20 @@ class PlanPaymentService
         }
 
         $user->loadMissing('store');
-        $phone = trim((string) ($user->phone ?: $user->store?->whatsapp));
 
-        if ($phone === '') {
+        /*
+         * Normalised, not passed through. A number written as `+62 812-3456-7890`
+         * is enough for the gateway's risk check to reject the transaction, and
+         * the rejection comes back as a vague complaint about the buyer rather
+         * than anything pointing at the phone field.
+         */
+        $phone = Phone::local($user->phone ?: $user->store?->whatsapp);
+
+        if ($phone === null) {
             throw ValidationException::withMessages([
-                'plan' => 'Tambahkan nomor WhatsApp di profil toko terlebih dahulu untuk membayar lewat iPaymu.',
+                'plan' => trim((string) ($user->phone ?: $user->store?->whatsapp)) === ''
+                    ? 'Tambahkan nomor WhatsApp di profil toko terlebih dahulu untuk membayar lewat iPaymu.'
+                    : 'Nomor WhatsApp di profilmu belum berformat nomor HP Indonesia yang valid (contoh: 081234567890). Perbaiki dulu ya.',
             ]);
         }
 
