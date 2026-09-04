@@ -36,6 +36,9 @@ class IpaymuPlanPaymentTest extends TestCase
             'payments.providers.ipaymu.api_key' => self::API_KEY,
             'payments.providers.ipaymu.production' => false,
             'payments.providers.ipaymu.fee_direction' => 'MERCHANT',
+            // These cover the in-app QRIS path, which needs an iPaymu account
+            // approved for API charging. Redirect mode is covered separately.
+            'payments.providers.ipaymu.mode' => 'direct',
             'payments.qris.enabled' => false,
         ]);
     }

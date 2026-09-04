@@ -32,6 +32,7 @@ class IpaymuProvider implements PaymentProviderInterface
         private readonly string $apiKey,
         private readonly bool $production = false,
         private readonly string $feeDirection = 'MERCHANT',
+        private readonly string $mode = 'redirect',
     ) {}
 
     public function key(): string
@@ -162,6 +163,8 @@ class IpaymuProvider implements PaymentProviderInterface
         $rawResponse = [];
 
         try {
+            $payload = $this->shapeForEndpoint($payload);
+
             // iPaymu calculates its signature from JSON_UNESCAPED_SLASHES.
             $body = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
             $timestamp = now('Asia/Jakarta')->format('YmdHis');
@@ -174,7 +177,7 @@ class IpaymuProvider implements PaymentProviderInterface
                     'signature' => $signature,
                     'timestamp' => $timestamp,
                 ])
-                ->send('POST', $this->baseUrl().'/api/v2/payment/direct', ['body' => $body])
+                ->send('POST', $this->baseUrl().'/api/v2'.$this->endpoint(), ['body' => $body])
                 ->throw()
                 ->json();
             $rawResponse = is_array($response) ? $response : [];
@@ -189,7 +192,22 @@ class IpaymuProvider implements PaymentProviderInterface
             ]);
             $instructions = $this->instructions($method, $channel, $data);
 
-            if (! $this->hasPayableInstructions($method, $instructions, $redirectUrl)) {
+            if ($this->usesHostedPage()) {
+                // The hosted page returns a URL and nothing else; that is the
+                // whole instruction, so the per-channel checks do not apply.
+                if ($redirectUrl === null) {
+                    throw new RuntimeException('Respons iPaymu tidak berisi tautan pembayaran.');
+                }
+
+                $instructions = [
+                    'type' => 'redirect',
+                    'steps' => [
+                        'Klik tombol di bawah untuk membuka halaman pembayaran iPaymu.',
+                        'Pilih metode bayar di sana — QRIS, virtual account, atau e-wallet.',
+                        'Status pesanan diperbarui otomatis setelah pembayaran diterima.',
+                    ],
+                ];
+            } elseif (! $this->hasPayableInstructions($method, $instructions, $redirectUrl)) {
                 throw new RuntimeException(
                     'Respons iPaymu tidak berisi QR, nomor pembayaran, atau tautan pembayaran.'
                 );
@@ -445,6 +463,41 @@ class IpaymuProvider implements PaymentProviderInterface
             .'atau tunnel seperti ngrok, lalu sesuaikan APP_URL.',
             config('app.url'),
         );
+    }
+
+    /** True when charges go through iPaymu's own checkout page. */
+    private function usesHostedPage(): bool
+    {
+        return strtolower($this->mode) !== 'direct';
+    }
+
+    private function endpoint(): string
+    {
+        return $this->usesHostedPage() ? '/payment' : '/payment/direct';
+    }
+
+    /**
+     * The hosted page itemises the cart instead of taking one total, and picks
+     * the payment method on its own screen rather than from the request.
+     */
+    private function shapeForEndpoint(array $payload): array
+    {
+        if (! $this->usesHostedPage()) {
+            return $payload;
+        }
+
+        $amount = (int) round((float) ($payload['amount'] ?? 0));
+
+        $payload['product'] = [$payload['comments'] ?? 'Pembayaran'];
+        $payload['qty'] = [1];
+        $payload['price'] = [$amount];
+
+        // Sent as returnUrl/cancelUrl by the hosted page's own naming.
+        $payload['returnUrl'] = $payload['successUrl'] ?? config('app.url');
+
+        unset($payload['amount'], $payload['paymentMethod'], $payload['paymentChannel'], $payload['successUrl']);
+
+        return $payload;
     }
 
     private function requestSignature(string $method, string $body): string

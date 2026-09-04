@@ -63,6 +63,18 @@ return [
             // MERCHANT keeps the buyer total equal to the amount verified by
             // JualanYok when iPaymu sends its callback.
             'fee_direction' => env('IPAYMU_FEE_DIRECTION', 'MERCHANT'),
+
+            /*
+             * How the charge is raised.
+             *
+             * `redirect` uses iPaymu's own checkout page and works on any
+             * merchant account. `direct` renders the QR inside JualanYok, but
+             * needs the account to be approved for API charging — without that
+             * approval every attempt comes back "Suspicious buyer", which reads
+             * like a problem with the payer rather than a permission that was
+             * never granted. Redirect is the default because it always works.
+             */
+            'mode' => env('IPAYMU_MODE', 'redirect'),
         ],
 
         'midtrans' => [

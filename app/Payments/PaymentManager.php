@@ -45,6 +45,7 @@ class PaymentManager
                 $config['api_key'] ?? '',
                 (bool) ($config['production'] ?? false),
                 $config['fee_direction'] ?? 'MERCHANT',
+                $config['mode'] ?? 'redirect',
             ),
             'midtrans' => new MidtransProvider(
                 $config['server_key'] ?? '',

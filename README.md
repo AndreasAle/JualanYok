@@ -601,6 +601,39 @@ ada jalur "manual" kedua yang lebih lemah.**
 
 ---
 
+## Mode pembayaran iPaymu
+
+iPaymu punya dua cara menagih, dan akun biasa hanya boleh memakai salah satunya.
+
+```
+IPAYMU_MODE=redirect   # default
+```
+
+| Mode | Endpoint | Tampilan | Syarat |
+|---|---|---|---|
+| `redirect` | `/api/v2/payment` | Pembeli diarahkan ke halaman checkout iPaymu | Jalan di semua akun |
+| `direct` | `/api/v2/payment/direct` | QR tampil di dalam JualanYok | Akun harus disetujui iPaymu untuk API charging |
+
+**Tanpa persetujuan itu, `direct` selalu gagal** dengan `HTTP 406 {"Message":"Suspicious buyer"}`
+— pesan yang terdengar seperti masalah pembeli, padahal ini izin yang memang
+belum pernah diberikan. Karena itu default-nya `redirect`.
+
+### Kalau iPaymu menolak
+
+```bash
+php artisan jualanyok:ipaymu-doctor --user=email@kamu.id --send
+```
+
+Perintah itu memeriksa konfigurasi dan format nomor, lalu menguji empat jalur
+(direct QRIS, direct VA, nominal lebih besar, dan halaman checkout) dan
+mencetak balasan mentah iPaymu apa adanya. Kalau hanya halaman checkout yang
+diterima, akunmu memang belum disetujui untuk `direct` — tetap di `redirect`,
+atau minta persetujuan ke support iPaymu.
+
+Tiap uji membuat tagihan asli yang tidak dibayar; semuanya kedaluwarsa sendiri.
+
+---
+
 ## Email
 
 Alur email akun sudah lengkap dan berbahasa Indonesia:
