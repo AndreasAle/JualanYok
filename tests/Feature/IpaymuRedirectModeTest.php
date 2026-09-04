@@ -171,8 +171,11 @@ class IpaymuRedirectModeTest extends TestCase
         $payment = app(PaymentService::class)->createPayment($this->order(), 'ipaymu', 'qris', 'mpm');
 
         $this->assertSame(PaymentStatus::Failed, $payment->status);
+
+        // Failed, rather than a pending page with nothing on it to pay. The
+        // payer sees the same neutral wording as any other refusal.
         $this->assertStringContainsString(
-            'tautan pembayaran',
+            'Tagihan belum berhasil dibuat',
             (string) $payment->attempts()->latest('id')->value('error'),
         );
     }

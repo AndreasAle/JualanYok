@@ -40,9 +40,15 @@ class IpaymuProvider implements PaymentProviderInterface
         return 'ipaymu';
     }
 
+    /**
+     * Shown to buyers, so it names the service rather than the processor behind
+     * it. Which gateway settles the money is our arrangement, not theirs, and a
+     * brand they do not recognise on a payment screen reads as a redirect
+     * somewhere they did not intend to go.
+     */
     public function displayName(): string
     {
-        return 'iPaymu';
+        return 'Pembayaran Online';
     }
 
     public function supportedMethods(): array
@@ -81,7 +87,7 @@ class IpaymuProvider implements PaymentProviderInterface
         if (blank($this->va) || blank($this->apiKey)) {
             return new PaymentResult(
                 status: PaymentStatus::Failed,
-                error: 'Kredensial iPaymu belum dikonfigurasi.',
+                error: 'Metode pembayaran ini belum siap. Pilih metode lain dulu ya.',
             );
         }
 
@@ -97,7 +103,7 @@ class IpaymuProvider implements PaymentProviderInterface
             return new PaymentResult(
                 status: PaymentStatus::Failed,
                 error: blank($order->customer_phone)
-                    ? 'Nomor WhatsApp diperlukan untuk pembayaran iPaymu.'
+                    ? 'Nomor WhatsApp diperlukan untuk metode pembayaran ini.'
                     : 'Nomor WhatsApp pembeli belum berformat nomor HP Indonesia yang valid (contoh: 081234567890).',
             );
         }
@@ -156,7 +162,7 @@ class IpaymuProvider implements PaymentProviderInterface
             return new PaymentResult(
                 status: PaymentStatus::Failed,
                 reference: $reference,
-                error: 'Kredensial iPaymu belum dikonfigurasi.',
+                error: 'Metode pembayaran ini belum siap. Pilih metode lain dulu ya.',
             );
         }
 
@@ -183,7 +189,7 @@ class IpaymuProvider implements PaymentProviderInterface
             $rawResponse = is_array($response) ? $response : [];
 
             if ((int) ($response['Status'] ?? 0) !== 200 || ($response['Success'] ?? false) !== true) {
-                throw new RuntimeException((string) ($response['Message'] ?? 'iPaymu menolak pembuatan pembayaran.'));
+                throw new RuntimeException((string) ($response['Message'] ?? 'Penyedia pembayaran menolak tagihan ini.'));
             }
 
             $data = $this->responseData($response['Data'] ?? []);
@@ -196,20 +202,20 @@ class IpaymuProvider implements PaymentProviderInterface
                 // The hosted page returns a URL and nothing else; that is the
                 // whole instruction, so the per-channel checks do not apply.
                 if ($redirectUrl === null) {
-                    throw new RuntimeException('Respons iPaymu tidak berisi tautan pembayaran.');
+                    throw new RuntimeException('Balasan penyedia pembayaran tidak berisi tautan pembayaran.');
                 }
 
                 $instructions = [
                     'type' => 'redirect',
                     'steps' => [
-                        'Klik tombol di bawah untuk membuka halaman pembayaran iPaymu.',
+                        'Klik tombol di bawah untuk membuka halaman pembayaran.',
                         'Pilih metode bayar di sana — QRIS, virtual account, atau e-wallet.',
                         'Status pesanan diperbarui otomatis setelah pembayaran diterima.',
                     ],
                 ];
             } elseif (! $this->hasPayableInstructions($method, $instructions, $redirectUrl)) {
                 throw new RuntimeException(
-                    'Respons iPaymu tidak berisi QR, nomor pembayaran, atau tautan pembayaran.'
+                    'Balasan penyedia pembayaran tidak berisi QR, nomor pembayaran, atau tautan.'
                 );
             }
 
@@ -266,7 +272,7 @@ class IpaymuProvider implements PaymentProviderInterface
                 fee: (float) $payment->fee,
                 expiresAt: $payment->expires_at,
                 paidAt: $payment->paid_at,
-                error: 'ID transaksi iPaymu belum tersimpan. Menunggu callback pembayaran.',
+                error: 'ID transaksi belum tersimpan. Menunggu konfirmasi pembayaran.',
             );
         }
 
@@ -354,7 +360,7 @@ class IpaymuProvider implements PaymentProviderInterface
                 fee: $fee,
                 expiresAt: $expiresAt,
                 paidAt: $paidAt,
-                error: 'Status iPaymu belum dapat diperiksa. Coba lagi beberapa saat.',
+                error: 'Status pembayaran belum dapat diperiksa. Coba lagi beberapa saat.',
                 raw: $rawResponse,
             );
         }
@@ -428,7 +434,7 @@ class IpaymuProvider implements PaymentProviderInterface
         return new PaymentResult(
             status: $payment->status,
             reference: $payment->reference,
-            error: 'Refund iPaymu diproses dari dashboard merchant oleh tim finance.',
+            error: 'Refund diproses manual oleh tim finance ke rekening pembeli.',
         );
     }
 
@@ -445,7 +451,9 @@ class IpaymuProvider implements PaymentProviderInterface
         $host = strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST));
 
         if ($host === '') {
-            return 'APP_URL belum diisi, jadi iPaymu tidak punya alamat untuk mengabari pembayaran.';
+            Log::error('ipaymu.missing_app_url');
+
+            return 'Metode pembayaran ini belum siap dipakai. Pilih metode lain dulu ya.';
         }
 
         $isLocal = in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)
@@ -457,12 +465,9 @@ class IpaymuProvider implements PaymentProviderInterface
             return null;
         }
 
-        return sprintf(
-            'iPaymu tidak bisa dipakai dari alamat lokal (APP_URL = %s). '
-            .'Callback pembayaran harus bisa dijangkau dari internet — pakai domain publik, '
-            .'atau tunnel seperti ngrok, lalu sesuaikan APP_URL.',
-            config('app.url'),
-        );
+        Log::error('ipaymu.unreachable_callback', ['app_url' => config('app.url')]);
+
+        return 'Metode pembayaran ini belum siap dipakai. Pilih metode lain dulu ya.';
     }
 
     /** True when charges go through iPaymu's own checkout page. */
@@ -550,34 +555,29 @@ class IpaymuProvider implements PaymentProviderInterface
         ];
     }
 
+    /**
+     * What the payer is shown when a charge cannot be raised.
+     *
+     * Deliberately says nothing about which processor refused or why. The payer
+     * can act on "try another method"; they cannot act on a signature mismatch
+     * or an unapproved merchant account, and naming our infrastructure on a
+     * payment screen only makes a failure look less trustworthy.
+     *
+     * The real reason is written to the log by the caller, and
+     * `jualanyok:ipaymu-doctor` reproduces it in full.
+     */
     private function publicError(Throwable $error): string
     {
-        $message = $error instanceof RequestException
+        $message = strtolower($error instanceof RequestException
             ? (string) ($error->response->json('Message') ?: $error->response->json('message'))
-            : $error->getMessage();
+            : $error->getMessage());
 
-        $normalisedMessage = strtolower($message);
-
-        if (str_contains($normalisedMessage, 'unauthorized signature')) {
-            return 'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.';
+        if (str_contains($message, 'unauthorized signature') || str_contains($message, 'suspicious buyer')) {
+            return 'Pembayaran belum bisa diproses saat ini. Coba metode pembayaran lain, '
+                .'atau hubungi kami kalau berulang.';
         }
 
-        if (str_contains($normalisedMessage, 'suspicious buyer')) {
-            /*
-             * iPaymu returns this for anything its risk engine dislikes, which
-             * in practice is most often our own submission rather than the
-             * payer: a non-routable notify URL, or an email on a domain that
-             * does not resolve. Naming those first stops the merchant from
-             * combing through a buyer who is perfectly fine.
-             */
-            return 'iPaymu menolak transaksi lewat pemeriksaan risikonya. '
-                .'Paling sering karena APP_URL belum berupa domain publik, atau email pembeli '
-                .'memakai domain yang tidak ada. Cek keduanya dulu sebelum menduga datanya pembeli.';
-        }
-
-        return filled($message)
-            ? 'iPaymu menolak pembayaran: '.str($message)->squish()->limit(160)
-            : 'Tagihan belum berhasil dibuat oleh iPaymu. Silakan pilih ulang metode pembayaran.';
+        return 'Tagihan belum berhasil dibuat. Silakan pilih ulang metode pembayaran.';
     }
 
     private function normaliseCallback(array $data): array
@@ -695,8 +695,8 @@ class IpaymuProvider implements PaymentProviderInterface
             'steps' => [
                 'Tekan tombol Lanjut ke Halaman Pembayaran.',
                 $method === 'qris'
-                    ? 'Scan QRIS yang ditampilkan iPaymu dengan aplikasi bank atau e-wallet.'
-                    : 'Selesaikan pembayaran di halaman aman iPaymu.',
+                    ? 'Scan QRIS di bawah dengan aplikasi bank atau e-wallet.'
+                    : 'Selesaikan pembayaran di halaman pembayaran yang aman.',
                 'Kembali ke halaman ini; status diperbarui otomatis.',
             ],
         ];

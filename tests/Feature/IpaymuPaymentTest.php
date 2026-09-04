@@ -57,8 +57,11 @@ class IpaymuPaymentTest extends TestCase
 
         $error = $payment->attempts()->latest('id')->first()?->error;
 
-        $this->assertStringContainsString('alamat lokal', (string) $error);
-        $this->assertStringContainsString('APP_URL', (string) $error);
+        // The payer is told what to do, not what is misconfigured — they can
+        // act on "pick another method", never on an APP_URL they cannot see.
+        $this->assertNotSame('', trim((string) $error));
+        $this->assertStringNotContainsString('APP_URL', (string) $error);
+        $this->assertStringNotContainsStringIgnoringCase('ipaymu', (string) $error);
 
         // Nothing was sent: a bill that cannot be reported on is worse than none.
         Http::assertNothingSent();
@@ -135,16 +138,20 @@ class IpaymuPaymentTest extends TestCase
         $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'va', 'bca');
 
         $this->assertSame(PaymentStatus::Failed, $payment->status);
-        $this->assertSame(
-            'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.',
-            $payment->attempts()->latest('id')->value('error'),
-        );
+
+        $error = (string) $payment->attempts()->latest('id')->value('error');
+
+        // A signature mismatch is our problem to fix, not the payer's to read.
+        $this->assertStringNotContainsStringIgnoringCase('ipaymu', $error);
+        $this->assertStringNotContainsStringIgnoringCase('signature', $error);
+        $this->assertStringNotContainsString('API Key', $error);
+        $this->assertStringContainsString('metode pembayaran lain', $error);
 
         $this->get(route('checkout.status', $order->number))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('payment.status', PaymentStatus::Failed->value)
-                ->where('payment.error', 'Autentikasi iPaymu ditolak. Periksa kembali pasangan VA dan API Key Live.'));
+                ->where('payment.error', $error));
     }
 
     public function test_suspicious_buyer_response_is_presented_as_actionable_checkout_message(): void
@@ -170,9 +177,13 @@ class IpaymuPaymentTest extends TestCase
          * at what the merchant can actually check, or they spend the afternoon
          * inspecting a buyer who is perfectly fine.
          */
-        $this->assertStringContainsString('APP_URL', $error);
-        $this->assertStringContainsString('domain', $error);
+        // Naming the processor, the signature or our own configuration on a
+        // payment screen tells the payer nothing they can use, and makes a
+        // failure look less trustworthy than it is.
+        $this->assertStringNotContainsStringIgnoringCase('ipaymu', $error);
+        $this->assertStringNotContainsString('APP_URL', $error);
         $this->assertStringNotContainsString('Periksa kembali data pembeli', $error);
+        $this->assertStringContainsString('metode pembayaran lain', $error);
 
         $this->get(route('checkout.status', $order->number))
             ->assertOk()
@@ -228,7 +239,10 @@ class IpaymuPaymentTest extends TestCase
         $payment = app(PaymentService::class)->createPayment($order, 'ipaymu', 'qris', 'mpm');
 
         $this->assertSame(PaymentStatus::Failed, $payment->status);
-        $this->assertStringContainsString('tidak berisi QR', $payment->attempts()->latest('id')->value('error'));
+        $this->assertStringContainsString(
+            'Tagihan belum berhasil dibuat',
+            (string) $payment->attempts()->latest('id')->value('error'),
+        );
     }
 
     public function test_verified_callback_settles_once_and_replay_is_idempotent(): void

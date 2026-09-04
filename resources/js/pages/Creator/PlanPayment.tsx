@@ -150,7 +150,7 @@ export default function PlanPayment({
                 title={isPaid ? 'Paket berhasil diaktifkan' : `Bayar paket ${payment.plan_name}`}
                 description={
                     automatic
-                        ? 'Selesaikan pembayaran melalui iPaymu. Paket aktif otomatis setelah pembayaran diterima.'
+                        ? 'Selesaikan pembayaran di halaman yang aman. Paket aktif otomatis setelah pembayaran diterima.'
                         : 'Scan QR dan bayar dengan nominal yang persis sama.'
                 }
                 breadcrumbs={[{ label: 'Langganan', href: '/dashboard/langganan' }, { label: 'Pembayaran' }]}
@@ -212,7 +212,7 @@ export default function PlanPayment({
                                     <CardTitle>{automatic ? 'Instruksi pembayaran' : 'Scan QRIS'}</CardTitle>
                                     <p className="mt-1 text-sm text-muted">
                                         {automatic
-                                            ? 'Tagihan aman diproses oleh iPaymu.'
+                                            ? 'Tagihan diproses lewat koneksi pembayaran yang aman.'
                                             : 'Bayar dari aplikasi bank atau e-wallet.'}
                                     </p>
                                 </div>
@@ -275,7 +275,7 @@ export default function PlanPayment({
                                         href={payment.redirect_url}
                                         className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-[var(--radius-field)] gradient-brand px-5 font-bold text-white shadow-soft transition hover:brightness-105"
                                     >
-                                        Lanjut ke halaman pembayaran iPaymu
+                                        Lanjut ke Pembayaran
                                         <ExternalLink className="size-4" />
                                     </a>
                                 )}
@@ -365,7 +365,7 @@ export default function PlanPayment({
                                             disabled={syncing}
                                         >
                                             <RefreshCw className={syncing ? 'animate-spin' : ''} />
-                                            {syncing ? 'Mengecek iPaymu…' : 'Cek status pembayaran'}
+                                            {syncing ? 'Mengecek…' : 'Cek status pembayaran'}
                                         </Button>
                                     )}
 
@@ -430,7 +430,7 @@ export default function PlanPayment({
                             <p className="flex items-center justify-center gap-1.5 text-xs text-muted">
                                 <ShieldCheck className="size-3.5" />
                                 {automatic
-                                    ? 'Status diverifikasi otomatis oleh iPaymu.'
+                                    ? 'Status pembayaran diverifikasi otomatis.'
                                     : `Batas pembayaran ${windowMinutes} menit.`}
                             </p>
                         </div>

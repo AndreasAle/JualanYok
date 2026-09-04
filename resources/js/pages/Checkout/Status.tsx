@@ -310,7 +310,7 @@ export default function CheckoutStatus({
                                             disabled={syncing}
                                         >
                                             <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
-                                            {syncing ? 'Mengecek iPaymu…' : 'Cek Status'}
+                                            {syncing ? 'Mengecek…' : 'Cek Status'}
                                         </Button>
                                     )}
 

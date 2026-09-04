@@ -75,9 +75,13 @@ class PlanPaymentService
         return $this->usesIpaymu();
     }
 
+    /**
+     * Shown to creators, so it names the experience rather than the processor.
+     * Which gateway settles the money is our arrangement, not theirs.
+     */
     public function providerName(): string
     {
-        return $this->usesIpaymu() ? 'iPaymu' : 'QRIS manual';
+        return $this->usesIpaymu() ? 'Pembayaran Online' : 'QRIS manual';
     }
 
     public function merchantName(): ?string

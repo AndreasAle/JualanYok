@@ -188,7 +188,8 @@ class IpaymuPlanPaymentTest extends TestCase
                 ->where('billing.enabled', true)
                 ->where('billing.provider', 'ipaymu')
                 ->where('billing.automatic', true)
-                ->where('billing.provider_name', 'iPaymu'));
+                // Named for the experience, not the processor behind it.
+                ->where('billing.provider_name', 'Pembayaran Online'));
     }
 
     private function creator(): User

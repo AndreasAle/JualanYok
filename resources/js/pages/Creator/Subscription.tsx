@@ -64,10 +64,10 @@ export default function Subscription({
                 <div className="mb-4">
                     <Alert
                         tone="info"
-                        title={billing.automatic ? 'Pembayaran langganan via iPaymu' : 'Pembayaran lewat QRIS'}
+                        title={billing.automatic ? 'Pembayaran langganan otomatis' : 'Pembayaran lewat QRIS'}
                     >
                         {billing.automatic
-                            ? 'Bayar paket dengan QRIS aman dari iPaymu. Status diverifikasi otomatis dan paket langsung aktif setelah pembayaran diterima—tanpa menunggu admin.'
+                            ? 'Bayar paket lewat halaman pembayaran yang aman. Status diverifikasi otomatis dan paket langsung aktif setelah pembayaran diterima—tanpa menunggu admin.'
                             : `Upgrade dibayar dengan scan QRIS${billing.merchant ? ` ke ${billing.merchant}` : ''}. Paket aktif setelah admin mengonfirmasi dana masuk.`}
                     </Alert>
                 </div>
@@ -224,7 +224,7 @@ export default function Subscription({
                                         price === 0
                                             ? 'Kamu akan turun ke paket Gratis dengan limit yang lebih kecil.'
                                             : billing.enabled
-                                              ? `Kamu akan membuat tagihan ${billing.provider_name} sebesar ${formatIDR(price)}. Paket aktif otomatis setelah pembayaran diterima.`
+                                              ? `Kamu akan membuat tagihan sebesar ${formatIDR(price)}. Paket aktif otomatis setelah pembayaran diterima.`
                                               : `Kamu akan ditagih ${formatIDR(price)} per ${yearly ? 'tahun' : 'bulan'}.`
                                     }
                                     confirmLabel="Ya, lanjut"
