@@ -19,6 +19,7 @@ type ShippingQuote = { provider: string; courier_company: string; courier_name: 
 export function CheckoutSheet({
     product = null,
     variantId = null,
+    quantity: initialQuantity = 1,
     cart = null,
     storeUsername,
     isPreview,
@@ -28,6 +29,8 @@ export function CheckoutSheet({
     product?: StorefrontProduct | null;
     /** Chosen on the product page; the server re-validates it belongs here. */
     variantId?: number | null;
+    /** Seeded from the product page's own stepper, so the choice carries over. */
+    quantity?: number;
     cart?: CartPayload | null;
     storeUsername: string;
     isPreview: boolean;
@@ -35,7 +38,7 @@ export function CheckoutSheet({
     onClose: () => void;
 }) {
     const fromCart = !product;
-    const [quantity, setQuantity] = useState(1);
+    const [quantity, setQuantity] = useState(Math.max(1, initialQuantity));
     const [customPrice, setCustomPrice] = useState(product?.minimum_price ?? 0);
     const [areaQuery, setAreaQuery] = useState('');
     const [areas, setAreas] = useState<AreaResult[]>([]);

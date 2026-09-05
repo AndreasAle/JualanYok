@@ -8,6 +8,7 @@ use App\Models\AffiliateLink;
 use App\Models\AnalyticsEvent;
 use App\Models\Block;
 use App\Models\Cart;
+use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\Store;
 use App\Services\AffiliateService;
@@ -16,6 +17,7 @@ use App\Services\CartService;
 use App\Services\CheckoutService;
 use App\Services\ShippingService;
 use App\Support\Media;
+use App\Support\Phone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
@@ -76,7 +78,7 @@ class StorefrontController extends Controller
         $this->analytics->record($store, AnalyticsEvent::PRODUCT_VIEW, $product, $context);
         $product->increment('view_count');
 
-        $product->load(['media', 'variants', 'files', 'course.sections.lessons', 'event.tickets', 'service.availabilityRules', 'membershipPlans']);
+        $product->load(['media', 'variants', 'files', 'category', 'inventories', 'course.sections.lessons', 'event.tickets', 'service.availabilityRules', 'membershipPlans']);
 
         // The variants belong to the product we already have, so hand it to them
         // rather than letting each one fetch its own copy.
@@ -97,10 +99,12 @@ class StorefrontController extends Controller
                 ->whereKeyNot($product->id)
                 ->with('media')
                 ->withCount(['files', 'activeVariants'])
-                ->limit(4)
+                ->limit(8)
                 ->get()
                 ->map(fn ($p) => $this->productPayload($p, $store->username)),
             'cart' => $this->cartPayload($request, $store),
+            'seller' => $this->sellerPayload($store),
+            'vouchers' => $this->voucherPayload($store, $product),
         ])->withViewData('socialMeta', [
             'title' => "{$product->name} — {$store->name}",
             'description' => $socialDescription,
@@ -355,6 +359,61 @@ class StorefrontController extends Controller
         ));
     }
 
+    /**
+     * The seller, as a buyer weighing them up sees them.
+     *
+     * Only facts the platform can vouch for: how long the shop has been open,
+     * how much it has actually sold, how many products it carries. A shop with
+     * nothing behind it should look like one.
+     */
+    private function sellerPayload(Store $store): array
+    {
+        $store->loadMissing('shippingProfile');
+
+        return [
+            'name' => $store->name,
+            'username' => $store->username,
+            'avatar_url' => $store->avatarUrl(),
+            'public_url' => $store->publicUrl(),
+            'whatsapp' => $store->whatsapp ? Phone::international($store->whatsapp) : null,
+            'products_count' => $store->products()->publiclyListed()->count(),
+            'sales_count' => (int) $store->products()->sum('sales_count'),
+            'joined_human' => $store->created_at?->diffForHumans(syntax: true),
+            'origin' => $store->shippingProfile
+                ? trim($store->shippingProfile->city.', '.$store->shippingProfile->province, ', ')
+                : null,
+        ];
+    }
+
+    /**
+     * Store vouchers a buyer could actually use on this product.
+     *
+     * A coupon restricted to other products, already exhausted, or outside its
+     * window is not an offer — showing it would only produce a rejection at
+     * checkout. The code itself is public by design; it is meant to be typed in.
+     */
+    private function voucherPayload(Store $store, Product $product): array
+    {
+        return $store->coupons()
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+            ->get()
+            ->filter(fn (Coupon $c) => $c->usage_limit === null || $c->used_count < $c->usage_limit)
+            ->filter(fn (Coupon $c) => blank($c->product_ids) || in_array($product->id, $c->product_ids))
+            ->take(4)
+            ->values()
+            ->map(fn (Coupon $c) => [
+                'code' => $c->code,
+                'label' => $c->type === 'percentage'
+                    ? 'Diskon '.rtrim(rtrim(number_format((float) $c->value, 2, ',', '.'), '0'), ',').'%'
+                    : 'Potongan '.'Rp'.number_format((float) $c->value, 0, ',', '.'),
+                'min_order' => (float) $c->min_order_amount,
+                'ends_at' => $c->ends_at?->translatedFormat('d M Y'),
+            ])
+            ->all();
+    }
+
     private function storePayload(Store $store): array
     {
         $store->loadMissing(['theme', 'template']);
@@ -527,6 +586,15 @@ class StorefrontController extends Controller
 
         return $base + [
             'description' => $product->description,
+            'sku' => $product->sku,
+            'category' => $product->category?->name,
+            'view_count' => (int) $product->view_count,
+            // Physical stock lives on inventory rows, one per variant; a
+            // digital product has none and must not report "0 tersisa".
+            'stock' => $product->type === ProductType::Physical
+                ? (int) $product->inventories->sum(fn ($i) => $i->availableQuantity())
+                : null,
+            'weight_gram' => $product->variants->max('weight_gram') ?: null,
             'terms' => $product->terms,
             'checkout_message' => $product->checkout_message,
             'custom_fields' => $product->custom_fields ?? [],
