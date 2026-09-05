@@ -164,6 +164,11 @@
 
 .animate-rise { animation: jy-rise 0.45s var(--ease-snap) both; }
 
+@keyframes jy-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 /* Marketing landing page -------------------------------------------------- */
 .marketing-light {
     color-scheme: light;

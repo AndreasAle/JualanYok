@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Eye } from 'lucide-react';
 import { useState } from 'react';
 import { CartSheet } from '@/components/storefront/CartSheet';
+import { ExternalRedirectSheet } from '@/components/storefront/ExternalRedirectSheet';
 import { CheckoutSheet } from '@/components/storefront/CheckoutSheet';
 import { PurchaseChoiceSheet } from '@/components/storefront/PurchaseChoiceSheet';
 import { StorefrontView, type StorefrontStore } from '@/components/storefront/MarketplaceStorefrontView';
@@ -11,7 +12,7 @@ import type { CartPayload, StorefrontBlock, StorefrontProduct } from '@/types';
 export type { StorefrontStore };
 
 /** Which sheet is on screen. Only one at a time — they cover the same space. */
-type Sheet = { kind: 'purchase-choice'; product: StorefrontProduct } | { kind: 'product'; product: StorefrontProduct } | { kind: 'cart' } | { kind: 'checkout-cart' } | null;
+type Sheet = { kind: 'purchase-choice'; product: StorefrontProduct } | { kind: 'product'; product: StorefrontProduct } | { kind: 'external'; product: StorefrontProduct } | { kind: 'cart' } | { kind: 'checkout-cart' } | null;
 
 export default function StorefrontShow({
     store,
@@ -39,7 +40,10 @@ export default function StorefrontShow({
 
     const buy = (product: StorefrontProduct) => {
         if (product.type === 'EXTERNAL') {
-            if (product.external_url && !isPreview) window.location.assign(product.external_url);
+            // Confirmed first. An affiliate tile looks like a product this shop
+            // sells, so replacing the page with a marketplace unannounced reads
+            // as being hijacked.
+            if (product.external_url && !isPreview) setSheet({ kind: 'external', product });
             return;
         }
 
@@ -89,6 +93,15 @@ export default function StorefrontShow({
                     storeUsername={store.username}
                     isPreview={isPreview}
                     theme={theme}
+                    onClose={() => setSheet(null)}
+                />
+            )}
+
+            {sheet?.kind === 'external' && (
+                <ExternalRedirectSheet
+                    product={sheet.product}
+                    theme={theme}
+                    onConfirm={() => window.location.assign(sheet.product.external_url!)}
                     onClose={() => setSheet(null)}
                 />
             )}

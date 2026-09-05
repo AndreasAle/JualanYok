@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CartSheet } from '@/components/storefront/CartSheet';
+import { ExternalRedirectSheet } from '@/components/storefront/ExternalRedirectSheet';
 import { ChatSheet } from '@/components/storefront/ChatSheet';
 import { CheckoutSheet } from '@/components/storefront/CheckoutSheet';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -134,6 +135,7 @@ export default function StorefrontProductPage({
     const [cartOpen, setCartOpen] = useState(false);
     const [cartCheckout, setCartCheckout] = useState(false);
     const [chatOpen, setChatOpen] = useState(false);
+    const [leaving, setLeaving] = useState<StorefrontProduct | null>(null);
     const [activeImage, setActiveImage] = useState(0);
     const [quantity, setQuantity] = useState(Math.max(1, product.min_quantity || 1));
     const [picked, setPicked] = useState<Record<string, string>>({});
@@ -189,7 +191,9 @@ export default function StorefrontProductPage({
         if (needsVariant) return;
 
         if (product.type === 'EXTERNAL') {
-            if (product.external_url) window.location.assign(product.external_url);
+            // Announced before it happens: this page looks like the shop's own
+            // product, and the jump to a marketplace should be a choice.
+            if (product.external_url) setLeaving(product);
             return;
         }
 
@@ -726,7 +730,7 @@ export default function StorefrontProductPage({
                                     key={item.id}
                                     product={item}
                                     theme={theme}
-                                    onBuy={() => item.external_url ? window.open(item.external_url, '_blank', 'noopener,noreferrer') : setPurchaseChoice(item)}
+                                    onBuy={() => (item.external_url ? setLeaving(item) : setPurchaseChoice(item))}
                                     onAddToCart={() => addToCart(item)}
                                     onOpen={() => {
                                         window.location.href = `/${store.username}/p/${item.slug}`;
@@ -813,6 +817,15 @@ export default function StorefrontProductPage({
                         setPurchaseChoice(null);
                     }}
                     onClose={() => setPurchaseChoice(null)}
+                />
+            )}
+
+            {leaving && (
+                <ExternalRedirectSheet
+                    product={leaving}
+                    theme={theme}
+                    onConfirm={() => window.location.assign(leaving.external_url!)}
+                    onClose={() => setLeaving(null)}
                 />
             )}
 
