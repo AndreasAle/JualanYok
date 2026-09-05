@@ -34,6 +34,7 @@ Route::middleware(['auth', 'creator'])
 
         /* Buyer conversations */
         Route::get('/chat', [ChatController::class, 'index'])->name('chat');
+        Route::put('/chat/balasan-otomatis', [ChatController::class, 'autoReply'])->name('chat.auto-reply');
         Route::get('/chat/{conversation}/pesan', [ChatController::class, 'messages'])
             ->middleware('throttle:120,1')
             ->name('chat.messages');

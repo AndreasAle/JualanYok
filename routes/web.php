@@ -138,3 +138,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/panduan/{tour}', [\App\Http\Controllers\TourController::class, 'update'])->name('tours.update');
     Route::post('/panduan/{tour}/ulangi', [\App\Http\Controllers\TourController::class, 'replay'])->name('tours.replay');
 });
+
+/*
+ * Files sent inside a chat. Signed and short-lived, and the caller still has to
+ * be one of the two people in the conversation.
+ */
+Route::get('/chat/lampiran/{attachment}', \App\Http\Controllers\ChatAttachmentController::class)
+    ->middleware(['signed', 'throttle:120,1'])
+    ->name('chat.attachment');

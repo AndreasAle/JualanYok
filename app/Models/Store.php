@@ -28,6 +28,8 @@ class Store extends Model
             'published_at' => 'datetime',
             'featured_at' => 'datetime',
             'show_platform_branding' => 'boolean',
+            'chat_auto_reply_enabled' => 'boolean',
+            'chat_seen_at' => 'datetime',
         ];
     }
 

@@ -12,7 +12,7 @@ class Conversation extends Model
 
     protected function casts(): array
     {
-        return ['last_message_at' => 'datetime'];
+        return ['last_message_at' => 'datetime', 'buyer_seen_at' => 'datetime'];
     }
 
     public function store(): BelongsTo

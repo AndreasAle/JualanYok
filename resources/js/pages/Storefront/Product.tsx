@@ -836,6 +836,8 @@ export default function StorefrontProductPage({
                     storeAvatar={seller.avatar_url}
                     productId={product.id}
                     productName={product.name}
+                    productImage={product.thumbnail_url}
+                    productPrice={product.price}
                     whatsapp={seller.whatsapp}
                     theme={theme}
                     onClose={() => setChatOpen(false)}
