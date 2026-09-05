@@ -252,10 +252,10 @@ export default function Builder({
             )}
 
             {/* Toolbar */}
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">Atur Tampilan</h1>
-                    <p className="text-sm text-muted">
+                    <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Atur Tampilan</h1>
+                    <p className="text-[0.8125rem] text-muted sm:text-sm">
                         Susun block tokomu. Perubahan tersimpan otomatis sebagai draft.
                     </p>
                 </div>
@@ -267,7 +267,7 @@ export default function Builder({
                         href={`/${store.username}/preview`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-field)] border border-line px-4 text-sm font-semibold hover:bg-surface-2"
+                        className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-[var(--radius-field)] border border-line px-3 text-[0.8125rem] font-semibold hover:bg-surface-2 sm:h-11 sm:flex-none sm:px-4 sm:text-sm"
                     >
                         <Eye className="size-4" />
                         Buka pratinjau
@@ -277,6 +277,7 @@ export default function Builder({
                         <Button
                             data-tour="publish"
                             variant="gradient"
+                            className="h-10 flex-1 px-3 text-[0.8125rem] sm:h-11 sm:flex-none sm:px-5 sm:text-sm"
                             onClick={() => router.post('/dashboard/toko/publish', {}, { preserveScroll: true })}
                         >
                             <Rocket className="size-4" />
@@ -286,6 +287,7 @@ export default function Builder({
                         <Button
                             data-tour="publish"
                             variant="gradient"
+                            className="h-10 flex-1 px-3 text-[0.8125rem] sm:h-11 sm:flex-none sm:px-5 sm:text-sm"
                             onClick={() => router.post('/dashboard/toko/publish', {}, { preserveScroll: true })}
                         >
                             <Rocket className="size-4" />
@@ -324,12 +326,25 @@ export default function Builder({
                 ))}
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[260px_1fr_380px]">
-                {/* Block list */}
-                <div className={cn(mobileTab === 'blocks' ? 'block' : 'hidden', 'lg:block')}>
-                    <Card className="p-3">
+            {/*
+                Three columns need the width for three. At lg the sidebar takes
+                264px and the two fixed rails another 640, which left the editor
+                — the column actually being worked in — about twenty pixels
+                wide. Two columns until xl, and every column allowed to shrink.
+            */}
+            <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_360px]">
+                {/* Block list, and the store-wide settings under it */}
+                <div
+                    className={cn(
+                        'min-w-0',
+                        mobileTab === 'preview' ? 'hidden' : 'block',
+                        mobileTab === 'edit' && 'order-2',
+                        'lg:order-none lg:block',
+                    )}
+                >
+                    <Card className={cn('p-3', mobileTab === 'blocks' ? 'block' : 'hidden', 'lg:block')}>
                         <div className="mb-2 flex items-center justify-between px-1">
-                            <p className="text-sm font-bold">
+                            <p className="text-sm font-semibold">
                                 Block{' '}
                                 <span className="text-muted">
                                     ({limits.blocks_used}
@@ -432,7 +447,7 @@ export default function Builder({
                     </Card>
 
                     {/* Store appearance */}
-                    <Card className="mt-3 overflow-hidden p-0">
+                    <Card className={cn('overflow-hidden p-0 lg:mt-3', mobileTab === 'edit' ? 'block' : 'hidden', 'lg:block')}>
                         <div
                             className="relative h-24 overflow-hidden border-b border-line"
                             style={{ background: themeDraft.background_type === 'image' ? `center / cover url("${themeDraft.background_value}")` : themeDraft.background_type === 'gradient' && !themeDraft.background_value.includes('gradient(') ? `linear-gradient(145deg, ${themeDraft.primary_color}18, ${themeDraft.accent_color}22)` : themeDraft.background_value }}
@@ -455,7 +470,7 @@ export default function Builder({
                     </Card>
 
                     {/* Templates */}
-                    <Card className="mt-3 p-4">
+                    <Card className={cn('mt-3 p-4', mobileTab === 'edit' ? 'block' : 'hidden', 'lg:block')}>
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                                 <p className="text-sm font-bold">Template</p>
@@ -494,7 +509,7 @@ export default function Builder({
                 </div>
 
                 {/* Editor */}
-                <div className={cn(mobileTab === 'edit' ? 'block' : 'hidden', 'lg:block')}>
+                <div className={cn('min-w-0', mobileTab === 'edit' ? 'block' : 'hidden', 'order-1 lg:order-none lg:block')}>
                     {active ? (
                         <BlockEditor
                             key={active.id}
@@ -515,8 +530,17 @@ export default function Builder({
                 </div>
 
                 {/* Preview */}
-                <div data-tour="preview" className={cn(mobileTab === 'preview' ? 'block' : 'hidden', 'lg:block')}>
-                    <div className="lg:sticky lg:top-24">
+                {/*
+                    On a small laptop the preview drops below the editor and
+                    takes the full width, which is more useful than a 360px rail
+                    squeezed out of a screen that has no room for one. It only
+                    becomes a sticky sidebar once there is width for three.
+                */}
+                <div
+                    data-tour="preview"
+                    className={cn('min-w-0 lg:col-span-2 xl:col-span-1', mobileTab === 'preview' ? 'block' : 'hidden', 'lg:block')}
+                >
+                    <div className="xl:sticky xl:top-24">
                         <div className="mb-3 flex items-center justify-center gap-1 rounded-[var(--radius-field)] bg-surface-2 p-1">
                             {([
                                 { key: 'mobile', icon: <Smartphone className="size-4" />, label: 'Mobile' },
