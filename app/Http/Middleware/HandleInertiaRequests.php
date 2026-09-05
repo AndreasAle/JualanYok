@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\NotificationCenterService;
 use App\Services\PlanService;
+use App\Support\Tours;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -72,6 +73,13 @@ class HandleInertiaRequests extends Middleware
                     'index_url' => '/notifikasi',
                     'read_all_url' => '/notifikasi/tandai-semua-dibaca',
                 ],
+
+            /*
+             * The guided tour for this screen, or null once the creator has
+             * finished or dismissed it. Lazy, so it costs nothing on the many
+             * routes that have no tour attached.
+             */
+            'tour' => fn () => Tours::forRequest($request, $user),
 
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

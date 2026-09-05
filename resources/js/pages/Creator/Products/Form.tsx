@@ -165,7 +165,7 @@ export default function ProductForm({
             )}
 
             <form onSubmit={submit}>
-                <div className="mb-4 flex gap-1 overflow-x-auto rounded-[var(--radius-field)] bg-surface-2 p-1">
+                <div data-tour="product-price" className="mb-4 flex gap-1 overflow-x-auto rounded-[var(--radius-field)] bg-surface-2 p-1">
                     {TABS.map((item) => (
                         <button
                             key={item.key}
@@ -190,7 +190,7 @@ export default function ProductForm({
                                     <CardTitle>Informasi produk</CardTitle>
                                 </CardHeader>
                                 <CardBody className="space-y-4">
-                                    <Field label="Jenis produk" required error={errors.type} htmlFor="type">
+                                    <Field label="Jenis produk" required error={errors.type} htmlFor="type" data-tour="product-type">
                                         <Select
                                             id="type"
                                             value={data.type}
@@ -648,7 +648,7 @@ export default function ProductForm({
                                     </Alert>
                                 )}
 
-                                <Field label="Status" error={errors.status} htmlFor="status">
+                                <Field label="Status" error={errors.status} htmlFor="status" data-tour="product-publish">
                                     <Select
                                         id="status"
                                         value={data.status}

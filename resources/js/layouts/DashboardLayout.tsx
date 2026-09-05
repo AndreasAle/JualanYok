@@ -1,12 +1,13 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
-    AlertTriangle, BarChart3, Blocks, Boxes, ChevronLeft, CreditCard, ExternalLink, Eye, Gauge, Gift,
+    AlertTriangle, BarChart3, Blocks, Boxes, ChevronLeft, CircleHelp, CreditCard, ExternalLink, Eye, Gauge, Gift,
     Handshake, IdCard, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
     Search, ShieldCheck, ShoppingBag, Store, Ticket, TrendingUp, Truck, UserCircle, Users, Wallet, X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Badge, Button } from '@/components/ui';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import TourGuide from '@/components/TourGuide';
 import { cn, initials } from '@/lib/utils';
 import type { PageProps } from '@/types';
 
@@ -146,10 +147,11 @@ export default function DashboardLayout({
     title: string;
     area?: DashboardArea;
 }) {
-    const { auth } = usePage<PageProps>().props;
+    const { auth, tour } = usePage<PageProps>().props;
     const { url } = usePage();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
+    const [replayTour, setReplayTour] = useState(0);
 
     const userRoles = auth.user?.roles ?? [];
     const nav = NAV_BY_AREA[area].map((group) => ({
@@ -165,10 +167,18 @@ export default function DashboardLayout({
         <div className="jy-dashboard-shell min-h-screen bg-app">
             <Head title={title} />
 
+            {/* Rendered last in the shell so it sits above every page's own
+                stacking context, and only when the server says this creator has
+                not already been through it. */}
+            {tour && (!tour.seen || replayTour > 0) && (
+                <TourGuide key={replayTour} tour={tour} onClose={() => setReplayTour(0)} />
+            )}
+
             {/* Sidebar — desktop */}
             <aside
+                data-tour="sidebar"
                 className={cn(
-                    'fixed inset-y-0 left-0 z-40 hidden flex-col overflow-hidden bg-[var(--nav)] text-white transition-[width] duration-200 lg:flex',
+                    'jy-tour-sidebar fixed inset-y-0 left-0 z-40 hidden flex-col overflow-hidden bg-[var(--nav)] text-white transition-[width] duration-200 lg:flex',
                     collapsed ? 'w-[76px]' : 'w-[264px]',
                 )}
             >
@@ -306,6 +316,21 @@ export default function DashboardLayout({
                         </label>
 
                         <div className="flex-1 xl:hidden" />
+
+                        {/* Only offered on screens that actually have a tour, so it
+                            never promises help it cannot give. */}
+                        {tour && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-9 rounded-lg"
+                                onClick={() => setReplayTour((n) => n + 1)}
+                                aria-label={`Panduan: ${tour.title}`}
+                                title={`Panduan: ${tour.title}`}
+                            >
+                                <CircleHelp className="size-5" />
+                            </Button>
+                        )}
 
                         <NotificationBell area={area} />
 

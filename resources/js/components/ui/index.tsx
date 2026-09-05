@@ -257,6 +257,7 @@ export function Field({
     htmlFor,
     children,
     className,
+    ...rest
 }: {
     label?: string;
     error?: string;
@@ -265,9 +266,11 @@ export function Field({
     htmlFor?: string;
     children: ReactNode;
     className?: string;
+    /** Anchors a guided-tour step to the whole field, label included. */
+    'data-tour'?: string;
 }) {
     return (
-        <div className={cn('w-full', className)}>
+        <div className={cn('w-full', className)} {...rest}>
             {label && (
                 <Label htmlFor={htmlFor} required={required}>
                     {label}

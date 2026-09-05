@@ -58,6 +58,22 @@ export interface NotificationSummary {
     read_all_url: string;
 }
 
+export interface TourStep {
+    /** `data-tour` value of the element to highlight; null shows a centred card. */
+    target: string | null;
+    title: string;
+    body: string;
+    placement: 'top' | 'bottom' | 'left' | 'right';
+}
+
+export interface Tour {
+    id: string;
+    title: string;
+    steps: TourStep[];
+    /** True once the creator has finished or dismissed it; it then only replays on request. */
+    seen: boolean;
+}
+
 export interface PageProps {
     app: { name: string; demo: boolean };
     business: {
@@ -73,6 +89,8 @@ export interface PageProps {
         impersonating: boolean;
     };
     notifications: NotificationSummary;
+    /** The guided tour for this screen, or null once it has been finished. */
+    tour: Tour | null;
     flash: {
         success: string | null;
         error: string | null;

@@ -100,7 +100,7 @@ export default function CreatorDashboard({
                 creator checks first. It replaces a dark "command center" panel
                 whose greeting and blurred glows carried no information at all.
             */}
-            <header className="mb-6 flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-start sm:justify-between">
+            <header data-tour="store-link" className="mb-6 flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                         <h1 className="truncate text-[1.375rem] font-semibold tracking-[-.02em]">{store.name}</h1>
@@ -144,7 +144,7 @@ export default function CreatorDashboard({
 
             {/* Numbers first: seven figures in one grid, each weighted the same,
                 so they can actually be compared against each other. */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div data-tour="stats" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                     label="Penjualan kotor"
                     value={formatIDR(stats.gross_revenue)}
@@ -165,7 +165,7 @@ export default function CreatorDashboard({
             </div>
 
             {/* Quick actions */}
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div data-tour="quick-actions" className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {ACTIONS.map((action) => (
                     <Link
                         key={action.key}
@@ -188,7 +188,7 @@ export default function CreatorDashboard({
 
             {/* Setup checklist — only while there is something left to do. */}
             {remaining.length > 0 && (
-                <Card className="mt-6">
+                <Card data-tour="checklist" className="mt-6">
                     <CardBody className="p-4 sm:p-5">
                         <div className="flex items-center justify-between gap-4">
                             <div>
@@ -239,7 +239,7 @@ export default function CreatorDashboard({
 
             {/* Wallet. One card, five figures, the withdrawable one given the
                 emphasis — the rest are context for it, not rival headlines. */}
-            <Card className="mt-6">
+            <Card data-tour="wallet" className="mt-6">
                 <CardBody className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,15rem)_1fr] lg:gap-10">
                     <div>
                         <p className="text-[0.8125rem] font-medium text-muted">Saldo siap dicairkan</p>

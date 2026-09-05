@@ -129,3 +129,12 @@ Route::middleware('auth')->prefix('notifikasi')->name('notifications.')->group(f
     Route::patch('/{notification}/arsip', [NotificationCenterController::class, 'archive'])->name('archive');
     Route::put('/preferensi/email', [NotificationCenterController::class, 'updatePreferences'])->name('preferences');
 });
+
+/*
+ * Guided tours. Both routes only ever write to the signed-in user's own
+ * onboarding state, and the tour id is checked against the server registry.
+ */
+Route::middleware('auth')->group(function () {
+    Route::post('/panduan/{tour}', [\App\Http\Controllers\TourController::class, 'update'])->name('tours.update');
+    Route::post('/panduan/{tour}/ulangi', [\App\Http\Controllers\TourController::class, 'replay'])->name('tours.replay');
+});

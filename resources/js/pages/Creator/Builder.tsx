@@ -275,6 +275,7 @@ export default function Builder({
 
                     {store.is_published ? (
                         <Button
+                            data-tour="publish"
                             variant="gradient"
                             onClick={() => router.post('/dashboard/toko/publish', {}, { preserveScroll: true })}
                         >
@@ -283,6 +284,7 @@ export default function Builder({
                         </Button>
                     ) : (
                         <Button
+                            data-tour="publish"
                             variant="gradient"
                             onClick={() => router.post('/dashboard/toko/publish', {}, { preserveScroll: true })}
                         >
@@ -335,6 +337,7 @@ export default function Builder({
                                 </span>
                             </p>
                             <Button
+                                data-tour="add-block"
                                 variant="gradient"
                                 size="sm"
                                 onClick={() => setPickerOpen(true)}
@@ -357,7 +360,7 @@ export default function Builder({
                                 }
                             />
                         ) : (
-                            <ul className="space-y-1">
+                            <ul data-tour="block-list" className="space-y-1">
                                 {blocks.map((block, i) => (
                                     <li key={block.id}>
                                         <div
@@ -512,7 +515,7 @@ export default function Builder({
                 </div>
 
                 {/* Preview */}
-                <div className={cn(mobileTab === 'preview' ? 'block' : 'hidden', 'lg:block')}>
+                <div data-tour="preview" className={cn(mobileTab === 'preview' ? 'block' : 'hidden', 'lg:block')}>
                     <div className="lg:sticky lg:top-24">
                         <div className="mb-3 flex items-center justify-center gap-1 rounded-[var(--radius-field)] bg-surface-2 p-1">
                             {([
