@@ -18,19 +18,23 @@ class MarketplaceController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $request->user();
+
         $products = Product::query()
             ->publiclyListed()
             ->where('affiliate_enabled', true)
-            ->whereHas('store', fn ($q) => $q->live())
+            // Your own products are not an opportunity — joining one is refused
+            // anyway, so listing them only wastes the browsing.
+            ->whereHas('store', fn ($q) => $q->live()->where('user_id', '!=', $user->id))
             ->with(['store:id,name,username', 'category:id,name'])
             ->when($request->filled('q'), fn ($q) => $q->where('name', 'like', '%'.$request->query('q').'%'))
             ->when($request->filled('category'), fn ($q) => $q->where('product_category_id', $request->query('category')))
-            ->when($request->query('sort') === 'commission', fn ($q) => $q->orderByDesc('price'))
+            ->when($request->query('sort') === 'price', fn ($q) => $q->orderByDesc('price'))
             ->when($request->query('sort') === 'popular', fn ($q) => $q->orderByDesc('sales_count'))
             ->latest()
             ->paginate(12)
             ->withQueryString()
-            ->through(function (Product $p) use ($request) {
+            ->through(function (Product $p) use ($user) {
                 $program = $this->affiliates->programFor($p);
 
                 return [
@@ -45,12 +49,12 @@ class MarketplaceController extends Controller
                     'sales_count' => $p->sales_count,
                     'commission_label' => $program
                         ? ($program->commission_type === 'percentage'
-                            ? $program->commission_value.'%'
+                            ? rtrim(rtrim(number_format((float) $program->commission_value, 2, ',', '.'), '0'), ',').'%'
                             : 'Rp'.number_format((float) $program->commission_value, 0, ',', '.'))
                         : '—',
                     'commission_amount' => $program?->commissionFor((float) $p->price) ?? 0,
                     'cookie_days' => $program?->cookie_days,
-                    'joined' => $request->user()->affiliateLinks()
+                    'joined' => $user->affiliateLinks()
                         ->where('product_id', $p->id)
                         ->exists(),
                     'public_url' => route('storefront.product', [$p->store->username, $p->slug]),
@@ -61,6 +65,10 @@ class MarketplaceController extends Controller
             'products' => $products,
             'filters' => $request->only(['q', 'category', 'sort']),
             'categories' => ProductCategory::where('is_active', true)->get(['id', 'name']),
+            // Sellers browsing here keep asking how a product gets onto this
+            // page. It takes two screens, so the page says so rather than
+            // leaving them to find out.
+            'hasStore' => (bool) $user->store,
         ]);
     }
 
