@@ -72,6 +72,8 @@ export default function ProductForm({
         initial_stock: 0,
         thumbnail: null as File | null,
         gallery: [] as File[],
+        // Stills captured from each video before upload, keyed by position.
+        gallery_posters: {} as Record<string, File>,
         removed_media_ids: [] as number[],
     });
 
@@ -95,6 +97,7 @@ export default function ProductForm({
                 onSuccess: () => {
                     setData('thumbnail', null);
                     setData('gallery', []);
+                    setData('gallery_posters', {});
                     setData('removed_media_ids', []);
                 },
             });
@@ -691,6 +694,7 @@ export default function ProductForm({
                                     removedIds={data.removed_media_ids}
                                     error={serverErrors.gallery ?? serverErrors['gallery.0']}
                                     onFilesChange={(files) => setData('gallery', files)}
+                    onPostersChange={(posters) => setData('gallery_posters', posters)}
                                     onRemovedIdsChange={(ids) => setData('removed_media_ids', ids)}
                                 />
                             </CardBody>

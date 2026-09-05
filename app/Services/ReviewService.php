@@ -72,7 +72,7 @@ class ReviewService
                     'review_id' => $review->id,
                     // Laravel names the file itself, so the uploader's own
                     // filename never reaches the disk or a public URL.
-                    'path' => $file->store("stores/{$order->store_id}/reviews", 'public'),
+                    'path' => $file->store("stores/{$order->store_id}/reviews", config('jualanyok.uploads.disk')),
                     'kind' => $kind,
                     'position' => $position,
                 ]);

@@ -38,7 +38,7 @@ class MediaController extends Controller
 
         // Laravel generates a random filename, so the uploader's original name
         // never reaches the disk or the public URL.
-        $path = $request->file('file')->store("stores/{$store->id}/blocks", 'public');
+        $path = $request->file('file')->store("stores/{$store->id}/blocks", config('jualanyok.uploads.disk'));
 
         return response()->json([
             'path' => $path,
@@ -58,7 +58,7 @@ class MediaController extends Controller
         // from removing someone else's file.
         abort_unless(str_starts_with($data['path'], "stores/{$store->id}/"), 403);
 
-        Storage::disk('public')->delete($data['path']);
+        Storage::disk(config('jualanyok.uploads.disk'))->delete($data['path']);
 
         return response()->json(['deleted' => true]);
     }

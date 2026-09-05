@@ -96,11 +96,28 @@ return [
     ],
 
     'uploads' => [
+        /*
+         * Where public media is stored.
+         *
+         * Local disk by default. Point MEDIA_DISK at an S3-compatible bucket
+         * — Cloudflare R2, Spaces, Wasabi — and every upload path follows,
+         * because nothing below writes to a disk of its own choosing. Video is
+         * what forces this decision: a shared host serves the same 25 MB clip
+         * to every visitor out of its own bandwidth allowance.
+         */
+        'disk' => env('MEDIA_DISK', 'public'),
+
         'image_mimes' => ['jpg', 'jpeg', 'png', 'webp', 'gif'],
         'image_max_kb' => 4096,
-        // Product and review clips. Big enough for a 30-second phone video,
-        // small enough that a shop cannot fill the disk with one upload.
-        'video_max_kb' => 51200, // 50 MB
+        /*
+         * Product and review clips.
+         *
+         * 25 MB and 90 seconds. A phone shooting 1080p fills 50 MB in under a
+         * minute, and a clip that long is not being watched to the end anyway
+         * — it is being paid for, once per visitor, by the shop's own host.
+         */
+        'video_max_kb' => 25600,
+        'video_max_seconds' => 90,
         'file_mimes' => ['pdf', 'zip', 'epub', 'mp3', 'mp4', 'psd', 'ai', 'xlsx', 'docx', 'pptx'],
         'file_max_kb' => 204800, // 200 MB
     ],

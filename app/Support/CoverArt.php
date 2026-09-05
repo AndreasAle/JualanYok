@@ -37,7 +37,7 @@ final class CoverArt
         $slug = Str::slug($name) ?: 'produk';
         $path = "{$directory}/{$slug}.svg";
 
-        Storage::disk('public')->put($path, self::productSvg($name, $typeLabel));
+        Storage::disk(config('jualanyok.uploads.disk'))->put($path, self::productSvg($name, $typeLabel));
 
         return $path;
     }
@@ -50,7 +50,7 @@ final class CoverArt
         $slug = Str::slug($name) ?: 'toko';
         $path = "{$directory}/{$slug}.svg";
 
-        Storage::disk('public')->put($path, self::avatarSvg($name, $primary, $accent));
+        Storage::disk(config('jualanyok.uploads.disk'))->put($path, self::avatarSvg($name, $primary, $accent));
 
         return $path;
     }
@@ -60,7 +60,7 @@ final class CoverArt
         $slug = Str::slug($name) ?: 'toko';
         $path = "{$directory}/{$slug}-cover.svg";
 
-        Storage::disk('public')->put($path, self::coverSvg($name, $primary, $accent));
+        Storage::disk(config('jualanyok.uploads.disk'))->put($path, self::coverSvg($name, $primary, $accent));
 
         return $path;
     }

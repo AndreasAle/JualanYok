@@ -194,7 +194,7 @@ export function ProductReviews({
                                                         >
                                                             {item.kind === 'video' ? (
                                                                 <>
-                                                                    <video src={item.url} className="size-full object-cover" muted preload="metadata" />
+                                                                    <video src={item.url} className="size-full bg-black object-cover" muted preload="none" />
                                                                     <span className="absolute inset-0 grid place-items-center bg-black/30 text-[0.625rem] font-semibold text-white">
                                                                         VIDEO
                                                                     </span>

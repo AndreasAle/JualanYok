@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Storage;
+
 /**
  * Builds public URLs for stored images.
  *
@@ -21,6 +23,18 @@ final class Media
         // Already a full URL (an image the creator linked from elsewhere).
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '//')) {
             return $path;
+        }
+
+        /*
+         * A remote disk knows its own public URL — a bucket, or the CDN in
+         * front of it — and that URL is absolute by nature. The local disk
+         * stays root-relative, so moving the app to another domain or port
+         * cannot break every image already stored.
+         */
+        $disk = (string) config('jualanyok.uploads.disk', 'public');
+
+        if ($disk !== 'public') {
+            return Storage::disk($disk)->url(ltrim($path, '/'));
         }
 
         return '/storage/'.ltrim($path, '/');

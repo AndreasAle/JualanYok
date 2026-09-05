@@ -107,7 +107,7 @@ class ProductController extends Controller
 
         $validated = $this->validated($request);
         $gallery = $request->file('gallery', []);
-        unset($validated['gallery'], $validated['removed_media_ids']);
+        unset($validated['gallery'], $validated['gallery_posters'], $validated['removed_media_ids']);
         $data = $this->prepareMarketplaceData($this->normalizeTypeData($validated));
         $initialStock = (int) ($data['initial_stock'] ?? 0);
         unset($data['initial_stock']);
@@ -119,7 +119,7 @@ class ProductController extends Controller
             ]);
 
             $this->syncTypeExtras($product);
-            $this->storeGallery($product, $gallery);
+            $this->storeGallery($product, $gallery, $request->file('gallery_posters', []));
 
             if ($product->type === ProductType::Physical && $initialStock > 0) {
                 $this->inventory->setQuantity(
@@ -192,6 +192,7 @@ class ProductController extends Controller
                     'id' => $media->id,
                     'url' => Media::url($media->path),
                     'kind' => $media->kind ?? 'image',
+                    'poster' => Media::url($media->poster_path),
                     'alt' => $media->alt,
                 ])->values(),
                 'sku' => $product->sku,
@@ -244,14 +245,14 @@ class ProductController extends Controller
         $validated = $this->validated($request, $product);
         $gallery = $request->file('gallery', []);
         $removedMediaIds = array_map('intval', $validated['removed_media_ids'] ?? []);
-        unset($validated['gallery'], $validated['removed_media_ids']);
+        unset($validated['gallery'], $validated['gallery_posters'], $validated['removed_media_ids']);
         $data = $this->prepareMarketplaceData($this->normalizeTypeData($validated), $product);
         unset($data['initial_stock']);
 
         if ($thumbnail = $this->storeThumbnail($request)) {
             // Drop the replaced file, unless it is shared demo artwork.
             if ($product->thumbnail_path && ! str_starts_with($product->thumbnail_path, 'demo/')) {
-                Storage::disk('public')->delete($product->thumbnail_path);
+                Storage::disk(config('jualanyok.uploads.disk'))->delete($product->thumbnail_path);
             }
 
             $data['thumbnail_path'] = $thumbnail;
@@ -262,7 +263,7 @@ class ProductController extends Controller
         $product->update($data);
         $this->syncTypeExtras($product);
         $this->removeGallery($product, $removedMediaIds);
-        $this->storeGallery($product, $gallery);
+        $this->storeGallery($product, $gallery, $request->file('gallery_posters', []));
 
         return back()->with('success', 'Produk diperbarui.');
     }
@@ -413,6 +414,10 @@ class ProductController extends Controller
             ],
             'removed_media_ids' => ['nullable', 'array', 'max:8'],
             'removed_media_ids.*' => ['integer'],
+            // A still captured from each video in the browser, keyed by its
+            // position in the gallery.
+            'gallery_posters' => ['nullable', 'array', 'max:8'],
+            'gallery_posters.*' => ['file', 'mimetypes:image/jpeg,image/webp', 'max:1024'],
         ]);
 
         $newImages = count($request->file('gallery', []));
@@ -574,20 +579,26 @@ class ProductController extends Controller
         ]);
 
         // Randomised name: the original filename never reaches the disk.
-        return $request->file('thumbnail')->store('products/thumbnails', 'public');
+        return $request->file('thumbnail')->store('products/thumbnails', config('jualanyok.uploads.disk'));
     }
 
-    /** @param array<int, UploadedFile> $files */
-    private function storeGallery(Product $product, array $files): void
+    /**
+     * @param  array<int, UploadedFile>  $files
+     * @param  array<int|string, UploadedFile>  $posters
+     */
+    private function storeGallery(Product $product, array $files, array $posters = []): void
     {
         $position = (int) $product->media()->max('position');
+        $disk = config('jualanyok.uploads.disk');
 
-        foreach ($files as $file) {
+        foreach ($files as $index => $file) {
             $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
+            $poster = $isVideo ? ($posters[$index] ?? null) : null;
 
             $product->media()->create([
-                'path' => $file->store('products/gallery', 'public'),
+                'path' => $file->store('products/gallery', $disk),
                 'kind' => $isVideo ? 'video' : 'image',
+                'poster_path' => $poster?->store('products/posters', $disk),
                 'alt' => $product->name,
                 'position' => ++$position,
             ]);
@@ -603,7 +614,9 @@ class ProductController extends Controller
 
         $product->media()->whereKey($ids)->get()->each(function ($media) {
             if (! str_starts_with($media->path, 'demo/')) {
-                Storage::disk('public')->delete($media->path);
+                Storage::disk(config('jualanyok.uploads.disk'))->delete(
+                    array_filter([$media->path, $media->poster_path]),
+                );
             }
 
             $media->delete();

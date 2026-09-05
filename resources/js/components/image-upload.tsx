@@ -1,7 +1,8 @@
-import { ImagePlus, Trash2, Upload } from 'lucide-react';
+import { ImagePlus, Play, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { capturePoster, videoDuration, MAX_SECONDS } from '@/lib/video';
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
@@ -13,7 +14,7 @@ const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const ACCEPTED_VIDEO = ['video/mp4', 'video/quicktime', 'video/webm'];
 
 const IMAGE_MAX_MB = 4;
-const VIDEO_MAX_MB = 50;
+const VIDEO_MAX_MB = 25;
 
 /**
  * Picks one image, with a live preview.
@@ -187,6 +188,8 @@ export interface ExistingProductImage {
     url: string;
     /** 'video' plays; anything else is drawn as a still. */
     kind?: string;
+    /** A cheap still that stands in for a video until someone presses play. */
+    poster?: string | null;
     alt?: string | null;
 }
 
@@ -204,6 +207,7 @@ export function ProductGalleryUpload({
     maxImages = 8,
     onFilesChange,
     onRemovedIdsChange,
+    onPostersChange,
 }: {
     existing?: ExistingProductImage[];
     files: File[];
@@ -212,10 +216,14 @@ export function ProductGalleryUpload({
     maxImages?: number;
     onFilesChange: (files: File[]) => void;
     onRemovedIdsChange: (ids: number[]) => void;
+    /** Posters keyed by the video's index in `files`. */
+    onPostersChange?: (posters: Record<string, File>) => void;
 }) {
     const input = useRef<HTMLInputElement>(null);
     const [localError, setLocalError] = useState<string | null>(null);
     const [previews, setPreviews] = useState<string[]>([]);
+    const [busy, setBusy] = useState(false);
+    const posters = useRef<Record<string, File>>({});
     const visibleExisting = existing.filter((image) => !removedIds.includes(image.id));
     const remaining = Math.max(0, maxImages - visibleExisting.length - files.length);
 
@@ -263,8 +271,53 @@ export function ProductGalleryUpload({
         }
 
         setLocalError(null);
-        onFilesChange([...files, ...chosen]);
+        void absorb(chosen);
         if (input.current) input.current.value = '';
+    };
+
+    /**
+     * Videos are measured and given a poster before they are accepted.
+     *
+     * Both happen here rather than on the server: the browser already has the
+     * file decoded, and a clip that is going to be refused for length should
+     * be refused before it is uploaded, not after.
+     */
+    const absorb = async (chosen: File[]) => {
+        setBusy(true);
+
+        try {
+            const accepted: File[] = [];
+
+            for (const file of chosen) {
+                if (!ACCEPTED_VIDEO.includes(file.type)) {
+                    accepted.push(file);
+                    continue;
+                }
+
+                const seconds = await videoDuration(file);
+
+                if (seconds > MAX_SECONDS) {
+                    setLocalError(`Video maksimal ${MAX_SECONDS} detik. Potong dulu klipnya ya.`);
+                    continue;
+                }
+
+                const poster = await capturePoster(file);
+                const index = files.length + accepted.length;
+
+                if (poster) {
+                    posters.current[String(index)] = poster;
+                }
+
+                accepted.push(file);
+            }
+
+            if (accepted.length > 0) {
+                onFilesChange([...files, ...accepted]);
+                onPostersChange?.({ ...posters.current });
+            }
+        } finally {
+            setBusy(false);
+        }
     };
 
     const message = error ?? localError;
@@ -276,7 +329,8 @@ export function ProductGalleryUpload({
                     <p className="text-sm font-semibold">Galeri produk</p>
                     <p className="mt-1 text-xs leading-5 text-muted">
                         Foto dari beberapa sudut, plus video kalau ada — video tampil paling depan di halaman
-                        produk. Thumbnail tetap jadi gambar utama di katalog.
+                        produk. Maksimal {VIDEO_MAX_MB} MB dan {MAX_SECONDS} detik per video. Thumbnail tetap jadi
+                        gambar utama di katalog.
                     </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-bold text-muted">
@@ -289,7 +343,13 @@ export function ProductGalleryUpload({
                     {visibleExisting.map((image) => (
                         <div key={`saved-${image.id}`} className="group relative overflow-hidden rounded-xl border border-line bg-surface-2">
                             {image.kind === 'video' ? (
-                                <video src={image.url} className="aspect-square size-full bg-black object-cover" muted preload="metadata" />
+                                image.poster ? (
+                                    <img src={image.poster} alt="" className="aspect-square size-full object-cover" />
+                                ) : (
+                                    <span className="grid aspect-square size-full place-items-center bg-black/85 text-white">
+                                        <Play className="size-6 fill-current" />
+                                    </span>
+                                )
                             ) : (
                                 <img src={image.url} alt={image.alt ?? ''} className="aspect-square size-full object-cover" />
                             )}
@@ -313,14 +373,30 @@ export function ProductGalleryUpload({
                         <div key={`${file.name}-${file.lastModified}-${index}`} className="group relative overflow-hidden rounded-xl border border-line bg-surface-2">
                             {previews[index] && (
                                 file.type.startsWith('video/') ? (
-                                    <video src={previews[index]} className="aspect-square size-full bg-black object-cover" muted preload="metadata" />
+                                    <video src={previews[index]} className="aspect-square size-full bg-black object-cover" muted preload="none" />
                                 ) : (
                                     <img src={previews[index]} alt="" className="aspect-square size-full object-cover" />
                                 )
                             )}
                             <button
                                 type="button"
-                                onClick={() => onFilesChange(files.filter((_, fileIndex) => fileIndex !== index))}
+                                onClick={() => {
+                                    const kept = files.filter((_, fileIndex) => fileIndex !== index);
+                                    const shifted: Record<string, File> = {};
+
+                                    // Posters are keyed by position, so dropping
+                                    // one file renumbers every poster after it.
+                                    files.forEach((_, fileIndex) => {
+                                        const poster = posters.current[String(fileIndex)];
+                                        if (!poster || fileIndex === index) return;
+
+                                        shifted[String(fileIndex > index ? fileIndex - 1 : fileIndex)] = poster;
+                                    });
+
+                                    posters.current = shifted;
+                                    onFilesChange(kept);
+                                    onPostersChange?.({ ...shifted });
+                                }}
                                 className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-lg bg-black/70 text-white transition hover:bg-[var(--danger)]"
                                 aria-label={`Hapus ${file.name}`}
                             >
@@ -338,7 +414,7 @@ export function ProductGalleryUpload({
                     className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line bg-surface-2 px-4 py-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
                 >
                     <ImagePlus className="size-5" />
-                    Tambah foto atau video
+                    {busy ? 'Menyiapkan video…' : 'Tambah foto atau video'}
                 </button>
             )}
 

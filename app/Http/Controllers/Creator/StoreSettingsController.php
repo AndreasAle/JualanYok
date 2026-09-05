@@ -88,7 +88,7 @@ class StoreSettingsController extends Controller
         foreach ([['avatar', 'avatar_path', 'stores/avatars'], ['cover', 'cover_path', 'stores/covers']] as [$field, $column, $directory]) {
             if ($request->hasFile($field)) {
                 $this->forgetFile($store->{$column});
-                $data[$column] = $request->file($field)->store($directory, 'public');
+                $data[$column] = $request->file($field)->store($directory, config('jualanyok.uploads.disk'));
             } elseif ($request->boolean("remove_{$field}")) {
                 $this->forgetFile($store->{$column});
                 $data[$column] = null;
@@ -106,7 +106,7 @@ class StoreSettingsController extends Controller
     private function forgetFile(?string $path): void
     {
         if ($path && ! str_starts_with($path, 'demo/')) {
-            Storage::disk('public')->delete($path);
+            Storage::disk(config('jualanyok.uploads.disk'))->delete($path);
         }
     }
 

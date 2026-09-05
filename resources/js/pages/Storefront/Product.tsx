@@ -37,7 +37,7 @@ interface DetailedProduct extends StorefrontProduct {
     weight_gram: number | null;
     min_quantity: number;
     max_quantity: number | null;
-    media: { url: string; kind?: string; alt: string | null }[];
+    media: { url: string; kind?: string; poster?: string | null; alt: string | null }[];
     variants: Variant[];
     course: {
         level: string;
@@ -869,7 +869,7 @@ function Gallery({
     discount,
     theme,
 }: {
-    images: { url: string; kind?: string; alt: string | null }[];
+    images: { url: string; kind?: string; poster?: string | null; alt: string | null }[];
     active: number;
     onChange: (index: number) => void;
     discount: number;
@@ -885,10 +885,18 @@ function Gallery({
                         <video
                             key={images[active].url}
                             src={images[active].url}
+                            poster={images[active].poster ?? undefined}
                             className="size-full bg-black object-contain"
                             controls
                             playsInline
-                            preload="metadata"
+                            /*
+                             * Nothing is fetched until someone presses play.
+                             * The poster carries the picture, and a product
+                             * page that quietly downloaded a clip for every
+                             * visitor would be the shop paying for attention
+                             * nobody gave it.
+                             */
+                            preload="none"
                         />
                     ) : (
                         <img src={images[active].url} alt={images[active].alt ?? ''} className="size-full object-cover" />
@@ -938,7 +946,11 @@ function Gallery({
                             >
                                 {image.kind === 'video' ? (
                                     <>
-                                        <video src={image.url} className="size-full object-cover" muted preload="metadata" />
+                                        {image.poster ? (
+                                            <img src={image.poster} alt="" loading="lazy" className="size-full object-cover" />
+                                        ) : (
+                                            <span className="size-full bg-black" />
+                                        )}
                                         <span className="absolute inset-0 grid place-items-center bg-black/35">
                                             <Play className="size-4 fill-white text-white" />
                                         </span>

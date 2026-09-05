@@ -610,6 +610,9 @@ class StorefrontController extends Controller
                 ? $product->media->map(fn ($media) => [
                     'url' => Media::url($media->path),
                     'kind' => $media->kind ?? 'image',
+                    // A few kilobytes that stand in for a video until someone
+                    // actually presses play.
+                    'poster' => Media::url($media->poster_path),
                     'alt' => $media->alt,
                 ])->values()
                 : [],
