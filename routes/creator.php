@@ -16,6 +16,7 @@ use App\Http\Controllers\Creator\PayoutMethodController;
 use App\Http\Controllers\Creator\PlanPaymentController;
 use App\Http\Controllers\Creator\ProductController;
 use App\Http\Controllers\Creator\ProductFileController;
+use App\Http\Controllers\Creator\ReviewReplyController;
 use App\Http\Controllers\Creator\ShippingController;
 use App\Http\Controllers\Creator\ShippingLabelController;
 use App\Http\Controllers\Creator\StoreBuilderController;
@@ -38,6 +39,11 @@ Route::middleware(['auth', 'creator'])
         Route::post('/chat/{conversation}', [ChatController::class, 'store'])
             ->middleware('throttle:60,1')
             ->name('chat.store');
+
+        /* Answering a review. Replying is all a seller may do to one. */
+        Route::post('/ulasan/{review}/balas', [ReviewReplyController::class, 'store'])
+            ->middleware('throttle:60,1')
+            ->name('reviews.reply');
 
         /* Storefront builder */
         Route::get('/toko', [StoreBuilderController::class, 'edit'])->name('builder');

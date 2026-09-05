@@ -10,10 +10,12 @@ use App\Models\Block;
 use App\Models\Cart;
 use App\Models\Coupon;
 use App\Models\Product;
+use App\Models\Review;
 use App\Models\Store;
 use App\Services\AffiliateService;
 use App\Services\AnalyticsService;
 use App\Services\CartService;
+use App\Services\ReviewService;
 use App\Services\CheckoutService;
 use App\Services\ShippingService;
 use App\Support\Media;
@@ -105,6 +107,9 @@ class StorefrontController extends Controller
             'cart' => $this->cartPayload($request, $store),
             'seller' => $this->sellerPayload($store),
             'vouchers' => $this->voucherPayload($store, $product),
+            'reviewSummary' => app(ReviewService::class)->summary($product),
+            'reviews' => $this->reviewPayload($request, $product),
+            'reviewFilter' => (string) $request->query('ulasan', 'semua'),
         ])->withViewData('socialMeta', [
             'title' => "{$product->name} — {$store->name}",
             'description' => $socialDescription,
@@ -373,6 +378,43 @@ class StorefrontController extends Controller
      * how much it has actually sold, how many products it carries. A shop with
      * nothing behind it should look like one.
      */
+    /**
+     * Published reviews for this product, filtered the way buyers filter them.
+     *
+     * People do not read reviews in order — they go straight to the one-star
+     * ones, or to the ones with photos, because that is where the truth about
+     * sizing and colour lives. Paginated on its own key so opening page three
+     * of the reviews never reloads the product.
+     */
+    private function reviewPayload(Request $request, Product $product): array
+    {
+        $filter = (string) $request->query('ulasan', 'semua');
+
+        $reviews = Review::where('product_id', $product->id)
+            ->where('status', Review::PUBLISHED)
+            ->with(['media', 'author:id,name,avatar_path'])
+            ->when(in_array($filter, ['5', '4', '3', '2', '1'], true), fn ($q) => $q->where('rating', (int) $filter))
+            ->when($filter === 'media', fn ($q) => $q->whereHas('media'))
+            ->when($filter === 'komentar', fn ($q) => $q->whereNotNull('body')->where('body', '!=', ''))
+            ->latest('id')
+            ->paginate(8, pageName: 'ulasanHal')
+            ->withQueryString()
+            ->through(fn (Review $review) => [
+                'id' => $review->id,
+                'name' => $review->displayName(),
+                'avatar_url' => $review->avatarUrl(),
+                'rating' => $review->rating,
+                'body' => $review->body,
+                'variant_label' => $review->variant_label,
+                'media' => $review->mediaUrls(),
+                'created_at' => $review->created_at->translatedFormat('d M Y'),
+                'seller_reply' => $review->seller_reply,
+                'seller_replied_at' => $review->seller_replied_at?->translatedFormat('d M Y'),
+            ]);
+
+        return $reviews->toArray();
+    }
+
     private function sellerPayload(Store $store): array
     {
         $store->loadMissing('shippingProfile');

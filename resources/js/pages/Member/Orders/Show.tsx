@@ -1,14 +1,40 @@
 import { useForm } from '@inertiajs/react';
-import { AlertTriangle, Download, MapPin, PackageCheck, Truck } from 'lucide-react';
+import { AlertTriangle, Download, MapPin, PackageCheck, Star, Truck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import DashboardLayout from '@/layouts/DashboardLayout';
 import { PageHeader, StatusBadge } from '@/components/shared';
 import {
     Alert, Badge, Button, Card, CardBody, CardHeader, CardTitle, Field, Textarea,
 } from '@/components/ui';
+import { ReviewComposer } from '@/components/ReviewComposer';
 import { formatDate, formatIDR } from '@/lib/utils';
 
-export default function MemberOrderShow({ order }: { order: any }) {
+interface Reviewable {
+    id: number;
+    name: string;
+    variant_name: string | null;
+    thumbnail_url: string | null;
+}
+
+interface MyReview {
+    id: number;
+    product_name: string | null;
+    rating: number;
+    body: string | null;
+    media: { url: string; kind: string }[];
+    created_at: string;
+    seller_reply: string | null;
+}
+
+export default function MemberOrderShow({
+    order,
+    reviewable = [],
+    myReviews = [],
+}: {
+    order: any;
+    reviewable?: Reviewable[];
+    myReviews?: MyReview[];
+}) {
     const [refundOpen, setRefundOpen] = useState(false);
     const [disputeOpen, setDisputeOpen] = useState(false);
     const refundForm = useForm({ reason: '' });
@@ -283,6 +309,61 @@ export default function MemberOrderShow({ order }: { order: any }) {
                     </Card>
                 </div>
             </div>
+
+            {/* Reviews. Only shown once the order is settled, because that is
+                the only time the server will accept one. */}
+            {(reviewable.length > 0 || myReviews.length > 0) && (
+                <section className="mt-6">
+                    <h2 className="text-[0.9375rem] font-semibold">Ulasan produk</h2>
+                    <p className="mt-1 text-[0.8125rem] text-muted">
+                        Ulasanmu tampil di halaman produk dan bantu pembeli lain memutuskan.
+                    </p>
+
+                    <div className="mt-3 space-y-3">
+                        {reviewable.map((item) => (
+                            <ReviewComposer key={item.id} orderNumber={order.number} item={item} />
+                        ))}
+
+                        {myReviews.map((review) => (
+                            <Card key={review.id} className="p-4 sm:p-5">
+                                <p className="text-[0.8125rem] font-medium">{review.product_name}</p>
+
+                                <span className="mt-1.5 inline-flex items-center gap-0.5" aria-label={`${review.rating} dari 5 bintang`}>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <Star
+                                            key={star}
+                                            className={star <= review.rating ? 'size-4 fill-amber-400 text-amber-400' : 'size-4 text-black/15'}
+                                            aria-hidden="true"
+                                        />
+                                    ))}
+                                    <span className="ml-2 text-xs text-muted">{review.created_at}</span>
+                                </span>
+
+                                {review.body && <p className="mt-2 whitespace-pre-wrap text-[0.8125rem] leading-6">{review.body}</p>}
+
+                                {review.media.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {review.media.map((item, index) =>
+                                            item.kind === 'video' ? (
+                                                <video key={index} src={item.url} controls className="size-16 rounded object-cover" />
+                                            ) : (
+                                                <img key={index} src={item.url} alt="" className="size-16 rounded object-cover" />
+                                            ),
+                                        )}
+                                    </div>
+                                )}
+
+                                {review.seller_reply && (
+                                    <div className="mt-2.5 rounded-[var(--radius-field)] bg-surface-2 p-2.5">
+                                        <p className="text-[0.6875rem] font-semibold text-[var(--primary)]">Balasan penjual</p>
+                                        <p className="mt-1 whitespace-pre-wrap text-[0.8125rem] leading-6">{review.seller_reply}</p>
+                                    </div>
+                                )}
+                            </Card>
+                        ))}
+                    </div>
+                </section>
+            )}
         </DashboardLayout>
     );
 }

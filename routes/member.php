@@ -3,6 +3,7 @@
 use App\Http\Controllers\Customer\CourseController;
 use App\Http\Controllers\Customer\MemberController;
 use App\Http\Controllers\Customer\PurchaseController;
+use App\Http\Controllers\Customer\ReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')
@@ -22,6 +23,11 @@ Route::middleware('auth')
             ->name('orders.confirm-receipt');
         Route::post('/pembelian/{order:number}/komplain', [PurchaseController::class, 'openDispute'])
             ->name('orders.dispute');
+
+        /* Reviews. Only for lines this account actually paid for. */
+        Route::post('/pembelian/{order:number}/ulasan', [ReviewController::class, 'store'])
+            ->middleware('throttle:20,10')
+            ->name('orders.review');
 
         Route::get('/kelas', [CourseController::class, 'index'])->name('courses.index');
         Route::get('/kelas/{enrollment}', [CourseController::class, 'show'])->name('courses.show');

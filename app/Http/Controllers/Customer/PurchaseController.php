@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\DigitalAccess;
 use App\Models\Order;
+use App\Models\Review;
 use App\Services\DigitalDeliveryService;
 use App\Services\RefundService;
+use App\Services\ReviewService;
 use App\Services\FulfillmentService;
 use App\Services\DisputeService;
 use Illuminate\Http\Request;
@@ -115,7 +117,31 @@ class PurchaseController extends Controller
 
         $order->load(['items.product', 'store', 'digitalAccesses.file', 'latestPayment', 'shipment.events', 'openDispute']);
 
+        // Lines still waiting for a review, and the ones already written.
+        // A buyer should see their own words on the page, not just a form that
+        // vanished after they submitted it.
+        $reviews = app(ReviewService::class);
+
         return Inertia::render('Member/Orders/Show', [
+            'reviewable' => $reviews->reviewableItems($order)->map(fn ($item) => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'variant_name' => $item->variant_name,
+                'thumbnail_url' => $item->product?->thumbnailUrl(),
+            ])->values(),
+            'myReviews' => Review::whereIn('order_item_id', $order->items->pluck('id'))
+                ->with('media')
+                ->get()
+                ->map(fn (Review $review) => [
+                    'id' => $review->id,
+                    'product_name' => $review->product?->name,
+                    'rating' => $review->rating,
+                    'body' => $review->body,
+                    'media' => $review->mediaUrls(),
+                    'created_at' => $review->created_at->translatedFormat('d M Y'),
+                    'seller_reply' => $review->seller_reply,
+                ])
+                ->values(),
             'order' => [
                 'number' => $order->number,
                 'status' => $order->status->value,

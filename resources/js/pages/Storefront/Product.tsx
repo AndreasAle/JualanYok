@@ -9,12 +9,13 @@ import { CartSheet } from '@/components/storefront/CartSheet';
 import { ChatSheet } from '@/components/storefront/ChatSheet';
 import { CheckoutSheet } from '@/components/storefront/CheckoutSheet';
 import { ProductCard } from '@/components/storefront/ProductCard';
+import { ProductReviews, Stars, type ReviewRow, type ReviewSummary } from '@/components/storefront/ProductReviews';
 import { ShareProductButton } from '@/components/storefront/ShareProductButton';
 import { PurchaseChoiceSheet } from '@/components/storefront/PurchaseChoiceSheet';
 import { buildStorefrontTheme } from '@/lib/storefront-theme';
 import { cn, formatDate, formatIDR, formatNumber } from '@/lib/utils';
 import type { StorefrontStore } from '@/pages/Storefront/Show';
-import type { CartPayload, StorefrontProduct } from '@/types';
+import type { CartPayload, Paginated, StorefrontProduct } from '@/types';
 
 interface Variant {
     id: number;
@@ -111,6 +112,9 @@ export default function StorefrontProductPage({
     cart,
     seller,
     vouchers,
+    reviewSummary,
+    reviews,
+    reviewFilter,
 }: {
     store: StorefrontStore;
     product: DetailedProduct;
@@ -118,6 +122,9 @@ export default function StorefrontProductPage({
     cart: CartPayload | null;
     seller: Seller;
     vouchers: Voucher[];
+    reviewSummary: ReviewSummary;
+    reviews: Paginated<ReviewRow>;
+    reviewFilter: string;
 }) {
     const theme = buildStorefrontTheme(store.theme);
     const productShareUrl = product.share_url ?? `/${store.username}/p/${product.slug}`;
@@ -235,6 +242,13 @@ export default function StorefrontProductPage({
                         <h1 className="text-lg font-bold leading-snug text-balance sm:text-xl">{product.name}</h1>
 
                         <div className={cn('mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem]', theme.muted)}>
+                            {reviewSummary.total > 0 && (
+                                <a href="#ulasan" className="inline-flex items-center gap-1.5 hover:underline">
+                                    <strong className="font-semibold text-[var(--sf-fg)]">{reviewSummary.average.toFixed(1)}</strong>
+                                    <Stars rating={Math.round(reviewSummary.average)} />
+                                    <span>({formatNumber(reviewSummary.total)})</span>
+                                </a>
+                            )}
                             {(product.sales_count ?? 0) > 0 && (
                                 <span>
                                     <strong className="font-semibold text-[var(--sf-fg)]">{formatNumber(product.sales_count!)}</strong> terjual
@@ -543,6 +557,16 @@ export default function StorefrontProductPage({
                                 </div>
                             </Section>
                         )}
+
+                        <div id="ulasan">
+                            <ProductReviews
+                                summary={reviewSummary}
+                                reviews={reviews}
+                                filter={reviewFilter}
+                                storeName={seller.name}
+                                theme={theme}
+                            />
+                        </div>
 
                         {product.course && (
                             <Section title="Isi kelas" theme={theme}>
