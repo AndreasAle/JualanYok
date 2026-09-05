@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\OnboardingController;
+use App\Http\Controllers\Auth\OnboardingVerificationController;
 use App\Http\Controllers\Auth\OtpLoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -63,4 +64,17 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/onboarding', [OnboardingController::class, 'index'])->name('onboarding.index');
     Route::post('/onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
+
+    /*
+     * The final onboarding step. A code rather than a link, so verifying does
+     * not open a second tab and abandon the wizard.
+     */
+    Route::get('/onboarding/verifikasi', [OnboardingVerificationController::class, 'show'])
+        ->name('onboarding.verify');
+    Route::post('/onboarding/verifikasi/kirim', [OnboardingVerificationController::class, 'send'])
+        ->middleware('throttle:6,10')
+        ->name('onboarding.verify.send');
+    Route::post('/onboarding/verifikasi', [OnboardingVerificationController::class, 'confirm'])
+        ->middleware('throttle:10,10')
+        ->name('onboarding.verify.confirm');
 });

@@ -76,7 +76,10 @@ class StorefrontBuilderTest extends TestCase
         $this->assertSame('Versi baru', $block->draft_content['body']);
         $this->assertTrue($block->hasUnpublishedChanges());
 
-        // Publishing promotes every draft at once.
+        // Publishing promotes every draft at once. The owner is verified here
+        // because that is a precondition of going live, not the subject of
+        // this test.
+        $store->owner->forceFill(['email_verified_at' => now()])->save();
         $this->actingAs($store->owner)->post('/dashboard/toko/publish');
 
         $this->assertSame('Versi baru', $block->fresh()->content['body']);

@@ -94,6 +94,18 @@ class StoreBuilderController extends Controller
             return back()->with('error', 'Tambah minimal satu block dulu sebelum publish.');
         }
 
+        /*
+         * An unverified owner cannot go live.
+         *
+         * Not a formality: the receipt, the download link for a digital order,
+         * and every "your buyer paid" alert are sent to that address. A shop
+         * whose owner's email bounces takes money and then goes quiet, and the
+         * buyer is the one left with nothing.
+         */
+        if (! $request->user()->hasVerifiedEmail()) {
+            return back()->with('error', 'Verifikasi emailmu dulu sebelum toko bisa dipublikasikan.');
+        }
+
         $this->stores->publish($store);
 
         return redirect()->route('creator.builder', ['published' => 1])

@@ -141,7 +141,9 @@ class AuthAndOnboardingTest extends TestCase
             'username' => 'kreatorkita',
             'tagline' => 'Bikin konten konsisten',
             'publish' => true,
-        ])->assertRedirect('/dashboard/produk/create?first=1');
+        // The shop exists, but nothing about it is trusted until the address
+        // every receipt will be sent to has been proven to work.
+        ])->assertRedirect('/onboarding/verifikasi');
 
         $store = Store::where('username', 'kreatorkita')->firstOrFail();
 
@@ -149,6 +151,22 @@ class AuthAndOnboardingTest extends TestCase
         $this->assertTrue($store->blocks()->count() > 0, 'Template blocks are laid down.');
         $this->assertNotNull($store->theme);
         $this->assertTrue($user->fresh()->hasRole(Role::CREATOR));
+    }
+
+    public function test_a_verified_creator_goes_straight_to_their_first_product(): void
+    {
+        $this->seed(StorefrontTemplateSeeder::class);
+
+        $user = $this->makeUser([Role::CUSTOMER], ['username' => 'sudahterverifikasi']);
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        $this->actingAs($user)->post('/onboarding', [
+            'goal' => 'digital',
+            'niche' => 'Content Creator',
+            'template' => 'creator-digital',
+            'store_name' => 'Toko Terverifikasi',
+            'username' => 'tokoterverifikasi',
+        ])->assertRedirect('/dashboard/produk/create?first=1');
     }
 
     public function test_a_creator_cannot_create_a_second_store(): void

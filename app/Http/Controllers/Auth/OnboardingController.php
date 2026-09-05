@@ -104,8 +104,19 @@ class OnboardingController extends Controller
             $user->roles()->syncWithoutDetaching([Role::where('slug', Role::AFFILIATE)->value('id')]);
         }
 
-        // A new store deliberately starts as a draft. The creator first adds a
-        // real product, checks the exact storefront preview, then publishes.
+        /*
+         * A new store deliberately starts as a draft. The creator first proves
+         * the email works, then adds a real product, checks the storefront
+         * preview, and publishes.
+         *
+         * Verification comes before the product rather than after, because
+         * everything the product depends on — the receipt, the download link,
+         * the "someone paid you" alert — is sent to that address.
+         */
+        if (! $user->hasVerifiedEmail()) {
+            return redirect()->route('onboarding.verify');
+        }
+
         return redirect()->route('creator.products.create', ['first' => 1])
             ->with('success', 'Template sudah dipasang. Sekarang buat produk pertamamu.');
     }

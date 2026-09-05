@@ -63,6 +63,7 @@ class OtpLoginController extends Controller
             LoginOtp::create([
                 'email' => $email,
                 'code_hash' => Hash::make($code),
+                'purpose' => 'customer_login',
                 'expires_at' => now()->addMinutes(10),
                 'ip_address' => $request->ip(),
             ]);
@@ -94,7 +95,11 @@ class OtpLoginController extends Controller
 
         $email = strtolower($data['email']);
 
+        // Scoped to the purpose it was issued for. Codes are minted for more
+        // than one reason now, and one that proves an address works is not the
+        // same as one that opens a session.
         $otp = LoginOtp::where('email', $email)
+            ->where('purpose', 'customer_login')
             ->whereNull('consumed_at')
             ->latest('id')
             ->first();
