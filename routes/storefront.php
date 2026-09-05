@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PublicSite\CartController;
 use App\Http\Controllers\PublicSite\ChatController;
+use App\Http\Controllers\PublicSite\GeocodeController;
 use App\Http\Controllers\PublicSite\StorefrontController;
 use App\Http\Controllers\PublicSite\ShippingController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +46,14 @@ Route::prefix('{store:username}')
         Route::post('/pengiriman/tarif', [ShippingController::class, 'quotes'])
             ->middleware('throttle:20,1')
             ->name('storefront.shipping.quotes');
+
+        /* The address pin. Throttled because the geocoder behind it is shared. */
+        Route::get('/peta/cari', [GeocodeController::class, 'search'])
+            ->middleware('throttle:20,1')
+            ->name('storefront.geocode.search');
+        Route::get('/peta/balik', [GeocodeController::class, 'reverse'])
+            ->middleware('throttle:30,1')
+            ->name('storefront.geocode.reverse');
 
         /*
          * Chat with the seller. Guest-friendly: which thread the caller may

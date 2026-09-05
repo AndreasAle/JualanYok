@@ -60,6 +60,10 @@ class ShippingController extends Controller
             'shipping_address.postal_code' => ['required', 'string', 'max:12'],
             'shipping_address.area_id' => ['required', 'string', 'max:120'],
             'shipping_address.note' => ['nullable', 'string', 'max:500'],
+            // The dropped pin. Optional — a buyer who skips the map still gets
+            // regular courier rates from the area id alone.
+            'shipping_address.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'shipping_address.longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
         $lines = $request->boolean('from_cart')

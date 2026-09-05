@@ -7,6 +7,17 @@ return [
     'complaint_window_days' => (int) env('SHIPPING_COMPLAINT_WINDOW_DAYS', 2),
     'auto_complete_days' => (int) env('SHIPPING_AUTO_COMPLETE_DAYS', 2),
 
+    /*
+     * The geocoder behind the address pin.
+     *
+     * Biteship's Maps API names areas but returns no coordinates and serves no
+     * tiles, so the pin needs its own service. Nominatim is the default because
+     * it needs no key; point this at another host to swap it.
+     */
+    'geocoder' => [
+        'base_url' => env('GEOCODER_BASE_URL', 'https://nominatim.openstreetmap.org'),
+    ],
+
     'providers' => [
         'biteship' => [
             'enabled' => (bool) env('BITESHIP_ENABLED', false),

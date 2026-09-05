@@ -1,11 +1,12 @@
 import { useForm } from '@inertiajs/react';
 import { Loader2, MapPin, Minus, Plus, Search, ShieldCheck, Truck, X } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { MapPicker } from '@/components/storefront/MapPicker';
 import { cn, formatIDR, uid } from '@/lib/utils';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
 import type { CartPayload, StorefrontProduct } from '@/types';
 
-type ShippingAddress = { address_line: string; district: string; city: string; province: string; postal_code: string; area_id: string; note: string };
+type ShippingAddress = { address_line: string; district: string; city: string; province: string; postal_code: string; area_id: string; note: string; latitude: number | null; longitude: number | null };
 type AreaResult = { id: string; name: string; postal_code?: string | number | null; administrative_division_level_1_name?: string | null; administrative_division_level_2_name?: string | null; administrative_division_level_3_name?: string | null };
 type ShippingQuote = { provider: string; courier_company: string; courier_name: string; courier_type: string; service_name: string; delivery_fee: number; amount: number; insurance_fee: number; duration?: string | null; token: string };
 
@@ -62,7 +63,7 @@ export function CheckoutSheet({
         terms: false as boolean,
         idempotency_key: uid(),
         from_cart: false as boolean,
-        shipping_address: { address_line: '', district: '', city: '', province: '', postal_code: '', area_id: '', note: '' } as ShippingAddress,
+        shipping_address: { address_line: '', district: '', city: '', province: '', postal_code: '', area_id: '', note: '', latitude: null, longitude: null } as ShippingAddress,
         shipping_quote_token: '',
     });
 
@@ -379,7 +380,7 @@ export function CheckoutSheet({
                                                 setAreaQuery(e.target.value); setAreas([]); setQuotes([]); setShippingBusy(false); setShippingError('');
                                                 setData({
                                                     ...data,
-                                                    shipping_address: { ...data.shipping_address, district: '', city: '', province: '', postal_code: '', area_id: '' },
+                                                    shipping_address: { ...data.shipping_address, district: '', city: '', province: '', postal_code: '', area_id: '', latitude: null, longitude: null },
                                                     shipping_quote_token: '',
                                                 });
                                             }}
@@ -413,6 +414,27 @@ export function CheckoutSheet({
                                     </div>
                                     <Field label="Kode pos" required><input value={data.shipping_address.postal_code} onChange={(e) => setData('shipping_address', { ...data.shipping_address, postal_code: e.target.value })} inputMode="numeric" className={field} required /></Field>
                                     <Field label="Catatan kurir" hint="Opsional"><input value={data.shipping_address.note} onChange={(e) => setData('shipping_address', { ...data.shipping_address, note: e.target.value })} className={field} placeholder="Rumah pagar hitam" /></Field>
+
+                                    <MapPicker
+                                        storeUsername={storeUsername}
+                                        latitude={data.shipping_address.latitude}
+                                        longitude={data.shipping_address.longitude}
+                                        hint={[data.shipping_address.district, data.shipping_address.city, data.shipping_address.province].filter(Boolean).join(', ')}
+                                        onChange={(position) => {
+                                            const address = {
+                                                ...data.shipping_address,
+                                                latitude: position?.latitude ?? null,
+                                                longitude: position?.longitude ?? null,
+                                            };
+                                            setData('shipping_address', address);
+
+                                            // Instant couriers only quote with a
+                                            // coordinate, so the list is stale the
+                                            // moment the pin moves.
+                                            setQuotes([]);
+                                            setData('shipping_quote_token', '');
+                                        }}
+                                    />
                                     {quotes.length === 0 && (
                                         <button type="button" onClick={() => void loadQuotes()} disabled={shippingBusy || !data.shipping_address.address_line.trim()} className={cn('inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold transition hover:bg-black/5 disabled:opacity-50', theme.line)}>{shippingBusy ? <><Loader2 className="size-4 animate-spin" /> Menghitung ongkir</> : <><Truck className="size-4" /> Tampilkan pilihan kurir</>}</button>
                                     )}

@@ -52,6 +52,18 @@ class BiteshipShippingProvider implements ShippingProvider
             ->all();
     }
 
+    /** A coordinate only counts if it is a real number inside the world. */
+    private function coordinate(mixed $value): ?float
+    {
+        if ($value === null || $value === '' || ! is_numeric($value)) {
+            return null;
+        }
+
+        $number = (float) $value;
+
+        return abs($number) <= 180.0 && $number !== 0.0 ? $number : null;
+    }
+
     public function quote(StoreShippingProfile $origin, array $destination, array $items): array
     {
         $insuranceValue = $origin->default_insurance
@@ -64,6 +76,22 @@ class BiteshipShippingProvider implements ShippingProvider
             'couriers' => implode(',', $origin->enabled_couriers ?: config('shipping.providers.biteship.couriers', [])),
             'items' => $items,
         ];
+
+        /*
+         * Coordinates, when the buyer dropped a pin.
+         *
+         * This is not decoration. Instant couriers — Gojek, Grab, Lalamove,
+         * Borzo, Paxel — cannot price a job from a district name, so without a
+         * pin they are simply absent from the results and the buyer never
+         * learns same-day was an option. The area id still travels alongside,
+         * so regular couriers are unaffected either way.
+         */
+        $payload += array_filter([
+            'origin_latitude' => $this->coordinate($origin->latitude),
+            'origin_longitude' => $this->coordinate($origin->longitude),
+            'destination_latitude' => $this->coordinate($destination['latitude'] ?? null),
+            'destination_longitude' => $this->coordinate($destination['longitude'] ?? null),
+        ], fn ($value) => $value !== null);
 
         if ($insuranceValue > 0) {
             $payload['courier_insurance'] = $insuranceValue;

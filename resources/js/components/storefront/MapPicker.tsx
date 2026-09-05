@@ -1,0 +1,286 @@
+import { Crosshair, Loader2, MapPin, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
+
+/** Centre of Java, so an unset map opens somewhere recognisable. */
+const FALLBACK: [number, number] = [-6.2, 106.816];
+
+const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+
+declare global {
+    interface Window {
+        L?: any;
+    }
+}
+
+/** Loads Leaflet once, no matter how many times the sheet is opened. */
+let leafletReady: Promise<any> | null = null;
+
+function loadLeaflet(): Promise<any> {
+    if (window.L) return Promise.resolve(window.L);
+    if (leafletReady) return leafletReady;
+
+    leafletReady = new Promise((resolve, reject) => {
+        if (!document.querySelector(`link[href="${LEAFLET_CSS}"]`)) {
+            const style = document.createElement('link');
+            style.rel = 'stylesheet';
+            style.href = LEAFLET_CSS;
+            document.head.appendChild(style);
+        }
+
+        const script = document.createElement('script');
+        script.src = LEAFLET_JS;
+        script.async = true;
+        script.onload = () => resolve(window.L);
+        script.onerror = () => reject(new Error('Peta gagal dimuat.'));
+        document.head.appendChild(script);
+    });
+
+    return leafletReady;
+}
+
+/**
+ * The address pin.
+ *
+ * Indonesian addresses are written, not surveyed — "belakang masjid, cat hijau"
+ * is a real address and a courier still has to find it. A dropped pin is the
+ * part a rider can actually navigate to, and for instant couriers it is not
+ * optional: Gojek, Grab and Lalamove cannot price a job from a district name,
+ * so without a coordinate those services never appear as an option at all.
+ *
+ * It stays optional. A buyer who ignores the map still gets regular courier
+ * rates from the district they picked, so nothing here can block a checkout —
+ * including the map itself failing to load.
+ */
+export function MapPicker({
+    latitude,
+    longitude,
+    hint,
+    onChange,
+    storeUsername,
+    className,
+}: {
+    latitude: number | null;
+    longitude: number | null;
+    /** District and city already chosen, used to open the map near them. */
+    hint?: string;
+    onChange: (position: { latitude: number; longitude: number } | null) => void;
+    storeUsername: string;
+    className?: string;
+}) {
+    const container = useRef<HTMLDivElement | null>(null);
+    const map = useRef<any>(null);
+    const marker = useRef<any>(null);
+    const hintApplied = useRef<string | null>(null);
+
+    const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+    const [query, setQuery] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [label, setLabel] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
+
+    const describe = async (lat: number, lon: number) => {
+        try {
+            const response = await fetch(`/${storeUsername}/peta/balik?lat=${lat}&lon=${lon}`, {
+                headers: { Accept: 'application/json' },
+            });
+            const body = await response.json();
+            setLabel(body.label ?? null);
+        } catch {
+            setLabel(null);
+        }
+    };
+
+    const place = (lat: number, lon: number, zoom = 16) => {
+        if (!map.current || !window.L) return;
+
+        marker.current.setLatLng([lat, lon]);
+        map.current.setView([lat, lon], zoom);
+        onChange({ latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) });
+        void describe(lat, lon);
+    };
+
+    useEffect(() => {
+        let cancelled = false;
+
+        loadLeaflet()
+            .then((L) => {
+                if (cancelled || !container.current || map.current) return;
+
+                const start: [number, number] =
+                    latitude !== null && longitude !== null ? [latitude, longitude] : FALLBACK;
+
+                map.current = L.map(container.current, { attributionControl: true }).setView(
+                    start,
+                    latitude !== null ? 16 : 11,
+                );
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap',
+                }).addTo(map.current);
+
+                marker.current = L.marker(start, { draggable: true }).addTo(map.current);
+
+                marker.current.on('dragend', () => {
+                    const { lat, lng } = marker.current.getLatLng();
+                    onChange({ latitude: Number(lat.toFixed(6)), longitude: Number(lng.toFixed(6)) });
+                    void describe(lat, lng);
+                });
+
+                // Tapping the map is faster than dragging on a phone.
+                map.current.on('click', (event: any) => place(event.latlng.lat, event.latlng.lng, map.current.getZoom()));
+
+                setStatus('ready');
+            })
+            .catch(() => !cancelled && setStatus('failed'));
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // When the buyer picks their district, move the map there — but only once
+    // per district, so it never yanks the view out from under a placed pin.
+    useEffect(() => {
+        if (status !== 'ready' || !hint || hint === hintApplied.current || latitude !== null) {
+            return;
+        }
+
+        hintApplied.current = hint;
+        void jump(hint, false);
+    }, [status, hint]);
+
+    const jump = async (text: string, drop = true) => {
+        if (!text.trim()) return;
+
+        setBusy(true);
+        setNotice(null);
+
+        try {
+            const response = await fetch(`/${storeUsername}/peta/cari?q=${encodeURIComponent(text)}`, {
+                headers: { Accept: 'application/json' },
+            });
+            const body = await response.json();
+            const first = body.results?.[0];
+
+            if (!first) {
+                setNotice('Alamat itu nggak ketemu di peta. Geser pin-nya manual ya.');
+
+                return;
+            }
+
+            if (drop) {
+                place(first.latitude, first.longitude);
+            } else {
+                // Centring on a district is not the buyer saying "here".
+                map.current?.setView([first.latitude, first.longitude], 14);
+                marker.current?.setLatLng([first.latitude, first.longitude]);
+            }
+        } catch {
+            setNotice('Pencarian peta lagi bermasalah. Geser pin-nya manual ya.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const locateMe = () => {
+        if (!navigator.geolocation) {
+            setNotice('Browser kamu nggak mendukung deteksi lokasi.');
+
+            return;
+        }
+
+        setBusy(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                place(position.coords.latitude, position.coords.longitude, 17);
+                setBusy(false);
+            },
+            () => {
+                setNotice('Izin lokasi ditolak. Geser pin-nya manual ya.');
+                setBusy(false);
+            },
+            { enableHighAccuracy: true, timeout: 8000 },
+        );
+    };
+
+    if (status === 'failed') {
+        // Never a blocker: the order can still be placed from the district.
+        return null;
+    }
+
+    return (
+        <div className={className}>
+            <div className="flex items-center justify-between gap-2">
+                <p className="text-[0.8125rem] font-medium">Pin point alamat <span className="font-normal opacity-60">(opsional)</span></p>
+                <button
+                    type="button"
+                    onClick={locateMe}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[var(--sf-primary)]"
+                >
+                    <Crosshair className="size-3.5" /> Lokasi saya
+                </button>
+            </div>
+
+            <p className="mt-0.5 text-xs opacity-60">
+                Geser pin ke titik rumahmu. Kurir instan seperti GoSend dan GrabExpress butuh titik ini untuk bisa muncul.
+            </p>
+
+            <div className="mt-2 flex gap-2">
+                <label className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 opacity-50" />
+                    <input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                void jump(query);
+                            }
+                        }}
+                        placeholder="Cari nama jalan atau patokan"
+                        className="h-9 w-full rounded-lg border border-[var(--sf-line)] pl-8 pr-3 text-[0.8125rem] outline-none"
+                    />
+                </label>
+                <button
+                    type="button"
+                    onClick={() => void jump(query)}
+                    disabled={busy}
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--sf-line)] px-3 text-xs font-medium disabled:opacity-50"
+                >
+                    {busy ? <Loader2 className="size-3.5 animate-spin" /> : <MapPin className="size-3.5" />}
+                    Cari
+                </button>
+            </div>
+
+            <div
+                ref={container}
+                className={cn(
+                    'mt-2 h-52 w-full overflow-hidden rounded-lg border border-[var(--sf-line)]',
+                    status === 'loading' && 'animate-pulse bg-[color-mix(in_oklab,var(--sf-fg)_6%,transparent)]',
+                )}
+            />
+
+            {notice && <p className="mt-1.5 text-xs text-amber-600">{notice}</p>}
+
+            {latitude !== null && longitude !== null && (
+                <div className="mt-1.5 flex flex-wrap items-start gap-x-2 gap-y-1 text-xs">
+                    <span className="font-medium text-emerald-600">Titik tersimpan</span>
+                    {label && <span className="min-w-0 flex-1 opacity-60">{label}</span>}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            onChange(null);
+                            setLabel(null);
+                        }}
+                        className="underline opacity-60"
+                    >
+                        Hapus pin
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
