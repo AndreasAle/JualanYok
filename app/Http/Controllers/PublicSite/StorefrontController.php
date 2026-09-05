@@ -214,6 +214,11 @@ class StorefrontController extends Controller
 
         $data = $request->validate([
             'from_cart' => ['nullable', 'boolean'],
+            // Which of the buyer's own cart rows to check out. Ids are matched
+            // against that cart, so an id from anywhere else simply matches
+            // nothing rather than pulling in a stranger's line.
+            'cart_item_ids' => ['nullable', 'array'],
+            'cart_item_ids.*' => ['integer'],
             // No min:1 here — a cart checkout legitimately sends an empty list,
             // and the real emptiness check happens after the cart is rebuilt.
             'items' => ['required_without:from_cart', 'array'],
@@ -247,7 +252,9 @@ class StorefrontController extends Controller
             abort_unless($cart, 419, 'Keranjang tidak ditemukan. Muat ulang halaman.');
         }
 
-        $items = $cart ? $this->carts->checkoutLines($cart) : $data['items'];
+        $items = $cart
+            ? $this->carts->checkoutLines($cart, $data['cart_item_ids'] ?? null)
+            : $data['items'];
 
         if ($items === []) {
             return back()->withErrors(['items' => 'Keranjang kosong atau semua item sudah tidak tersedia.']);

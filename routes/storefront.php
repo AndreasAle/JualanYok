@@ -59,6 +59,8 @@ Route::prefix('{store:username}')
             ->name('storefront.chat.store');
 
         /* Basket. Guest-friendly; identified by a per-store cookie. */
+        Route::get('/keranjang', [CartController::class, 'index'])->name('storefront.cart.index');
+
         Route::middleware('throttle:60,1')->group(function () {
             Route::post('/keranjang', [CartController::class, 'store'])->name('storefront.cart.store');
             Route::put('/keranjang/{item}', [CartController::class, 'update'])->name('storefront.cart.update');

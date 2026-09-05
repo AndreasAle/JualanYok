@@ -266,12 +266,26 @@ class CartService
     }
 
     /** The shape CheckoutService expects, with unusable lines left out. */
-    public function checkoutLines(Cart $cart): array
+    /**
+     * The lines to charge for, rebuilt from the stored cart.
+     *
+     * `$onlyItemIds` lets the buyer check out part of their basket. The browser
+     * says which of its own rows to include and nothing else — the product,
+     * variant, quantity and price still come from the cart, so a tampered list
+     * can drop a line but can never add one or change what it costs.
+     *
+     * @param  array<int, int>|null  $onlyItemIds
+     */
+    public function checkoutLines(Cart $cart, ?array $onlyItemIds = null): array
     {
         $lines = [];
 
         foreach ($this->payload($cart)['items'] as $line) {
             if ($line['issue'] !== null) {
+                continue;
+            }
+
+            if ($onlyItemIds !== null && ! in_array($line['id'], $onlyItemIds, strict: true)) {
                 continue;
             }
 

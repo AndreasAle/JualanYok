@@ -27,6 +27,34 @@ class CartController extends Controller
         private readonly AnalyticsService $analytics,
     ) {}
 
+    /**
+     * The basket as a page.
+     *
+     * The sheet is fine for "added to cart"; deciding what to actually buy is
+     * not a thing to do through a peephole over the product you were reading.
+     */
+    public function index(Request $request, Store $store): \Inertia\Response
+    {
+        abort_unless($store->isLive(), 404);
+
+        $cart = $this->currentCart($request, $store);
+
+        return \Inertia\Inertia::render('Storefront/Cart', [
+            'store' => [
+                'username' => $store->username,
+                'name' => $store->name,
+                'avatar_url' => $store->avatarUrl(),
+                'public_url' => $store->publicUrl(),
+                'theme' => $store->theme?->only([
+                    'primary_color', 'accent_color', 'background_type', 'background_value',
+                    'font_family', 'button_style', 'card_style', 'product_layout', 'color_scheme',
+                    'extras',
+                ]) ?? [],
+            ],
+            'cart' => $this->carts->payload($cart),
+        ]);
+    }
+
     public function store(Request $request, Store $store)
     {
         abort_unless($store->isLive(), 404);

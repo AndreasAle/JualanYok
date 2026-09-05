@@ -21,6 +21,7 @@ export function CheckoutSheet({
     variantId = null,
     quantity: initialQuantity = 1,
     cart = null,
+    cartItemIds = null,
     storeUsername,
     isPreview,
     theme,
@@ -32,6 +33,8 @@ export function CheckoutSheet({
     /** Seeded from the product page's own stepper, so the choice carries over. */
     quantity?: number;
     cart?: CartPayload | null;
+    /** Which cart rows the buyer ticked; the server still re-prices them. */
+    cartItemIds?: number[] | null;
     storeUsername: string;
     isPreview: boolean;
     theme: StorefrontTheme;
@@ -70,7 +73,7 @@ export function CheckoutSheet({
     const checkoutTotal = subtotal + (selectedQuote?.amount ?? 0);
 
     const linesPayload = fromCart
-        ? { from_cart: true, items: [] as any[] }
+        ? { from_cart: true, items: [] as any[], ...(cartItemIds ? { cart_item_ids: cartItemIds } : {}) }
         : { from_cart: false, items: [{ product_id: product!.id, ...(variantId ? { variant_id: variantId } : {}), quantity }] };
 
     const searchAreas = async (queryOverride?: string) => {

@@ -23,23 +23,90 @@ class PurchaseController extends Controller
         private readonly DisputeService $disputes,
     ) {}
 
+    /**
+     * The stages a buyer actually thinks in.
+     *
+     * There are eleven order statuses; a buyer has four questions — do I still
+     * owe money, is it being prepared, is it on the way, is it done. Everything
+     * else lives under "Semua" rather than earning a tab nobody reads.
+     *
+     * @var array<string, array{label: string, statuses: array<int, string>}>
+     */
+    private const TABS = [
+        'semua' => ['label' => 'Semua', 'statuses' => []],
+        'belum-bayar' => ['label' => 'Belum Bayar', 'statuses' => ['PENDING_PAYMENT']],
+        'dikemas' => ['label' => 'Dikemas', 'statuses' => ['PAID', 'PROCESSING']],
+        // "On its way" is not an order status — nothing sets one. It is a fact
+        // about the shipment, so the tab asks the shipment.
+        'dikirim' => ['label' => 'Dikirim', 'statuses' => [], 'shipped' => true],
+        'selesai' => ['label' => 'Selesai', 'statuses' => ['COMPLETED']],
+        'dibatalkan' => ['label' => 'Dibatalkan', 'statuses' => ['CANCELLED', 'EXPIRED', 'REFUNDED', 'PARTIALLY_REFUNDED']],
+    ];
+
+    /** The shipment states that mean the parcel has left the seller. */
+    private const IN_TRANSIT = ['picked', 'in_transit', 'dropping_off'];
+
+    /** Applies one tab's filter, whichever table it actually lives in. */
+    private function scopeTab(\Illuminate\Database\Eloquent\Builder $query, string $tab): \Illuminate\Database\Eloquent\Builder
+    {
+        $definition = self::TABS[$tab];
+
+        if ($definition['shipped'] ?? false) {
+            return $query->whereHas('shipment', fn ($q) => $q->whereIn('status', self::IN_TRANSIT));
+        }
+
+        return $definition['statuses'] === []
+            ? $query
+            : $query->whereIn('status', $definition['statuses']);
+    }
+
     public function index(Request $request): Response
     {
-        $orders = $this->ownedOrders($request)
-            ->with('store', 'items')
+        $tab = array_key_exists((string) $request->query('tab'), self::TABS)
+            ? (string) $request->query('tab')
+            : 'semua';
+
+        $orders = $this->scopeTab($this->ownedOrders($request), $tab)
+            ->with(['store:id,name,username', 'items.product'])
             ->latest()
             ->paginate(10)
+            ->withQueryString()
             ->through(fn (Order $o) => [
                 'number' => $o->number,
                 'store' => $o->store->name,
+                'store_username' => $o->store->username,
                 'grand_total' => (float) $o->grand_total,
                 'status' => $o->status->value,
                 'status_label' => $o->status->label(),
                 'items_count' => $o->items->count(),
+                'items' => $o->items->take(3)->map(fn ($item) => [
+                    'name' => $item->name,
+                    'quantity' => $item->quantity,
+                    'thumbnail_url' => $item->product?->thumbnailUrl(),
+                ])->values(),
+                'is_payable' => $o->status->value === 'PENDING_PAYMENT',
                 'created_at' => $o->created_at->toDateTimeString(),
             ]);
 
-        return Inertia::render('Member/Orders/Index', ['orders' => $orders]);
+        // Counted separately from the page, so a badge is not "10 on this page"
+        // when there are forty waiting.
+        $counts = [];
+
+        foreach (array_keys(self::TABS) as $key) {
+            $counts[$key] = $this->scopeTab($this->ownedOrders($request), $key)->count();
+        }
+
+        return Inertia::render('Member/Orders/Index', [
+            'orders' => $orders,
+            'tab' => $tab,
+            'tabs' => collect(self::TABS)
+                ->map(fn ($definition, $key) => [
+                    'key' => $key,
+                    'label' => $definition['label'],
+                    'count' => $counts[$key],
+                ])
+                ->values(),
+        ]);
     }
 
     public function show(Request $request, Order $order): Response

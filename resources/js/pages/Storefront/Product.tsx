@@ -797,7 +797,7 @@ export default function StorefrontProductPage({
                     theme={theme}
                     onCheckout={() => {
                         setCartOpen(false);
-                        setCartCheckout(true);
+                        router.visit(`/${store.username}/keranjang`);
                     }}
                     onClose={() => setCartOpen(false)}
                 />
