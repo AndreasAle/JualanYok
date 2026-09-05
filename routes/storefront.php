@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\PublicSite\CartController;
+use App\Http\Controllers\PublicSite\ChatController;
 use App\Http\Controllers\PublicSite\StorefrontController;
 use App\Http\Controllers\PublicSite\ShippingController;
 use Illuminate\Support\Facades\Route;
@@ -44,6 +45,18 @@ Route::prefix('{store:username}')
         Route::post('/pengiriman/tarif', [ShippingController::class, 'quotes'])
             ->middleware('throttle:20,1')
             ->name('storefront.shipping.quotes');
+
+        /*
+         * Chat with the seller. Guest-friendly: which thread the caller may
+         * touch comes from their session or http-only cookie, never from the
+         * request, so no conversation id is accepted here at all.
+         */
+        Route::get('/chat', [ChatController::class, 'show'])
+            ->middleware('throttle:60,1')
+            ->name('storefront.chat.show');
+        Route::post('/chat', [ChatController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('storefront.chat.store');
 
         /* Basket. Guest-friendly; identified by a per-store cookie. */
         Route::middleware('throttle:60,1')->group(function () {

@@ -4,6 +4,7 @@ use App\Http\Controllers\Creator\AffiliateProgramController;
 use App\Http\Controllers\Creator\AnalyticsController;
 use App\Http\Controllers\Creator\BalanceController;
 use App\Http\Controllers\Creator\BlockController;
+use App\Http\Controllers\Creator\ChatController;
 use App\Http\Controllers\Creator\CouponController;
 use App\Http\Controllers\Creator\CustomerController;
 use App\Http\Controllers\Creator\DashboardController;
@@ -28,6 +29,15 @@ Route::middleware(['auth', 'creator'])
     ->name('creator.')
     ->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+        /* Buyer conversations */
+        Route::get('/chat', [ChatController::class, 'index'])->name('chat');
+        Route::get('/chat/{conversation}/pesan', [ChatController::class, 'messages'])
+            ->middleware('throttle:120,1')
+            ->name('chat.messages');
+        Route::post('/chat/{conversation}', [ChatController::class, 'store'])
+            ->middleware('throttle:60,1')
+            ->name('chat.store');
 
         /* Storefront builder */
         Route::get('/toko', [StoreBuilderController::class, 'edit'])->name('builder');

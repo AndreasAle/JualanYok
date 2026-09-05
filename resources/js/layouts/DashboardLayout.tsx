@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, BarChart3, Blocks, Boxes, ChevronLeft, CircleHelp, CreditCard, ExternalLink, Eye, Gauge, Gift,
+    MessageCircle,
     Handshake, IdCard, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
     Search, ShieldCheck, ShoppingBag, Store, Ticket, TrendingUp, Truck, UserCircle, Users, Wallet, X,
 } from 'lucide-react';
@@ -19,6 +20,8 @@ interface NavItem {
     primary?: boolean;
     /** Restricts sensitive links without exposing dead navigation to other admins. */
     roles?: string[];
+    /** Names a live counter to show beside the label. */
+    badge?: 'chat';
 }
 
 const CREATOR_NAV: { group: string; items: NavItem[] }[] = [
@@ -34,6 +37,7 @@ const CREATOR_NAV: { group: string; items: NavItem[] }[] = [
         group: 'Penjualan',
         items: [
             { label: 'Pesanan', href: '/dashboard/pesanan', icon: <ShoppingBag className="size-4.5" />, primary: true },
+            { label: 'Chat', href: '/dashboard/chat', icon: <MessageCircle className="size-4.5" />, primary: true, badge: 'chat' },
             { label: 'Pengiriman', href: '/dashboard/pengiriman', icon: <Truck className="size-4.5" /> },
             { label: 'Pelanggan', href: '/dashboard/pelanggan', icon: <Users className="size-4.5" /> },
             { label: 'Leads', href: '/dashboard/leads', icon: <Gift className="size-4.5" /> },
@@ -147,7 +151,7 @@ export default function DashboardLayout({
     title: string;
     area?: DashboardArea;
 }) {
-    const { auth, tour } = usePage<PageProps>().props;
+    const { auth, tour, chatUnread } = usePage<PageProps>().props;
     const { url } = usePage();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
@@ -220,7 +224,12 @@ export default function DashboardLayout({
                             <ul className="space-y-0.5">
                                 {group.items.map((item) => (
                                     <li key={item.href}>
-                                        <NavLink item={item} active={isActive(item.href)} collapsed={collapsed} />
+                                        <NavLink
+                                            item={item}
+                                            active={isActive(item.href)}
+                                            collapsed={collapsed}
+                                            count={item.badge === 'chat' ? chatUnread : 0}
+                                        />
                                     </li>
                                 ))}
                             </ul>
@@ -272,6 +281,7 @@ export default function DashboardLayout({
                                                 <NavLink
                                                     item={item}
                                                     active={isActive(item.href)}
+                                                    count={item.badge === 'chat' ? chatUnread : 0}
                                                     onClick={() => setDrawerOpen(false)}
                                                 />
                                             </li>
@@ -413,11 +423,13 @@ function NavLink({
     item,
     active,
     collapsed,
+    count = 0,
     onClick,
 }: {
     item: NavItem;
     active: boolean;
     collapsed?: boolean;
+    count?: number;
     onClick?: () => void;
 }) {
     return (
@@ -441,6 +453,16 @@ function NavLink({
             )}
             <span className={cn('shrink-0 transition-colors [&>svg]:size-[17px]', active ? 'text-white' : 'text-white/45 group-hover:text-white/80')}>{item.icon}</span>
             {!collapsed && <span className="truncate">{item.label}</span>}
+            {count > 0 && (
+                <span
+                    className={cn(
+                        'grid min-w-4 place-items-center rounded-full bg-[var(--color-brand-500)] px-1 text-[0.625rem] font-semibold text-white',
+                        collapsed && 'absolute right-3 top-1.5 size-2 min-w-0 p-0 text-[0]',
+                    )}
+                >
+                    {count > 99 ? '99+' : count}
+                </span>
+            )}
         </Link>
     );
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Conversation;
 use App\Services\NotificationCenterService;
 use App\Services\PlanService;
 use App\Support\Tours;
@@ -80,6 +81,12 @@ class HandleInertiaRequests extends Middleware
              * routes that have no tour attached.
              */
             'tour' => fn () => Tours::forRequest($request, $user),
+
+            // Unread buyer messages, for the sidebar badge. Lazy: only the
+            // dashboard asks for it, and only a creator has a store to count.
+            'chatUnread' => fn () => (int) ($user?->store
+                ? Conversation::where('store_id', $user->store->id)->sum('seller_unread')
+                : 0),
 
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

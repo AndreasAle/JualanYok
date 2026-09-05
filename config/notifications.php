@@ -34,6 +34,12 @@ return [
             'email_default' => 'daily',
             'email_locked' => false,
         ],
+        'chat' => [
+            'label' => 'Chat pembeli',
+            'description' => 'Pertanyaan pembeli lewat chat toko.',
+            'email_default' => 'immediate',
+            'email_locked' => false,
+        ],
         'refunds' => [
             'label' => 'Refund & komplain',
             'description' => 'Pengajuan, keputusan, dan tenggat respons.',

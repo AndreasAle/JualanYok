@@ -91,6 +91,8 @@ export interface PageProps {
     notifications: NotificationSummary;
     /** The guided tour for this screen, or null once it has been finished. */
     tour: Tour | null;
+    /** Unread buyer messages waiting in the creator's inbox. */
+    chatUnread: number;
     flash: {
         success: string | null;
         error: string | null;

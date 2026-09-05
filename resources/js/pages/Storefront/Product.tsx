@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CartSheet } from '@/components/storefront/CartSheet';
+import { ChatSheet } from '@/components/storefront/ChatSheet';
 import { CheckoutSheet } from '@/components/storefront/CheckoutSheet';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { ShareProductButton } from '@/components/storefront/ShareProductButton';
@@ -123,6 +124,7 @@ export default function StorefrontProductPage({
     const [purchaseChoice, setPurchaseChoice] = useState<StorefrontProduct | null>(null);
     const [cartOpen, setCartOpen] = useState(false);
     const [cartCheckout, setCartCheckout] = useState(false);
+    const [chatOpen, setChatOpen] = useState(false);
     const [activeImage, setActiveImage] = useState(0);
     const [quantity, setQuantity] = useState(Math.max(1, product.min_quantity || 1));
     const [picked, setPicked] = useState<Record<string, string>>({});
@@ -188,11 +190,7 @@ export default function StorefrontProductPage({
 
     const cartCount = cart?.item_count ?? 0;
 
-    // Opens WhatsApp with the product already named, so the seller does not have
-    // to ask which of their products the buyer means.
-    const chatUrl = seller.whatsapp
-        ? `https://wa.me/${seller.whatsapp}?text=${encodeURIComponent(`Halo ${seller.name}, saya mau tanya soal "${product.name}" — ${productShareUrl}`)}`
-        : null;
+
 
     return (
         <div className="min-h-screen pb-24 lg:pb-10" style={theme.pageStyle}>
@@ -426,16 +424,13 @@ export default function StorefrontProductPage({
                         </div>
 
                         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-                            {chatUrl && (
-                                <a
-                                    href={chatUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-[0.8125rem] font-semibold text-[var(--sf-primary)] hover:underline"
-                                >
-                                    <MessageCircle className="size-4" /> Chat penjual
-                                </a>
-                            )}
+                            <button
+                                type="button"
+                                onClick={() => setChatOpen(true)}
+                                className="inline-flex items-center gap-1.5 text-[0.8125rem] font-semibold text-[var(--sf-primary)] hover:underline"
+                            >
+                                <MessageCircle className="size-4" /> Chat penjual
+                            </button>
                             <ShareProductButton url={productShareUrl} title={product.name} label />
                         </div>
 
@@ -477,16 +472,13 @@ export default function StorefrontProductPage({
                             <p className={cn('truncate text-xs', theme.muted)}>@{seller.username}</p>
 
                             <div className="mt-2 flex gap-2">
-                                {chatUrl && (
-                                    <a
-                                        href={chatUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex h-8 items-center gap-1.5 rounded border border-[var(--sf-primary)] px-2.5 text-xs font-semibold text-[var(--sf-primary)]"
-                                    >
-                                        <MessageCircle className="size-3.5" /> Chat
-                                    </a>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setChatOpen(true)}
+                                    className="inline-flex h-8 items-center gap-1.5 rounded border border-[var(--sf-primary)] px-2.5 text-xs font-semibold text-[var(--sf-primary)]"
+                                >
+                                    <MessageCircle className="size-3.5" /> Chat
+                                </button>
                                 <Link
                                     href={`/${seller.username}`}
                                     className="inline-flex h-8 items-center gap-1.5 rounded border border-[var(--sf-line)] px-2.5 text-xs font-semibold"
@@ -711,17 +703,14 @@ export default function StorefrontProductPage({
 
             {/* Mobile action bar — chat, cart, buy, as on the marketplaces. */}
             <div className={cn('fixed inset-x-0 bottom-0 z-40 flex border-t bg-[var(--sf-card)] lg:hidden', theme.line)}>
-                {chatUrl && (
-                    <a
-                        href={chatUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={cn('flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 border-r text-[0.625rem]', theme.line, theme.muted)}
-                    >
-                        <MessageCircle className="size-5" />
-                        Chat
-                    </a>
-                )}
+                <button
+                    type="button"
+                    onClick={() => setChatOpen(true)}
+                    className={cn('flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 border-r text-[0.625rem]', theme.line, theme.muted)}
+                >
+                    <MessageCircle className="size-5" />
+                    Chat
+                </button>
 
                 {!product.external_url && (
                     <button
@@ -785,6 +774,19 @@ export default function StorefrontProductPage({
                         setPurchaseChoice(null);
                     }}
                     onClose={() => setPurchaseChoice(null)}
+                />
+            )}
+
+            {chatOpen && (
+                <ChatSheet
+                    storeUsername={store.username}
+                    storeName={seller.name}
+                    storeAvatar={seller.avatar_url}
+                    productId={product.id}
+                    productName={product.name}
+                    whatsapp={seller.whatsapp}
+                    theme={theme}
+                    onClose={() => setChatOpen(false)}
                 />
             )}
 
