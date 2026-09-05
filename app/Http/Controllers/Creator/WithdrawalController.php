@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Creator;
 
 use App\Http\Controllers\Controller;
+use App\Models\IdentityVerification;
 use App\Models\PayoutMethod;
 use App\Models\Role;
 use App\Models\Withdrawal;
@@ -10,6 +11,7 @@ use App\Services\NotificationCenterService;
 use App\Services\WithdrawalService;
 use App\Support\Money;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -38,6 +40,21 @@ class WithdrawalController extends Controller
                 'minimum' => $this->withdrawals->minimumAmount(),
                 'fee' => $this->withdrawals->fee(),
             ],
+            /*
+             * Payouts move real money to a named person, so the platform has to
+             * know who that person is. The page needs the state of that check
+             * to explain itself rather than just refusing.
+             */
+            'identity' => ($kyc = IdentityVerification::where('user_id', $user->id)->first())
+                ? [
+                    'status' => $kyc->status,
+                    'status_label' => $kyc->statusLabel(),
+                    'full_name' => $kyc->full_name,
+                    'masked_nik' => $kyc->maskedNik(),
+                    'rejection_reason' => $kyc->rejection_reason,
+                    'submitted_at' => $kyc->created_at->translatedFormat('d M Y'),
+                ]
+                : null,
             'payoutMethods' => $user->payoutMethods()->get()->map(fn (PayoutMethod $m) => [
                 'id' => $m->id,
                 'type' => $m->type,
@@ -70,6 +87,26 @@ class WithdrawalController extends Controller
 
     public function store(Request $request)
     {
+        /*
+         * Identity first.
+         *
+         * This is the point where money leaves the platform and lands in a
+         * named bank account. Knowing who that person is protects the buyers
+         * whose payments funded the balance, and it is the ordinary
+         * expectation of anyone moving other people's money.
+         */
+        $identity = IdentityVerification::where('user_id', $request->user()->id)->first();
+
+        if (! $identity?->isApproved()) {
+            throw ValidationException::withMessages([
+                'amount' => $identity === null
+                    ? 'Lengkapi verifikasi identitas dulu sebelum menarik dana.'
+                    : ($identity->status === IdentityVerification::PENDING
+                        ? 'Verifikasi identitasmu masih ditinjau. Kami kabari lewat email begitu selesai.'
+                        : 'Verifikasi identitasmu ditolak. Perbaiki datanya lalu kirim ulang.'),
+            ]);
+        }
+
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:1'],
             'payout_method_id' => ['required', 'exists:payout_methods,id'],

@@ -8,6 +8,7 @@ use App\Http\Controllers\Creator\ChatController;
 use App\Http\Controllers\Creator\CouponController;
 use App\Http\Controllers\Creator\CustomerController;
 use App\Http\Controllers\Creator\DashboardController;
+use App\Http\Controllers\Creator\IdentityVerificationController;
 use App\Http\Controllers\Creator\IntegrationController;
 use App\Http\Controllers\Creator\LeadController;
 use App\Http\Controllers\Creator\MediaController;
@@ -41,6 +42,11 @@ Route::middleware(['auth', 'creator'])
         Route::post('/chat/{conversation}', [ChatController::class, 'store'])
             ->middleware('throttle:60,1')
             ->name('chat.store');
+
+        /* Identity check, required before money can leave the platform. */
+        Route::post('/verifikasi-identitas', [IdentityVerificationController::class, 'store'])
+            ->middleware('throttle:6,60')
+            ->name('identity.store');
 
         /* Reviews. Reading them, and replying — which is all a seller may do. */
         Route::get('/ulasan', [ReviewController::class, 'index'])->name('reviews');

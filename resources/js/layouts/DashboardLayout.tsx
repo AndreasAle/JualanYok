@@ -95,6 +95,7 @@ const ADMIN_NAV: { group: string; items: NavItem[] }[] = [
             { label: 'Komplain', href: '/admin/komplain', icon: <AlertTriangle className="size-4.5" /> },
             { label: 'Penarikan', href: '/admin/penarikan', icon: <CreditCard className="size-4.5" />, primary: true },
             { label: 'Verifikasi Rekening', href: '/admin/rekening-pencairan', icon: <IdCard className="size-4.5" />, roles: ['finance-admin', 'super-admin'] },
+            { label: 'Verifikasi Identitas', href: '/admin/verifikasi-identitas', icon: <ShieldCheck className="size-4.5" />, roles: ['finance-admin', 'super-admin'] },
             { label: 'Ledger', href: '/admin/ledger', icon: <PieChart className="size-4.5" /> },
         ],
     },

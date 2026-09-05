@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDisputeController;
 use App\Http\Controllers\Admin\AdminEconomicsController;
+use App\Http\Controllers\Admin\AdminIdentityVerificationController;
 use App\Http\Controllers\Admin\AdminMarketplaceController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPayoutMethodController;
@@ -70,6 +71,19 @@ Route::middleware(['auth', 'admin'])
                 ->name('payout-methods.approve');
             Route::post('/rekening-pencairan/{payoutMethod}/tolak', [AdminPayoutMethodController::class, 'reject'])
                 ->name('payout-methods.reject');
+
+            /*
+             * Identity checks. Finance only, and the two photographs are served
+             * from a private disk behind a short-lived signed link.
+             */
+            Route::get('/verifikasi-identitas', [AdminIdentityVerificationController::class, 'index'])
+                ->name('identity.index');
+            Route::get('/verifikasi-identitas/{verification}/dokumen/{kind}', [AdminIdentityVerificationController::class, 'document'])
+                ->name('identity.document');
+            Route::post('/verifikasi-identitas/{verification}/setujui', [AdminIdentityVerificationController::class, 'approve'])
+                ->name('identity.approve');
+            Route::post('/verifikasi-identitas/{verification}/tolak', [AdminIdentityVerificationController::class, 'reject'])
+                ->name('identity.reject');
         });
 
         Route::get('/paket', [PlanController::class, 'index'])->name('plans.index');
