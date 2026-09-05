@@ -609,6 +609,7 @@ class StorefrontController extends Controller
             'media' => $product->relationLoaded('media')
                 ? $product->media->map(fn ($media) => [
                     'url' => Media::url($media->path),
+                    'kind' => $media->kind ?? 'image',
                     'alt' => $media->alt,
                 ])->values()
                 : [],

@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, ExternalLink, ImageIcon,
-    MapPin, MessageCircle, Minus, PlayCircle, Plus, ShieldCheck, ShoppingBag, Store as StoreIcon,
+    MapPin, MessageCircle, Minus, Play, PlayCircle, Plus, ShieldCheck, ShoppingBag, Store as StoreIcon,
     Ticket, Truck, Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -37,7 +37,7 @@ interface DetailedProduct extends StorefrontProduct {
     weight_gram: number | null;
     min_quantity: number;
     max_quantity: number | null;
-    media: { url: string; alt: string | null }[];
+    media: { url: string; kind?: string; alt: string | null }[];
     variants: Variant[];
     course: {
         level: string;
@@ -141,10 +141,17 @@ export default function StorefrontProductPage({
         product.variants.length === 1 ? product.variants[0].id : null,
     );
 
+    /*
+     * The gallery, video included. A clip is put first when there is one:
+     * "how does it actually look on" is the question a still cannot answer,
+     * and it is the one buyers open the chat to ask.
+     */
     const images = [
-        ...(product.thumbnail_url ? [{ url: product.thumbnail_url, alt: product.name }] : []),
-        ...(product.media ?? []),
-    ].filter((image, index, items) => items.findIndex((candidate) => candidate.url === image.url) === index);
+        ...(product.thumbnail_url ? [{ url: product.thumbnail_url, kind: 'image', alt: product.name }] : []),
+        ...(product.media ?? []).map((item) => ({ ...item, kind: item.kind ?? 'image' })),
+    ]
+        .filter((image, index, items) => items.findIndex((candidate) => candidate.url === image.url) === index)
+        .sort((a, b) => Number(b.kind === 'video') - Number(a.kind === 'video'));
 
     const groups = useMemo(() => optionGroups(product.variants), [product.variants]);
     const selectedVariant = product.variants.find((v) => v.id === variantId) ?? null;
@@ -862,7 +869,7 @@ function Gallery({
     discount,
     theme,
 }: {
-    images: { url: string; alt: string | null }[];
+    images: { url: string; kind?: string; alt: string | null }[];
     active: number;
     onChange: (index: number) => void;
     discount: number;
@@ -874,7 +881,18 @@ function Gallery({
         <div>
             <div className="relative aspect-square w-full overflow-hidden rounded">
                 {images.length > 0 ? (
-                    <img src={images[active].url} alt={images[active].alt ?? ''} className="size-full object-cover" />
+                    images[active].kind === 'video' ? (
+                        <video
+                            key={images[active].url}
+                            src={images[active].url}
+                            className="size-full bg-black object-contain"
+                            controls
+                            playsInline
+                            preload="metadata"
+                        />
+                    ) : (
+                        <img src={images[active].url} alt={images[active].alt ?? ''} className="size-full object-cover" />
+                    )
                 ) : (
                     <span
                         className="grid size-full place-items-center"
@@ -911,14 +929,23 @@ function Gallery({
                                 key={i}
                                 type="button"
                                 onClick={() => onChange(i)}
-                                aria-label={`Gambar ${i + 1}`}
+                                aria-label={image.kind === 'video' ? 'Video produk' : `Gambar ${i + 1}`}
                                 aria-current={i === active}
                                 className={cn(
-                                    'size-14 shrink-0 overflow-hidden rounded border-2 transition',
+                                    'relative size-14 shrink-0 overflow-hidden rounded border-2 transition',
                                     i === active ? 'border-[var(--sf-primary)]' : 'border-transparent opacity-70 hover:opacity-100',
                                 )}
                             >
-                                <img src={image.url} alt="" loading="lazy" className="size-full object-cover" />
+                                {image.kind === 'video' ? (
+                                    <>
+                                        <video src={image.url} className="size-full object-cover" muted preload="metadata" />
+                                        <span className="absolute inset-0 grid place-items-center bg-black/35">
+                                            <Play className="size-4 fill-white text-white" />
+                                        </span>
+                                    </>
+                                ) : (
+                                    <img src={image.url} alt="" loading="lazy" className="size-full object-cover" />
+                                )}
                             </button>
                         ))}
                     </div>

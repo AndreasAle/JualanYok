@@ -191,6 +191,7 @@ class ProductController extends Controller
                 'media' => $product->media->map(fn ($media) => [
                     'id' => $media->id,
                     'url' => Media::url($media->path),
+                    'kind' => $media->kind ?? 'image',
                     'alt' => $media->alt,
                 ])->values(),
                 'sku' => $product->sku,
@@ -401,9 +402,14 @@ class ProductController extends Controller
             ],
             'gallery' => ['nullable', 'array', 'max:8'],
             'gallery.*' => [
-                'image',
-                'mimes:'.implode(',', config('jualanyok.uploads.image_mimes')),
-                'max:'.config('jualanyok.uploads.image_max_kb'),
+                'file',
+                /*
+                 * Judged by the file's real type rather than its name: this
+                 * lands in a publicly served folder, so an executable renamed
+                 * .jpg must never get in.
+                 */
+                'mimetypes:image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm',
+                'max:'.config('jualanyok.uploads.video_max_kb'),
             ],
             'removed_media_ids' => ['nullable', 'array', 'max:8'],
             'removed_media_ids.*' => ['integer'],
@@ -420,8 +426,23 @@ class ProductController extends Controller
 
         if ($keptImages + $newImages > 8) {
             throw ValidationException::withMessages([
-                'gallery' => 'Galeri produk maksimal berisi 8 gambar.',
+                'gallery' => 'Galeri produk maksimal berisi 8 file.',
             ]);
+        }
+
+        // An image cap that also applied to video would let one long clip use
+        // the whole allowance, so each kind is checked against its own limit.
+        foreach ($request->file('gallery', []) as $index => $file) {
+            $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
+            $limitKb = (int) config($isVideo ? 'jualanyok.uploads.video_max_kb' : 'jualanyok.uploads.image_max_kb');
+
+            if ($file->getSize() > $limitKb * 1024) {
+                throw ValidationException::withMessages([
+                    "gallery.{$index}" => $isVideo
+                        ? 'Video maksimal '.round($limitKb / 1024).' MB.'
+                        : 'Gambar maksimal '.round($limitKb / 1024).' MB.',
+                ]);
+            }
         }
 
         return $data;
@@ -562,8 +583,11 @@ class ProductController extends Controller
         $position = (int) $product->media()->max('position');
 
         foreach ($files as $file) {
+            $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
+
             $product->media()->create([
                 'path' => $file->store('products/gallery', 'public'),
+                'kind' => $isVideo ? 'video' : 'image',
                 'alt' => $product->name,
                 'position' => ++$position,
             ]);

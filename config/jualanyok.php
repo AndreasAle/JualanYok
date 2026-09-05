@@ -98,6 +98,9 @@ return [
     'uploads' => [
         'image_mimes' => ['jpg', 'jpeg', 'png', 'webp', 'gif'],
         'image_max_kb' => 4096,
+        // Product and review clips. Big enough for a 30-second phone video,
+        // small enough that a shop cannot fill the disk with one upload.
+        'video_max_kb' => 51200, // 50 MB
         'file_mimes' => ['pdf', 'zip', 'epub', 'mp3', 'mp4', 'psd', 'ai', 'xlsx', 'docx', 'pptx'],
         'file_max_kb' => 204800, // 200 MB
     ],
