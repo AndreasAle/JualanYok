@@ -380,6 +380,9 @@ class StorefrontController extends Controller
         return [
             'name' => $store->name,
             'username' => $store->username,
+            // Viewing your own shop. Chat is refused server-side for this, so
+            // offering the button would only produce an error nobody expected.
+            'is_own' => auth()->id() !== null && auth()->id() === $store->user_id,
             'avatar_url' => $store->avatarUrl(),
             'public_url' => $store->publicUrl(),
             'whatsapp' => $store->whatsapp ? Phone::international($store->whatsapp) : null,

@@ -112,10 +112,21 @@ export function ChatSheet({
             });
 
             if (!response.ok) {
+                /*
+                 * The server usually knows exactly what went wrong — "this is
+                 * your own shop", "the session expired" — and saying "coba lagi"
+                 * over the top of that sends someone to retry something that
+                 * will never work. Its message wins when there is one.
+                 */
+                const reason = await response.json().catch(() => null);
+
                 setError(
-                    response.status === 429
-                        ? 'Kebanyakan pesan sekaligus. Tunggu sebentar ya.'
-                        : 'Pesan belum terkirim. Coba lagi sebentar lagi.',
+                    reason?.message
+                        ?? (response.status === 429
+                            ? 'Kebanyakan pesan sekaligus. Tunggu sebentar ya.'
+                            : response.status === 419
+                              ? 'Sesi kamu kedaluwarsa. Muat ulang halaman lalu kirim lagi.'
+                              : 'Pesan belum terkirim. Coba lagi sebentar lagi.'),
                 );
 
                 return;

@@ -198,9 +198,28 @@ class StoreChatTest extends TestCase
     {
         $this->actingAs($this->store->owner)
             ->postJson("/{$this->store->username}/chat", ['body' => 'Halo saya sendiri'])
-            ->assertStatus(422);
+            ->assertStatus(422)
+            // Said plainly: a refusal the page can repeat back beats a generic
+            // "try again" for something that will never work.
+            ->assertJsonPath('message', 'Ini toko kamu sendiri.');
 
         $this->assertSame(0, Conversation::count());
+    }
+
+    public function test_the_product_page_hides_chat_from_the_shops_own_owner(): void
+    {
+        $product = $this->makeProduct($this->store);
+
+        // A shopper sees the chat button…
+        $this->get("/{$this->store->username}/p/{$product->slug}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('seller.is_own', false));
+
+        // …the owner does not, because the server would refuse the message.
+        $this->actingAs($this->store->owner)
+            ->get("/{$this->store->username}/p/{$product->slug}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('seller.is_own', true));
     }
 
     public function test_a_message_from_the_seller_never_alerts_the_seller(): void

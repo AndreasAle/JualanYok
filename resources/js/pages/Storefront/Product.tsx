@@ -64,6 +64,8 @@ interface Seller {
     whatsapp: string | null;
     products_count: number;
     sales_count: number;
+    /** True when the person looking at this page owns the shop. */
+    is_own: boolean;
     joined_human: string | null;
     origin: string | null;
 }
@@ -424,13 +426,15 @@ export default function StorefrontProductPage({
                         </div>
 
                         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-                            <button
-                                type="button"
-                                onClick={() => setChatOpen(true)}
-                                className="inline-flex items-center gap-1.5 text-[0.8125rem] font-semibold text-[var(--sf-primary)] hover:underline"
-                            >
-                                <MessageCircle className="size-4" /> Chat penjual
-                            </button>
+                            {!seller.is_own && (
+                                <button
+                                    type="button"
+                                    onClick={() => setChatOpen(true)}
+                                    className="inline-flex items-center gap-1.5 text-[0.8125rem] font-semibold text-[var(--sf-primary)] hover:underline"
+                                >
+                                    <MessageCircle className="size-4" /> Chat penjual
+                                </button>
+                            )}
                             <ShareProductButton url={productShareUrl} title={product.name} label />
                         </div>
 
@@ -472,13 +476,15 @@ export default function StorefrontProductPage({
                             <p className={cn('truncate text-xs', theme.muted)}>@{seller.username}</p>
 
                             <div className="mt-2 flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setChatOpen(true)}
-                                    className="inline-flex h-8 items-center gap-1.5 rounded border border-[var(--sf-primary)] px-2.5 text-xs font-semibold text-[var(--sf-primary)]"
-                                >
-                                    <MessageCircle className="size-3.5" /> Chat
-                                </button>
+                                {!seller.is_own && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setChatOpen(true)}
+                                        className="inline-flex h-8 items-center gap-1.5 rounded border border-[var(--sf-primary)] px-2.5 text-xs font-semibold text-[var(--sf-primary)]"
+                                    >
+                                        <MessageCircle className="size-3.5" /> Chat
+                                    </button>
+                                )}
                                 <Link
                                     href={`/${seller.username}`}
                                     className="inline-flex h-8 items-center gap-1.5 rounded border border-[var(--sf-line)] px-2.5 text-xs font-semibold"
@@ -703,14 +709,16 @@ export default function StorefrontProductPage({
 
             {/* Mobile action bar — chat, cart, buy, as on the marketplaces. */}
             <div className={cn('fixed inset-x-0 bottom-0 z-40 flex border-t bg-[var(--sf-card)] lg:hidden', theme.line)}>
-                <button
-                    type="button"
-                    onClick={() => setChatOpen(true)}
-                    className={cn('flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 border-r text-[0.625rem]', theme.line, theme.muted)}
-                >
-                    <MessageCircle className="size-5" />
-                    Chat
-                </button>
+                {!seller.is_own && (
+                    <button
+                        type="button"
+                        onClick={() => setChatOpen(true)}
+                        className={cn('flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 border-r text-[0.625rem]', theme.line, theme.muted)}
+                    >
+                        <MessageCircle className="size-5" />
+                        Chat
+                    </button>
+                )}
 
                 {!product.external_url && (
                     <button
