@@ -6,7 +6,7 @@ import {
     TrendingUp, Users, WalletCards, Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { TemplateShowcasePreview } from '@/components/template-showcase-preview';
+import { TemplateLivePreview, type TemplateBlueprintBlock } from '@/components/TemplateLivePreview';
 import MarketplaceFront, { type MarketplaceHomeData } from '@/components/marketplace/MarketplaceFront';
 import { Badge, ButtonLink } from '@/components/ui';
 import MarketingLayout from '@/layouts/MarketingLayout';
@@ -38,6 +38,9 @@ interface TemplateCard {
     tagline: string | null;
     use_case: string | null;
     block_count: number;
+    theme: Record<string, unknown> | null;
+    /** The real blueprint, rendered as the preview. */
+    blocks?: TemplateBlueprintBlock[];
 }
 
 export default function Home({ plans, showcase, templates, marketplace }: { plans: Plan[]; showcase: Showcase[]; templates: TemplateCard[]; marketplace: MarketplaceHomeData }) {
@@ -279,7 +282,7 @@ function TemplateGallery({ templates }: { templates: TemplateCard[] }) {
                             <Reveal key={template.slug} delay={index * 80} className="h-full w-[84vw] max-w-[340px] shrink-0 snap-start sm:w-auto sm:max-w-none">
                                 <Link href={`/templates/${template.slug}/demo`} className="group flex h-full flex-col rounded-[1.5rem] border border-neutral-200/80 bg-white p-3 transition duration-500 hover:-translate-y-1 hover:shadow-xl dark:border-line dark:bg-surface">
                                     <div className="relative overflow-hidden rounded-[1.05rem] bg-neutral-100">
-                                        <TemplateShowcasePreview slug={template.slug} primary={primary} accent={accent} display="homepage" className="aspect-[4/5] transition duration-700 group-hover:scale-[1.025]" />
+                                        <TemplateLivePreview blueprint={template.blocks ?? []} theme={template.theme ?? {}} storeName={template.name} tagline={template.tagline} templateSlug={template.slug} className="aspect-[4/5] overflow-hidden bg-white transition duration-700 group-hover:scale-[1.025]" />
                                         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/12 to-transparent" />
                                         <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full border border-white/80 bg-white/90 px-2 py-1 text-[9px] font-extrabold text-neutral-800 shadow-sm backdrop-blur">Lihat demo <ArrowRight className="size-2.5" /></span>
                                     </div>

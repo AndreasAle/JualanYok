@@ -37,6 +37,7 @@ class OnboardingController extends Controller
                     'is_premium' => (bool) $t->is_premium,
                     'theme' => $t->theme,
                     'blocks' => collect($t->blueprint ?? [])->pluck('type'),
+                    'blueprint' => $t->blueprint ?? [],
                 ]),
             'goals' => [
                 ['key' => 'digital', 'label' => 'Jual produk digital', 'description' => 'E-book, template, preset, audio'],

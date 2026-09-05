@@ -1,7 +1,7 @@
 import { ArrowRight, Check, ChevronRight, Layers3, Palette, SlidersHorizontal, Sparkles, WandSparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { PageCta, PageHero, Reveal } from '@/components/marketing-page';
-import { TemplateShowcasePreview } from '@/components/template-showcase-preview';
+import { TemplateLivePreview, type TemplateBlueprintBlock } from '@/components/TemplateLivePreview';
 import { Badge, ButtonLink } from '@/components/ui';
 import MarketingLayout from '@/layouts/MarketingLayout';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,8 @@ interface Template {
     theme: Record<string, string> | null;
     block_count: number;
     blueprint: string[];
+    /** The real blueprint, rendered as the preview. */
+    blocks?: TemplateBlueprintBlock[];
 }
 
 const BLOCK_LABELS: Record<string, string> = {
@@ -113,7 +115,14 @@ function TemplateHeroVisual({ templates }: { templates: Template[] }) {
                 return (
                     <div key={template.slug} className={cn('absolute w-[43%] rounded-[1.4rem] border border-white/80 bg-white p-2 shadow-[0_24px_60px_rgba(67,38,120,.2)]', positions[index])}>
                         <div className="flex items-center gap-1 px-1 pb-2"><span className="size-1.5 rounded-full bg-rose-300" /><span className="size-1.5 rounded-full bg-amber-300" /><span className="size-1.5 rounded-full bg-emerald-300" /></div>
-                        <TemplateShowcasePreview slug={template.slug} primary={primary} accent={accent} className="aspect-[3/4] rounded-xl" />
+                        <TemplateLivePreview
+                            blueprint={template.blocks ?? []}
+                            theme={template.theme ?? {}}
+                            storeName={template.name}
+                            tagline={template.tagline}
+                            templateSlug={template.slug}
+                            className="aspect-[3/4] overflow-hidden rounded-xl bg-white"
+                        />
                         <p className="px-1 pb-1 pt-2 text-center text-[9px] font-extrabold text-neutral-800 sm:text-[10px]">{template.name}</p>
                     </div>
                 );
@@ -139,7 +148,14 @@ function TemplateCard({ template, recommended }: { template: Template; recommend
                 </div>
                 <div className="mx-auto w-[68%] rounded-[1.35rem] border-[5px] border-[#181820] bg-[#181820] p-1.5 shadow-[0_24px_50px_rgba(28,20,46,.25)] transition duration-700 group-hover:-translate-y-1 group-hover:scale-[1.02]">
                     <div className="mx-auto mb-1 h-1 w-8 rounded-full bg-white/20" />
-                    <TemplateShowcasePreview slug={template.slug} primary={primary} accent={accent} display="catalog" className="aspect-[9/14] rounded-[.8rem]" />
+                    <TemplateLivePreview
+                        blueprint={template.blocks ?? []}
+                        theme={template.theme ?? {}}
+                        storeName={template.name}
+                        tagline={template.tagline}
+                        templateSlug={template.slug}
+                        className="aspect-[9/14] overflow-hidden rounded-[.8rem] bg-white"
+                    />
                 </div>
                 <div className="absolute bottom-4 right-4 flex gap-1.5 rounded-full border border-white/80 bg-white/85 p-2 shadow-sm backdrop-blur">
                     <span className="size-3.5 rounded-full border border-black/5" style={{ backgroundColor: primary }} />

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Plan;
 use App\Models\StaticPage;
 use App\Models\Store;
+use App\Models\Product;
 use App\Models\StorefrontTemplate;
 use App\Models\SupportTicket;
 use App\Services\MarketplaceService;
@@ -164,7 +165,79 @@ class LandingController extends Controller
                 'theme' => $t->theme,
                 'block_count' => count($t->blueprint ?? []),
                 'blueprint' => collect($t->blueprint ?? [])->pluck('type'),
+                // The whole blueprint, so the preview can render the template
+                // through the real storefront components instead of a drawing
+                // of one that drifts the moment either changes.
+                'blocks' => $this->previewBlocks($t->blueprint ?? []),
             ])
             ->all();
+    }
+
+    /**
+     * A blueprint with its product blocks filled in.
+     *
+     * Real listings rather than invented ones. A template preview showing three
+     * empty product slots is a preview of an empty shop, and fabricated
+     * products would be a picture of stock that does not exist — these are
+     * public listings that already have photos and prices.
+     *
+     * @param  array<int, array<string, mixed>>  $blueprint
+     * @return array<int, array<string, mixed>>
+     */
+    private function previewBlocks(array $blueprint): array
+    {
+        $samples = $this->sampleProducts();
+
+        return collect($blueprint)
+            ->map(function (array $block) use ($samples) {
+                if (! in_array($block['type'], ['FEATURED_PRODUCTS', 'PRODUCT_COLLECTION', 'AFFILIATE_PRODUCT'], true)) {
+                    return $block;
+                }
+
+                $limit = (int) ($block['content']['limit'] ?? 3);
+                $block['content'] = ($block['content'] ?? []) + ['products' => array_slice($samples, 0, max(1, $limit))];
+
+                return $block;
+            })
+            ->all();
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function sampleProducts(): array
+    {
+        return once(fn () => Product::query()
+            ->publiclyListed()
+            ->whereHas('store', fn ($q) => $q->live())
+            ->whereNotNull('thumbnail_path')
+            ->with(['store:id,username', 'media'])
+            ->orderByDesc('sales_count')
+            ->limit(6)
+            ->get()
+            ->map(fn (Product $product) => [
+                'id' => $product->id,
+                'slug' => $product->slug,
+                'type' => $product->type->value,
+                'type_label' => $product->type->label(),
+                'name' => $product->name,
+                'short_description' => $product->short_description,
+                'thumbnail_url' => $product->thumbnailUrl(),
+                'media' => [],
+                'price' => (float) $product->price,
+                'compare_at_price' => $product->compare_at_price ? (float) $product->compare_at_price : null,
+                'discount_percent' => $product->discountPercent(),
+                'is_pay_what_you_want' => false,
+                'minimum_price' => null,
+                'external_url' => null,
+                'external_provider' => null,
+                'external_cta' => null,
+                'is_buyable' => true,
+                'is_cartable' => false,
+                'requires_variant' => false,
+                'sales_count' => (int) $product->sales_count,
+                'rating_avg' => $product->rating_avg !== null ? (float) $product->rating_avg : null,
+                'rating_count' => (int) $product->rating_count,
+                'share_url' => '#',
+            ])
+            ->all());
     }
 }
