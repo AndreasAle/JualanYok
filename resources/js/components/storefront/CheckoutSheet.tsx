@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import { Loader2, MapPin, Minus, Plus, Search, ShieldCheck, Truck, X } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { CourierBadge } from '@/components/storefront/CourierBadge';
 import { MapPicker } from '@/components/storefront/MapPicker';
 import { cn, formatIDR, uid } from '@/lib/utils';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
@@ -387,7 +388,7 @@ export function CheckoutSheet({
                                     </div>
 
                                     {areas.length > 0 && (
-                                        <div className={cn('absolute inset-x-0 top-[calc(100%+0.4rem)] z-20 max-h-60 overflow-y-auto rounded-xl border bg-[var(--sf-card)] p-1 shadow-xl', theme.line)}>
+                                        <div className={cn('absolute inset-x-0 top-[calc(100%+0.4rem)] z-[1100] max-h-60 overflow-y-auto rounded-xl border bg-[var(--sf-card)] p-1 shadow-xl', theme.line)}>
                                             {areas.map((area) => (
                                                 <button key={area.id} type="button" onClick={() => selectArea(area)} className="block w-full rounded-lg px-3 py-2.5 text-left transition hover:bg-black/5">
                                                     <span className="block text-xs font-bold">{area.name}</span>
@@ -443,7 +444,8 @@ export function CheckoutSheet({
                             {quotes.length > 0 && (
                                 <div className="space-y-2"><div className="flex items-center justify-between gap-3"><p className="text-xs font-bold uppercase tracking-wide">Pilih layanan</p><span className={cn('text-[10px] font-semibold', theme.muted)}>Termurah dipilih otomatis</span></div>{quotes.map((quote) => (
                                     <label key={quote.token} className={cn('flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3', theme.line, data.shipping_quote_token === quote.token && 'ring-2 ring-[var(--sf-primary)]')}>
-                                        <span className="min-w-0"><span className="block text-sm font-extrabold">{quote.courier_name} · {quote.service_name}</span><span className={cn('block text-xs', theme.muted)}>{quote.duration || 'Estimasi dari kurir'}{quote.insurance_fee > 0 ? ` · termasuk asuransi ${formatIDR(quote.insurance_fee)}` : ''}</span></span>
+                                        <CourierBadge code={quote.courier_company} name={quote.courier_name} />
+                                        <span className="min-w-0 flex-1"><span className="block text-[0.8125rem] font-semibold">{quote.courier_name} · {quote.service_name}</span><span className={cn('block text-xs', theme.muted)}>{quote.duration || 'Estimasi dari kurir'}{quote.insurance_fee > 0 ? ` · termasuk asuransi ${formatIDR(quote.insurance_fee)}` : ''}</span></span>
                                         <span className="flex shrink-0 items-center gap-2"><strong className="text-sm">{formatIDR(quote.amount)}</strong><input type="radio" name="shipping_quote" checked={data.shipping_quote_token === quote.token} onChange={() => setData('shipping_quote_token', quote.token)} /></span>
                                     </label>
                                 ))}</div>

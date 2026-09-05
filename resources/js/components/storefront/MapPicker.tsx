@@ -340,7 +340,13 @@ export function MapPicker({
                 </button>
             </div>
 
-            <div className="relative mt-2">
+            {/*
+                `isolate` keeps Leaflet's own stacking to itself. Its controls
+                sit at z-index 1000, and without a stacking context here that
+                number competes with everything else on the form — which is how
+                the map ended up drawn over the address suggestions.
+            */}
+            <div className="relative isolate z-0 mt-2">
                 <div
                     ref={container}
                     className="h-44 w-full overflow-hidden rounded-lg border border-[var(--sf-line)]"

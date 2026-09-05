@@ -36,13 +36,30 @@ export function BlockRenderer({ block, ctx }: { block: StorefrontBlock; ctx: Ren
     const content = block.content ?? {};
     const t = ctx.theme;
 
+    /**
+     * Records that a block was clicked, and tells nobody about it.
+     *
+     * Sent with fetch rather than Inertia's router. The endpoint answers 204,
+     * which carries no Inertia payload — and any response the router does not
+     * recognise it treats as a server error and displays, full screen, in its
+     * own modal. With an empty body that modal is a large white rectangle over
+     * the shop, thrown up by a counter the buyer never asked to increment.
+     *
+     * `keepalive` because this often fires on the click that navigates away,
+     * and a beacon that dies with the page counts nothing.
+     */
     const trackClick = () => {
         if (ctx.isPreview) return;
 
-        router.post(`/${ctx.storeUsername}/blocks/${block.id}/click`, {}, {
-            preserveScroll: true,
-            preserveState: true,
-            only: [],
+        const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+
+        void fetch(`/${ctx.storeUsername}/blocks/${block.id}/click`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            keepalive: true,
+            headers: { 'X-CSRF-TOKEN': token, Accept: 'application/json' },
+        }).catch(() => {
+            // Analytics failing is not the buyer's problem.
         });
     };
 
