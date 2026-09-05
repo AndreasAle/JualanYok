@@ -16,7 +16,10 @@ class SecurityHeaders
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'SAMEORIGIN',
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
-            'Permissions-Policy' => 'geolocation=(), microphone=(), camera=(), interest-cohort=()',
+            // Geolocation is allowed for our own pages: the checkout map offers a
+            // "use my location" button, and the browser still asks the visitor
+            // before anything is read. Denying it here made that button dead.
+            'Permissions-Policy' => 'geolocation=(self), microphone=(), camera=(), interest-cohort=()',
             'X-Permitted-Cross-Domain-Policies' => 'none',
         ];
 

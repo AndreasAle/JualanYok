@@ -74,6 +74,7 @@ export function MapPicker({
     const marker = useRef<any>(null);
     const observer = useRef<ResizeObserver | null>(null);
     const visibility = useRef<IntersectionObserver | null>(null);
+    const timers = useRef<number[]>([]);
     const hintApplied = useRef<string | null>(null);
 
     const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
@@ -81,6 +82,7 @@ export function MapPicker({
     const [busy, setBusy] = useState(false);
     const [label, setLabel] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
+    const [tilesDrawn, setTilesDrawn] = useState(false);
 
     const describe = async (lat: number, lon: number) => {
         try {
@@ -126,9 +128,22 @@ export function MapPicker({
                 // Tiles are the one part served from outside this app. If a
                 // network blocks them the map is a grey box, so say so instead
                 // of leaving the buyer staring at nothing.
+                tiles.on('tileload', () => setTilesDrawn(true));
                 tiles.on('tileerror', () => setNotice(
                     'Peta nggak bisa dimuat dari jaringan ini. Lewati aja — ongkir reguler tetap jalan.',
                 ));
+
+                // A blank box with no explanation is the worst outcome, so if
+                // nothing has drawn by now, say so rather than let it sit there.
+                timers.current.push(window.setTimeout(() => {
+                    setTilesDrawn((drawn) => {
+                        if (! drawn) {
+                            setNotice('Peta lambat dimuat. Kamu bisa lanjut tanpa pin — ongkir reguler tetap jalan.');
+                        }
+
+                        return drawn;
+                    });
+                }, 9000));
 
                 marker.current = L.marker(start, { draggable: true }).addTo(map.current);
 
@@ -146,8 +161,29 @@ export function MapPicker({
                  */
                 const remeasure = () => map.current?.invalidateSize({ animate: false });
 
+                /*
+                 * Keep re-measuring until the container reports a real width.
+                 *
+                 * One re-measure is not enough. A sheet settles over several
+                 * frames, and until it does Leaflet's cached size is zero — at
+                 * which point it computes an empty tile range and requests
+                 * nothing at all. The controls and attribution are positioned
+                 * by CSS, so they appear anyway: the map looks loaded and is
+                 * simply blank. This retries at a human-invisible interval and
+                 * stops the moment there is a width to work with.
+                 */
+                let tries = 0;
+                const settle = window.setInterval(() => {
+                    remeasure();
+
+                    if ((map.current?.getSize?.().x ?? 0) > 0 || ++tries > 25) {
+                        window.clearInterval(settle);
+                    }
+                }, 200);
+
+                timers.current.push(settle);
                 requestAnimationFrame(remeasure);
-                window.setTimeout(remeasure, 350);
+                timers.current.push(window.setTimeout(remeasure, 350));
 
                 if ('ResizeObserver' in window) {
                     observer.current = new ResizeObserver(remeasure);
@@ -182,6 +218,8 @@ export function MapPicker({
             cancelled = true;
             observer.current?.disconnect();
             visibility.current?.disconnect();
+            timers.current.forEach((timer) => window.clearTimeout(timer));
+            timers.current.forEach((timer) => window.clearInterval(timer));
         };
     }, []);
 
@@ -301,13 +339,20 @@ export function MapPicker({
                 </button>
             </div>
 
-            <div
-                ref={container}
-                className={cn(
-                    'mt-2 h-52 w-full overflow-hidden rounded-lg border border-[var(--sf-line)]',
-                    status === 'loading' && 'animate-pulse bg-[color-mix(in_oklab,var(--sf-fg)_6%,transparent)]',
+            <div className="relative mt-2">
+                <div
+                    ref={container}
+                    className="h-52 w-full overflow-hidden rounded-lg border border-[var(--sf-line)]"
+                />
+
+                {!tilesDrawn && (
+                    <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-lg bg-[color-mix(in_oklab,var(--sf-fg)_5%,transparent)] text-xs opacity-80">
+                        <span className="inline-flex items-center gap-1.5">
+                            <Loader2 className="size-3.5 animate-spin" /> Memuat peta…
+                        </span>
+                    </span>
                 )}
-            />
+            </div>
 
             {notice && <p className="mt-1.5 text-xs text-amber-600">{notice}</p>}
 
