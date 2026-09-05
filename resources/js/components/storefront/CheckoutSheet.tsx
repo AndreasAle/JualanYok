@@ -407,6 +407,33 @@ export function CheckoutSheet({
                                 </div>
                             </Field>
 
+                            {/*
+                                The pin sits with the address it refines rather
+                                than behind the district picker. Hidden until an
+                                area had been chosen, nobody knew it was there —
+                                and it is the difference between instant couriers
+                                being offered and silently missing.
+                            */}
+                            <MapPicker
+                                storeUsername={storeUsername}
+                                latitude={data.shipping_address.latitude}
+                                longitude={data.shipping_address.longitude}
+                                hint={[data.shipping_address.district, data.shipping_address.city, data.shipping_address.province].filter(Boolean).join(', ')}
+                                onChange={(position) => {
+                                    setData('shipping_address', {
+                                        ...data.shipping_address,
+                                        latitude: position?.latitude ?? null,
+                                        longitude: position?.longitude ?? null,
+                                    });
+
+                                    // Instant couriers only quote with a
+                                    // coordinate, so the list is stale the moment
+                                    // the pin moves.
+                                    setQuotes([]);
+                                    setData('shipping_quote_token', '');
+                                }}
+                            />
+
                             {data.shipping_address.area_id && (
                                 <div className="space-y-3">
                                     <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
@@ -415,26 +442,6 @@ export function CheckoutSheet({
                                     <Field label="Kode pos" required><input value={data.shipping_address.postal_code} onChange={(e) => setData('shipping_address', { ...data.shipping_address, postal_code: e.target.value })} inputMode="numeric" className={field} required /></Field>
                                     <Field label="Catatan kurir" hint="Opsional"><input value={data.shipping_address.note} onChange={(e) => setData('shipping_address', { ...data.shipping_address, note: e.target.value })} className={field} placeholder="Rumah pagar hitam" /></Field>
 
-                                    <MapPicker
-                                        storeUsername={storeUsername}
-                                        latitude={data.shipping_address.latitude}
-                                        longitude={data.shipping_address.longitude}
-                                        hint={[data.shipping_address.district, data.shipping_address.city, data.shipping_address.province].filter(Boolean).join(', ')}
-                                        onChange={(position) => {
-                                            const address = {
-                                                ...data.shipping_address,
-                                                latitude: position?.latitude ?? null,
-                                                longitude: position?.longitude ?? null,
-                                            };
-                                            setData('shipping_address', address);
-
-                                            // Instant couriers only quote with a
-                                            // coordinate, so the list is stale the
-                                            // moment the pin moves.
-                                            setQuotes([]);
-                                            setData('shipping_quote_token', '');
-                                        }}
-                                    />
                                     {quotes.length === 0 && (
                                         <button type="button" onClick={() => void loadQuotes()} disabled={shippingBusy || !data.shipping_address.address_line.trim()} className={cn('inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold transition hover:bg-black/5 disabled:opacity-50', theme.line)}>{shippingBusy ? <><Loader2 className="size-4 animate-spin" /> Menghitung ongkir</> : <><Truck className="size-4" /> Tampilkan pilihan kurir</>}</button>
                                     )}

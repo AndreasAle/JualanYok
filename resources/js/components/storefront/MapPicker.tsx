@@ -225,7 +225,9 @@ export function MapPicker({
             </div>
 
             <p className="mt-0.5 text-xs opacity-60">
-                Geser pin ke titik rumahmu. Kurir instan seperti GoSend dan GrabExpress butuh titik ini untuk bisa muncul.
+                {hint
+                    ? 'Geser pin ke titik rumahmu. Kurir instan seperti GoSend dan GrabExpress butuh titik ini untuk bisa muncul.'
+                    : 'Pilih kecamatan dulu supaya peta langsung lompat ke wilayahmu — atau cari dan geser pin-nya sekarang.'}
             </p>
 
             <div className="mt-2 flex gap-2">
