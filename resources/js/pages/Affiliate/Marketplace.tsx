@@ -110,7 +110,7 @@ export default function Marketplace({
 
                                 <div className="mt-3 flex-1">
                                     <div className="flex items-baseline justify-between">
-                                        <span className="text-lg font-extrabold">{formatIDR(product.price)}</span>
+                                        <span className="text-lg font-semibold">{formatIDR(product.price)}</span>
                                         <span className="text-xs text-muted">
                                             {formatNumber(product.sales_count)} terjual
                                         </span>
@@ -120,7 +120,7 @@ export default function Marketplace({
                                         <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                                             Komisi {product.commission_label}
                                         </p>
-                                        <p className="text-lg font-extrabold text-emerald-700 dark:text-emerald-300">
+                                        <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">
                                             {formatIDR(product.commission_amount)}
                                         </p>
                                         {product.cookie_days && (

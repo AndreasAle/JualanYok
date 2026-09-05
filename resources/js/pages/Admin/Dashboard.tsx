@@ -108,7 +108,7 @@ export default function AdminDashboard({
                                             {item.icon}
                                         </span>
                                         <span className="min-w-0 flex-1 text-sm font-medium">{item.label}</span>
-                                        <span className="shrink-0 text-lg font-extrabold tabular-nums">
+                                        <span className="shrink-0 text-lg font-semibold tabular-nums">
                                             {formatNumber(item.count)}
                                         </span>
                                     </Link>

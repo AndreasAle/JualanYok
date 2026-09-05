@@ -235,8 +235,8 @@ export default function ProductForm({
                                                 </span>
                                                 <div>
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <p className="text-sm font-extrabold">Produk dari marketplace</p>
-                                                        <span className="rounded-full bg-white px-2 py-1 text-[9px] font-black uppercase tracking-wide text-[#EE4D2D] shadow-sm dark:bg-white/10">Tanpa checkout</span>
+                                                        <p className="text-sm font-semibold">Produk dari marketplace</p>
+                                                        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#EE4D2D] shadow-sm dark:bg-white/10">Tanpa checkout</span>
                                                     </div>
                                                     <p className="mt-1 text-xs leading-5 text-muted">Cocok untuk link affiliate atau produk milikmu di Shopee, Tokopedia, TikTok Shop, dan marketplace lain.</p>
                                                 </div>
@@ -266,8 +266,8 @@ export default function ProductForm({
                                                 {data.external_url && (
                                                     <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3">
                                                         <div className="flex min-w-0 items-center gap-3">
-                                                            <span className="grid size-9 shrink-0 place-items-center rounded-lg text-[10px] font-black text-white" style={{ backgroundColor: marketplace.color }}>{marketplace.shortName}</span>
-                                                            <div className="min-w-0"><p className="text-xs font-extrabold">{marketplace.name} terdeteksi</p><p className="truncate text-[10px] text-muted">Tombol toko: {marketplaceCta(marketplace.name)}</p></div>
+                                                            <span className="grid size-9 shrink-0 place-items-center rounded-lg text-[11px] font-bold text-white" style={{ backgroundColor: marketplace.color }}>{marketplace.shortName}</span>
+                                                            <div className="min-w-0"><p className="text-xs font-semibold">{marketplace.name} terdeteksi</p><p className="truncate text-[11px] text-muted">Tombol toko: {marketplaceCta(marketplace.name)}</p></div>
                                                         </div>
                                                         <BadgeCheck className="size-5 shrink-0 text-emerald-500" />
                                                     </div>
@@ -570,7 +570,7 @@ export default function ProductForm({
                                     {currentType?.needs_shipping && (
                                         <div className="space-y-4 rounded-2xl border border-line bg-surface-2 p-4">
                                             <div>
-                                                <p className="text-sm font-extrabold">Data paket untuk ongkir</p>
+                                                <p className="text-sm font-semibold">Data paket untuk ongkir</p>
                                                 <p className="mt-1 text-xs text-muted">Dipakai kurir menghitung tarif nyata. Isi ukuran setelah produk dibungkus.</p>
                                             </div>
                                             <div className="grid gap-4 sm:grid-cols-2">
@@ -594,7 +594,7 @@ export default function ProductForm({
 
                                     <div className="rounded-2xl border border-violet-200 bg-violet-50/45 p-4 sm:p-5">
                                         <div className="flex items-start justify-between gap-4">
-                                            <div><p className="flex items-center gap-2 text-sm font-extrabold"><Boxes className="size-4 text-violet-600" /> Distribusi marketplace</p><p className="mt-1 max-w-xl text-xs leading-5 text-muted">Storefront-mu tetap bekerja seperti biasa. Aktifkan ini kalau produk juga ingin ditemukan dari halaman Jelajahi JualanYok.</p></div>
+                                            <div><p className="flex items-center gap-2 text-sm font-semibold"><Boxes className="size-4 text-violet-600" /> Distribusi marketplace</p><p className="mt-1 max-w-xl text-xs leading-5 text-muted">Storefront-mu tetap bekerja seperti biasa. Aktifkan ini kalau produk juga ingin ditemukan dari halaman Jelajahi JualanYok.</p></div>
                                             <Switch checked={data.is_marketplace_listed} onChange={(value) => setData('is_marketplace_listed', value)} label="Ajukan" />
                                         </div>
 
@@ -605,8 +605,8 @@ export default function ProductForm({
                                                     {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                                                 </Select>
                                             </Field>
-                                            {editing && <div className="rounded-xl border border-line bg-white p-3 text-xs leading-5"><p className="font-extrabold">Status: {product.marketplace_status_label}</p>{product.marketplace_status === 'PENDING_REVIEW' && <p className="mt-1 text-muted">Tim JualanYok sedang memeriksa kualitas, keamanan, dan kesesuaian listing.</p>}{product.rejection_reason && <p className="mt-2 rounded-lg bg-rose-50 p-2 text-rose-700"><b>Alasan:</b> {product.rejection_reason}</p>}</div>}
-                                            <div className="rounded-xl bg-white p-3"><p className="text-[9px] font-extrabold uppercase tracking-wider text-violet-600">Preview pencarian</p><p className="mt-2 line-clamp-1 text-sm font-extrabold">{data.name || 'Nama produkmu'}</p><p className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted">{data.short_description || 'Deskripsi singkat akan membantu calon pembeli memahami produkmu.'}</p><p className="mt-2 text-sm font-black">{isExternal ? 'Cek harga terbaru' : formatIDR(Number(data.price) || 0)}</p></div>
+                                            {editing && <div className="rounded-xl border border-line bg-white p-3 text-xs leading-5"><p className="font-semibold">Status: {product.marketplace_status_label}</p>{product.marketplace_status === 'PENDING_REVIEW' && <p className="mt-1 text-muted">Tim JualanYok sedang memeriksa kualitas, keamanan, dan kesesuaian listing.</p>}{product.rejection_reason && <p className="mt-2 rounded-lg bg-rose-50 p-2 text-rose-700"><b>Alasan:</b> {product.rejection_reason}</p>}</div>}
+                                            <div className="rounded-xl bg-white p-3"><p className="text-[11px] font-semibold uppercase tracking-wider text-violet-600">Preview pencarian</p><p className="mt-2 line-clamp-1 text-sm font-semibold">{data.name || 'Nama produkmu'}</p><p className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted">{data.short_description || 'Deskripsi singkat akan membantu calon pembeli memahami produkmu.'}</p><p className="mt-2 text-sm font-bold">{isExternal ? 'Cek harga terbaru' : formatIDR(Number(data.price) || 0)}</p></div>
                                         </div>}
                                     </div>
 
@@ -703,8 +703,8 @@ export default function ProductForm({
                                 </CardHeader>
                                 <CardBody>
                                     <div className="flex items-center gap-3">
-                                        <span className="grid size-11 shrink-0 place-items-center rounded-xl text-xs font-black text-white" style={{ backgroundColor: marketplace.color }}>{marketplace.shortName}</span>
-                                        <div className="min-w-0"><p className="text-sm font-extrabold">{marketplaceCta(marketplace.name)}</p><p className="mt-0.5 text-xs text-muted">Harga mengikuti marketplace.</p></div>
+                                        <span className="grid size-11 shrink-0 place-items-center rounded-xl text-xs font-bold text-white" style={{ backgroundColor: marketplace.color }}>{marketplace.shortName}</span>
+                                        <div className="min-w-0"><p className="text-sm font-semibold">{marketplaceCta(marketplace.name)}</p><p className="mt-0.5 text-xs text-muted">Harga mengikuti marketplace.</p></div>
                                     </div>
                                     <div className="mt-4 rounded-xl bg-surface-2 p-3 text-xs leading-5 text-muted">
                                         <p className="flex items-center gap-2 font-bold text-fg"><Sparkles className="size-4 text-violet-500" /> Tidak perlu mengisi harga dan stok.</p>
@@ -718,7 +718,7 @@ export default function ProductForm({
                                     <CardTitle>Preview harga</CardTitle>
                                 </CardHeader>
                                 <CardBody>
-                                    <p className="text-2xl font-extrabold">
+                                    <p className="text-2xl font-semibold">
                                         {data.is_pay_what_you_want
                                             ? `Mulai ${formatIDR(Number(data.minimum_price) || 0)}`
                                             : formatIDR(Number(data.price) || 0)}
@@ -779,7 +779,7 @@ function StockEditor({ productId, inventories }: { productId: number; inventorie
             <div className="flex items-start gap-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-700"><Boxes className="size-5" /></span>
                 <div>
-                    <p className="text-sm font-extrabold">Inventori produk</p>
+                    <p className="text-sm font-semibold">Inventori produk</p>
                     <p className="mt-0.5 text-xs text-muted">Setiap perubahan dicatat. Unit dalam checkout tetap dikunci agar tidak terjual dua kali.</p>
                 </div>
             </div>

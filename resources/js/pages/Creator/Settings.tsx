@@ -436,7 +436,7 @@ export default function Settings({
                                     background: `linear-gradient(135deg, ${themeForm.data.primary_color}, ${themeForm.data.accent_color})`,
                                 }}
                             >
-                                <p className="font-extrabold">Preview warna</p>
+                                <p className="font-semibold">Preview warna</p>
                                 <p className="mt-1 text-sm text-white/80">Begini kira-kira tampilannya.</p>
                             </div>
                         </CardBody>

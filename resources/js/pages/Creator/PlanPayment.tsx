@@ -158,14 +158,14 @@ export default function PlanPayment({
 
             {isPaid && (
                 <Card className="mx-auto max-w-2xl overflow-hidden border-emerald-200 p-0 text-center">
-                    <div className="bg-emerald-500 px-6 py-3 text-xs font-black uppercase tracking-[.18em] text-white">
+                    <div className="bg-emerald-500 px-6 py-3 text-xs font-semibold uppercase tracking-[.06em] text-white">
                         Pembayaran terkonfirmasi
                     </div>
                     <CardBody className="px-6 py-9 sm:px-10">
                         <span className="mx-auto grid size-20 place-items-center rounded-full bg-emerald-100 text-emerald-600 ring-8 ring-emerald-50">
                             <CheckCircle2 className="size-9" />
                         </span>
-                        <h2 className="mt-5 text-2xl font-black">Paket {payment.plan_name} sudah aktif</h2>
+                        <h2 className="mt-5 text-2xl font-bold">Paket {payment.plan_name} sudah aktif</h2>
                         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
                             Fitur dan limit baru sudah bisa dipakai. Pembayaran tercatat dengan nomor referensi{' '}
                             <b>{payment.reference}</b>.
@@ -246,7 +246,7 @@ export default function PlanPayment({
                                                 : 'Nomor pembayaran'}
                                         </p>
                                         <div className="mt-2 flex items-center justify-between gap-3">
-                                            <p className="break-all font-mono text-xl font-black">{paymentNumber}</p>
+                                            <p className="break-all font-mono text-xl font-bold">{paymentNumber}</p>
                                             <Button
                                                 type="button"
                                                 variant="outline"
@@ -284,7 +284,7 @@ export default function PlanPayment({
                                     <ol className="mt-5 space-y-2.5">
                                         {(payment.instructions.steps ?? []).map((step, index) => (
                                             <li key={step} className="flex gap-3 text-sm leading-6 text-muted">
-                                                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-2 text-xs font-black text-fg">
+                                                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-2 text-xs font-bold text-fg">
                                                     {index + 1}
                                                 </span>
                                                 {step}
@@ -332,7 +332,7 @@ export default function PlanPayment({
                                     )}
                                     <div className="flex items-end justify-between border-t border-line pt-4">
                                         <span className="font-bold">Total bayar</span>
-                                        <span className="text-2xl font-black tabular-nums">
+                                        <span className="text-2xl font-bold tabular-nums">
                                             {formatIDR(payment.amount)}
                                         </span>
                                     </div>

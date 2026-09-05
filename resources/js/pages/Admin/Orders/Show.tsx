@@ -37,14 +37,14 @@ export default function AdminOrderShow({ order }: { order: any }) {
                             </ul>
 
                             <div className="mt-4 space-y-1.5 border-t border-line pt-4 text-sm">
-                                <p className="pb-1 text-xs font-extrabold uppercase tracking-[0.12em] text-muted">Arus uang pembeli</p>
+                                <p className="pb-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Arus uang pembeli</p>
                                 <Row label="Subtotal produk" value={formatIDR(order.subtotal)} />
                                 {order.discount_total > 0 && <Row label="Diskon" value={`−${formatIDR(order.discount_total)}`} />}
                                 {order.shipping_total > 0 && <Row label="Ongkir dari pembeli" value={formatIDR(order.shipping_total)} />}
                                 {order.tax_total > 0 && <Row label="Pajak" value={formatIDR(order.tax_total)} />}
                                 <Row label="Dibayar pembeli" value={formatIDR(order.grand_total)} bold />
 
-                                <p className="pb-1 pt-4 text-xs font-extrabold uppercase tracking-[0.12em] text-muted">Distribusi pendapatan</p>
+                                <p className="pb-1 pt-4 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Distribusi pendapatan</p>
                                 <Row label="Dasar komisi" value={formatIDR(order.commission_base)} />
                                 <Row label={`Biaya platform · ${Number(order.platform_fee_rate ?? 0).toLocaleString('id-ID')}%`} value={formatIDR(order.platform_fee)} accent />
                                 {gatewayFee > 0 && <Row label={`Biaya gateway · ${order.gateway_fee_bearer === 'PLATFORM' ? 'platform' : 'seller'}${order.settlement_version < 2 ? ' · estimasi' : ''}`} value={`−${formatIDR(gatewayFee)}`} />}

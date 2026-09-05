@@ -84,7 +84,7 @@ export default function CourseShow({
                             </div>
                         ) : (
                             <>
-                                <h2 className="text-lg font-extrabold">{active.title}</h2>
+                                <h2 className="text-lg font-semibold">{active.title}</h2>
                                 <p className="mt-1 text-xs text-muted">{active.duration_minutes} menit</p>
 
                                 {active.video_url && (

@@ -145,7 +145,7 @@ export default function Balance({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <Card className="p-5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">Tersedia</p>
-                    <p className="mt-1.5 text-2xl font-extrabold tabular-nums text-[var(--success)]">
+                    <p className="mt-1.5 text-2xl font-semibold tabular-nums text-[var(--success)]">
                         {formatIDR(wallet.available)}
                     </p>
                     <p className="mt-2 text-xs text-muted">Siap ditarik kapan saja.</p>
@@ -153,25 +153,25 @@ export default function Balance({
 
                 <Card className="p-5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">Tertahan</p>
-                    <p className="mt-1.5 text-2xl font-extrabold tabular-nums">{formatIDR(wallet.pending)}</p>
+                    <p className="mt-1.5 text-2xl font-semibold tabular-nums">{formatIDR(wallet.pending)}</p>
                     <p className="mt-2 text-xs text-muted">Cair otomatis {holdingDays} hari setelah pembayaran.</p>
                 </Card>
 
                 <Card className="p-5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">Diproses</p>
-                    <p className="mt-1.5 text-2xl font-extrabold tabular-nums">{formatIDR(wallet.held)}</p>
+                    <p className="mt-1.5 text-2xl font-semibold tabular-nums">{formatIDR(wallet.held)}</p>
                     <p className="mt-2 text-xs text-muted">Penarikan yang sedang berjalan.</p>
                 </Card>
 
                 <Card className="p-5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">Dana cadangan</p>
-                    <p className="mt-1.5 text-2xl font-extrabold tabular-nums">{formatIDR(wallet.reserve)}</p>
+                    <p className="mt-1.5 text-2xl font-semibold tabular-nums">{formatIDR(wallet.reserve)}</p>
                     <p className="mt-2 text-xs text-muted">Perlindungan refund; dilepas otomatis sesuai jadwal.</p>
                 </Card>
 
                 <Card className={cn('p-5', wallet.negative > 0 && 'border-rose-200 bg-rose-50')}>
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">Saldo minus</p>
-                    <p className={cn('mt-1.5 text-2xl font-extrabold tabular-nums', wallet.negative > 0 && 'text-[var(--danger)]')}>
+                    <p className={cn('mt-1.5 text-2xl font-semibold tabular-nums', wallet.negative > 0 && 'text-[var(--danger)]')}>
                         {wallet.negative > 0 ? `−${formatIDR(wallet.negative)}` : formatIDR(0)}
                     </p>
                     <p className="mt-2 text-xs text-muted">Dipulihkan otomatis dari pendapatan berikutnya.</p>
@@ -179,7 +179,7 @@ export default function Balance({
 
                 <Card className="p-5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">Total pendapatan</p>
-                    <p className="mt-1.5 text-2xl font-extrabold tabular-nums">{formatIDR(wallet.lifetime_earned)}</p>
+                    <p className="mt-1.5 text-2xl font-semibold tabular-nums">{formatIDR(wallet.lifetime_earned)}</p>
                     <p className="mt-2 text-xs text-muted">Sudah ditarik {formatIDR(wallet.withdrawn)}.</p>
                 </Card>
             </div>

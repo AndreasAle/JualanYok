@@ -38,7 +38,7 @@ export default function ShippingEdit({ profile, provider }: { profile: any; prov
                 <Switch checked={data.default_insurance} onChange={(value) => setData('default_insurance', value)} label="Asuransi otomatis" description="Gunakan asuransi saat layanan kurir mendukungnya." />
                 <Button type="submit" variant="gradient" loading={processing}><MapPin className="size-4" /> Simpan alamat pengiriman</Button>
             </CardBody></Card></form>
-            <div className="space-y-4"><Card><CardHeader><CardTitle>Status logistik</CardTitle></CardHeader><CardBody className="space-y-3"><div className="flex items-center gap-3 rounded-xl bg-surface-2 p-4"><span className="grid size-10 place-items-center rounded-xl bg-emerald-100 text-emerald-700">{provider.ready ? <CheckCircle2 className="size-5" /> : <Truck className="size-5" />}</span><div><p className="font-extrabold capitalize">{provider.name}</p><p className="text-xs text-muted">{provider.ready ? 'Siap menerima tarif dan booking kurir.' : 'Menunggu kredensial server.'}</p></div></div></CardBody></Card>
+            <div className="space-y-4"><Card><CardHeader><CardTitle>Status logistik</CardTitle></CardHeader><CardBody className="space-y-3"><div className="flex items-center gap-3 rounded-xl bg-surface-2 p-4"><span className="grid size-10 place-items-center rounded-xl bg-emerald-100 text-emerald-700">{provider.ready ? <CheckCircle2 className="size-5" /> : <Truck className="size-5" />}</span><div><p className="font-semibold capitalize">{provider.name}</p><p className="text-xs text-muted">{provider.ready ? 'Siap menerima tarif dan booking kurir.' : 'Menunggu kredensial server.'}</p></div></div></CardBody></Card>
             </div>
         </div>
     </DashboardLayout>;

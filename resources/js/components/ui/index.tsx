@@ -23,13 +23,13 @@ const buttonVariants = cva(
         variants: {
             variant: {
                 primary:
-                    'bg-[var(--primary)] text-[var(--primary-fg)] shadow-soft hover:brightness-110 hover:shadow-lift',
-                gradient: 'gradient-brand text-white shadow-soft hover:shadow-lift hover:brightness-105',
+                    'bg-[var(--primary)] text-[var(--primary-fg)] hover:brightness-110',
+                gradient: 'gradient-brand text-white hover:brightness-105',
                 secondary: 'bg-surface-2 text-fg border border-line hover:bg-[var(--border)]',
                 outline: 'border border-line bg-transparent text-fg hover:bg-surface-2',
                 ghost: 'bg-transparent text-muted hover:bg-surface-2 hover:text-fg',
-                danger: 'bg-[var(--danger)] text-white shadow-soft hover:brightness-110',
-                success: 'bg-[var(--success)] text-white shadow-soft hover:brightness-110',
+                danger: 'bg-[var(--danger)] text-white hover:brightness-110',
+                success: 'bg-[var(--success)] text-white hover:brightness-110',
                 link: 'bg-transparent text-[var(--primary)] underline-offset-4 hover:underline p-0 h-auto',
             },
             size: {
@@ -103,7 +103,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
     return (
         <div
             className={cn(
-                'rounded-[1.35rem] border border-black/[.065] bg-surface shadow-[0_1px_2px_rgba(16,24,40,.03),0_12px_32px_rgba(31,24,52,.055)] dark:border-white/10',
+                'rounded-[var(--radius-card)] border border-line bg-surface shadow-card',
                 className,
             )}
             {...props}
@@ -116,7 +116,7 @@ export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElemen
 }
 
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-    return <h3 className={cn('text-base font-extrabold tracking-[-.015em]', className)} {...props} />;
+    return <h3 className={cn('text-[0.9375rem] font-semibold tracking-[-.01em]', className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {

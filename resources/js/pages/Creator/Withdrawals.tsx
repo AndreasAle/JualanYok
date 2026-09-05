@@ -183,7 +183,7 @@ export default function Withdrawals({
                 <div className="space-y-4">
                     <Card className="p-5">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted">Saldo tersedia</p>
-                        <p className="mt-1 text-3xl font-extrabold tabular-nums text-[var(--success)]">
+                        <p className="mt-1 text-3xl font-semibold tabular-nums text-[var(--success)]">
                             {formatIDR(wallet.available)}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">

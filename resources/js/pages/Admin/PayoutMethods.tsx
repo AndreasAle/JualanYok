@@ -247,7 +247,7 @@ function ReviewDialog({
                         <Badge tone={mode === 'approve' ? 'success' : 'danger'}>
                             {mode === 'approve' ? 'Verifikasi rekening' : 'Tolak rekening'}
                         </Badge>
-                        <h2 className="mt-3 text-xl font-black">{row.provider} · {row.account_number}</h2>
+                        <h2 className="mt-3 text-xl font-bold">{row.provider} · {row.account_number}</h2>
                         <p className="mt-1 text-sm text-muted">a.n. {row.account_name} · {row.user.name}</p>
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={onClose}>Tutup</Button>

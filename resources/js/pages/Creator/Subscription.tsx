@@ -78,7 +78,7 @@ export default function Subscription({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted">Paket sekarang</p>
-                        <p className="mt-1 text-2xl font-extrabold">{current?.plan_name ?? 'Gratis'}</p>
+                        <p className="mt-1 text-2xl font-semibold">{current?.plan_name ?? 'Gratis'}</p>
                         {current && (
                             <p className="mt-1 text-sm text-muted">
                                 <Badge tone={current.status === 'ACTIVE' ? 'success' : 'warning'}>
@@ -185,10 +185,10 @@ export default function Subscription({
                                 </Badge>
                             )}
 
-                            <p className="font-extrabold">{plan.name}</p>
+                            <p className="font-semibold">{plan.name}</p>
                             <p className="mt-1 min-h-10 text-sm text-muted">{plan.tagline}</p>
 
-                            <p className="mt-4 text-2xl font-extrabold">
+                            <p className="mt-4 text-2xl font-semibold">
                                 {price === 0 ? 'Gratis' : formatIDR(price)}
                                 {price > 0 && (
                                     <span className="text-sm font-medium text-muted">/{yearly ? 'thn' : 'bln'}</span>

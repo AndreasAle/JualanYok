@@ -75,7 +75,7 @@ export default function OrderShow({ order }: { order: any }) {
                             </ul>
 
                             <div className="mt-4 space-y-1.5 border-t border-line pt-4 text-sm">
-                                <p className="pb-1 text-xs font-extrabold uppercase tracking-[0.12em] text-muted">
+                                <p className="pb-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                                     Rincian pembayaran pembeli
                                 </p>
                                 <Row label="Subtotal produk" value={formatIDR(order.subtotal)} />
@@ -98,7 +98,7 @@ export default function OrderShow({ order }: { order: any }) {
                                     <span className="tabular-nums">{formatIDR(order.grand_total)}</span>
                                 </div>
 
-                                <p className="pb-1 pt-4 text-xs font-extrabold uppercase tracking-[0.12em] text-muted">
+                                <p className="pb-1 pt-4 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                                     Perhitungan pendapatanmu
                                 </p>
                                 <Row label="Nilai produk setelah diskon" value={formatIDR(order.commission_base)} />
@@ -132,7 +132,7 @@ export default function OrderShow({ order }: { order: any }) {
                                 {order.debt_offset > 0 && (
                                     <Row label="Pemulihan saldo minus" value={`−${formatIDR(order.debt_offset)}`} />
                                 )}
-                                <div className="flex justify-between border-t border-line pt-2 font-extrabold text-[var(--success)]">
+                                <div className="flex justify-between border-t border-line pt-2 font-semibold text-[var(--success)]">
                                     <span>Masuk ke saldo tertahan</span>
                                     <span className="tabular-nums">{formatIDR(pendingCredit)}</span>
                                 </div>
@@ -183,15 +183,15 @@ export default function OrderShow({ order }: { order: any }) {
                                 )}
 
                                 <div className="mb-4 rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
-                                    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-extrabold">Update proses untuk pembeli</p><p className="mt-1 text-xs leading-5 text-muted">Tahap persiapan diisi oleh toko. Setelah paket diambil, status Biteship diperbarui otomatis.</p></div>{order.public_tracking_url && <a href={order.public_tracking_url} target="_blank" rel="noreferrer" className="text-xs font-extrabold text-violet-700">Buka tracking pembeli ↗</a>}</div>
+                                    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">Update proses untuk pembeli</p><p className="mt-1 text-xs leading-5 text-muted">Tahap persiapan diisi oleh toko. Setelah paket diambil, status Biteship diperbarui otomatis.</p></div>{order.public_tracking_url && <a href={order.public_tracking_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-violet-700">Buka tracking pembeli ↗</a>}</div>
                                     <form className="mt-4 grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)_auto]" onSubmit={(event) => { event.preventDefault(); trackingForm.patch(`/dashboard/pesanan/${order.number}/status-pelacakan`, { preserveScroll: true, onSuccess: () => trackingForm.setData('description', '') }); }}>
                                         <Select value={trackingForm.data.stage} onChange={(event) => trackingForm.setData('stage', event.target.value)}><option value="processing">Sedang diproses</option><option value="packed">Sudah dikemas</option><option value="ready_for_pickup">Siap diserahkan ke kurir</option></Select>
                                         <Input value={trackingForm.data.description} onChange={(event) => trackingForm.setData('description', event.target.value)} placeholder="Catatan opsional untuk pembeli" />
                                         <Button type="submit" loading={trackingForm.processing}>Perbarui</Button>
                                     </form>
                                     {trackingForm.errors.stage && <p className="mt-2 text-xs font-semibold text-red-600">{trackingForm.errors.stage}</p>}
-                                    {order.tracking?.timeline?.length > 0 && <ol className="mt-4 space-y-2 border-t border-violet-100 pt-4">{[...order.tracking.timeline].reverse().slice(0, 4).map((event: any, index: number) => <li key={`${event.stage}-${event.occurred_at}-${index}`} className="flex items-start gap-2"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-violet-500" /><div><p className="text-xs font-extrabold">{event.title}</p><p className="text-[10px] text-muted">{event.description ? `${event.description} · ` : ''}{formatDate(event.occurred_at, true)}</p></div></li>)}</ol>}
-                                    <div className="mt-4 border-t border-violet-100 pt-4"><p className="text-[10px] font-black uppercase tracking-wider text-muted">ID pembelian</p><code className="mt-1 block text-xs font-black">{order.tracking_code}</code></div>
+                                    {order.tracking?.timeline?.length > 0 && <ol className="mt-4 space-y-2 border-t border-violet-100 pt-4">{[...order.tracking.timeline].reverse().slice(0, 4).map((event: any, index: number) => <li key={`${event.stage}-${event.occurred_at}-${index}`} className="flex items-start gap-2"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-violet-500" /><div><p className="text-xs font-semibold">{event.title}</p><p className="text-[11px] text-muted">{event.description ? `${event.description} · ` : ''}{formatDate(event.occurred_at, true)}</p></div></li>)}</ol>}
+                                    <div className="mt-4 border-t border-violet-100 pt-4"><p className="text-[11px] font-semibold uppercase tracking-wider text-muted">ID pembelian</p><code className="mt-1 block text-xs font-bold">{order.tracking_code}</code></div>
                                 </div>
 
                                 {!order.shipment && order.payment_status === 'PAID' && (
@@ -202,7 +202,7 @@ export default function OrderShow({ order }: { order: any }) {
 
                                 {order.shipment && (
                                     <div className="mt-4 space-y-3 rounded-2xl border border-line bg-surface-2 p-4">
-                                        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-violet-600">{order.shipment.provider}</p><p className="font-extrabold">{order.shipping_courier || 'Pengiriman penjual'} · {order.shipping_service || 'Reguler'}</p><p className="text-xs text-muted">{order.shipment.status_label}{order.shipment.waybill_id ? ` · Resi ${order.shipment.waybill_id}` : ''}</p></div><div className="flex flex-wrap justify-end gap-2">{order.shipment.waybill_id && <a href={`/dashboard/pesanan/${order.number}/cetak-resi`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-field)] border border-line bg-surface px-3 text-xs font-bold transition hover:bg-surface-2"><Printer className="size-3.5" /> Cetak resi</a>}<Button type="button" variant="outline" size="sm" onClick={() => shipForm.post(`/dashboard/pesanan/${order.number}/sinkron-kurir`, { preserveScroll: true })}><RefreshCw className="size-3.5" /> Sinkron</Button></div></div>
+                                        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-violet-600">{order.shipment.provider}</p><p className="font-semibold">{order.shipping_courier || 'Pengiriman penjual'} · {order.shipping_service || 'Reguler'}</p><p className="text-xs text-muted">{order.shipment.status_label}{order.shipment.waybill_id ? ` · Resi ${order.shipment.waybill_id}` : ''}</p></div><div className="flex flex-wrap justify-end gap-2">{order.shipment.waybill_id && <a href={`/dashboard/pesanan/${order.number}/cetak-resi`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-field)] border border-line bg-surface px-3 text-xs font-bold transition hover:bg-surface-2"><Printer className="size-3.5" /> Cetak resi</a>}<Button type="button" variant="outline" size="sm" onClick={() => shipForm.post(`/dashboard/pesanan/${order.number}/sinkron-kurir`, { preserveScroll: true })}><RefreshCw className="size-3.5" /> Sinkron</Button></div></div>
                                         {order.shipment.last_error && <Alert tone="danger" title="Kurir belum berhasil dipesan">{order.shipment.last_error}</Alert>}
                                         {order.shipment.events?.length > 0 && <ol className="space-y-3 border-l border-violet-200 pl-4">{order.shipment.events.map((event: any, index: number) => <li key={index}><p className="text-sm font-bold">{event.description}</p><p className="text-xs text-muted">{event.location ? `${event.location} · ` : ''}{formatDate(event.event_at, true)}</p></li>)}</ol>}
                                     </div>

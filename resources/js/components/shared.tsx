@@ -21,7 +21,7 @@ export function PageHeader({
     actions?: ReactNode;
 }) {
     return (
-        <div className="mb-8">
+        <div className="mb-6">
             {breadcrumbs && breadcrumbs.length > 0 && (
                 <nav aria-label="Breadcrumb" className="mb-2">
                     <ol className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
@@ -41,13 +41,12 @@ export function PageHeader({
                 </nav>
             )}
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                    <p className="mb-2 text-[10px] font-black uppercase tracking-[.2em] text-violet-600">Workspace overview</p>
-                    <h1 className="text-balance text-3xl font-black tracking-[-.04em] sm:text-4xl">{title}</h1>
-                    {description && <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{description}</p>}
+                    <h1 className="text-balance text-[1.375rem] font-semibold tracking-[-.02em] sm:text-2xl">{title}</h1>
+                    {description && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted">{description}</p>}
                 </div>
-                {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
+                {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
             </div>
         </div>
     );
@@ -57,6 +56,15 @@ export function PageHeader({
    Stats
    ========================================================================== */
 
+/**
+ * One number, stated plainly.
+ *
+ * The previous version shouted: a coloured icon tile, a black-weight figure, a
+ * lift on hover and — for the first card in every row — a dark panel with a
+ * blurred glow behind it. Four cards side by side then competed rather than
+ * comparing. Here the label leads, the figure carries the weight, and the only
+ * colour on the card is the direction of the change.
+ */
 export function StatCard({
     label,
     value,
@@ -70,46 +78,36 @@ export function StatCard({
     change?: number | null;
     hint?: string;
     icon?: ReactNode;
+    /** Kept for call-site compatibility; emphasis is now a hairline, not a theme. */
     tone?: 'default' | 'brand' | 'success' | 'warning';
 }) {
     const positive = (change ?? 0) >= 0;
 
     return (
-        <Card className={cn('group relative overflow-hidden p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(31,24,52,.1)]', tone === 'brand' && 'border-transparent bg-[#1b1925] text-white')}>
-            {tone === 'brand' && <span className="pointer-events-none absolute -right-8 -top-10 size-28 rounded-full bg-violet-500/25 blur-xl" />}
-            <div className="flex items-start justify-between gap-3">
-                <p className={cn('text-xs font-semibold uppercase tracking-wide', tone === 'brand' ? 'text-white/80' : 'text-muted')}>
-                    {label}
-                </p>
-                {icon && (
-                    <span className={cn('grid size-9 shrink-0 place-items-center rounded-xl', tone === 'brand' ? 'bg-white/10 text-white' : 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300')}>
-                        {icon}
-                    </span>
-                )}
+        <Card className={cn('p-4 sm:p-5', tone === 'brand' && 'ring-1 ring-inset ring-[var(--primary)]/15')}>
+            <div className="flex items-center gap-2">
+                {icon && <span className="text-muted [&>svg]:size-4">{icon}</span>}
+                <p className="truncate text-[0.8125rem] font-medium text-muted">{label}</p>
             </div>
 
-            <p className="relative mt-3 text-2xl font-black tracking-[-.035em] tabular-nums">{value}</p>
+            <p className="jy-num mt-2.5 text-[1.6rem] font-semibold leading-none">{value}</p>
 
-            <div className="mt-1.5 flex items-center gap-2">
-                {change !== null && change !== undefined && (
-                    <span
-                        className={cn(
-                            'inline-flex items-center gap-0.5 text-xs font-bold',
-                            tone === 'brand'
-                                ? 'text-white/90'
-                                : positive
-                                  ? 'text-emerald-600 dark:text-emerald-400'
-                                  : 'text-rose-600 dark:text-rose-400',
-                        )}
-                    >
-                        {positive ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
-                        {formatPercent(Math.abs(change), 1).replace('+', '')}
-                    </span>
-                )}
-                {hint && (
-                    <span className={cn('text-xs', tone === 'brand' ? 'text-white/70' : 'text-muted')}>{hint}</span>
-                )}
-            </div>
+            {(change !== null && change !== undefined) || hint ? (
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {change !== null && change !== undefined && (
+                        <span
+                            className={cn(
+                                'inline-flex items-center gap-0.5 text-xs font-medium',
+                                positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
+                            )}
+                        >
+                            {positive ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
+                            {formatPercent(Math.abs(change), 1).replace('+', '')}
+                        </span>
+                    )}
+                    {hint && <span className="text-xs text-muted">{hint}</span>}
+                </div>
+            ) : null}
         </Card>
     );
 }
@@ -270,7 +268,7 @@ export function DataList<T>({
                                         key={col.key}
                                         scope="col"
                                         className={cn(
-                                            'px-5 py-3.5 text-[10px] font-black uppercase tracking-[.12em] text-muted',
+                                            'px-5 py-3.5 text-[11px] font-semibold uppercase tracking-[.06em] text-muted',
                                             col.align === 'right' ? 'text-right' : 'text-left',
                                         )}
                                     >

@@ -125,7 +125,7 @@ export default function PlanPayments({
                                         <span className="text-xs text-muted">{row.reference}</span>
                                     </div>
 
-                                    <p className="mt-2 text-lg font-extrabold tabular-nums">
+                                    <p className="mt-2 text-lg font-semibold tabular-nums">
                                         {formatIDR(row.amount)}
                                         <span className="ml-2 text-xs font-semibold text-muted">
                                             ({formatIDR(row.base_amount)} + {row.unique_suffix})
@@ -208,7 +208,7 @@ export default function PlanPayments({
                     <Card className="w-full max-w-md">
                         <CardBody className="space-y-4">
                             <div>
-                                <h2 className="text-lg font-extrabold">Tolak pembayaran?</h2>
+                                <h2 className="text-lg font-semibold">Tolak pembayaran?</h2>
                                 <p className="mt-1 text-sm text-muted">
                                     {rejecting.reference} · {formatIDR(rejecting.amount)}
                                 </p>

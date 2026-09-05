@@ -122,7 +122,7 @@ export default function QrisPayments({
                                         <span className="text-xs text-muted">{row.order_number}</span>
                                     </div>
 
-                                    <p className="mt-2 text-lg font-extrabold tabular-nums">
+                                    <p className="mt-2 text-lg font-semibold tabular-nums">
                                         {formatIDR(row.amount)}
                                         {row.unique_suffix !== null && (
                                             <span className="ml-2 text-xs font-semibold text-muted">
@@ -198,7 +198,7 @@ export default function QrisPayments({
                     <Card className="w-full max-w-md">
                         <CardBody className="space-y-4">
                             <div>
-                                <h2 className="text-lg font-extrabold">Tolak pembayaran?</h2>
+                                <h2 className="text-lg font-semibold">Tolak pembayaran?</h2>
                                 <p className="mt-1 text-sm text-muted">
                                     {rejecting.order_number} · {formatIDR(rejecting.amount)}
                                 </p>

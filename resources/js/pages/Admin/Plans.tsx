@@ -49,7 +49,7 @@ export default function AdminPlans({ plans }: { plans: Plan[] }) {
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h2 className="text-lg font-extrabold">{plan.name}</h2>
+                                        <h2 className="text-lg font-semibold">{plan.name}</h2>
                                         {!plan.is_active && <Badge tone="danger">Nonaktif</Badge>}
                                         {!plan.is_public && <Badge tone="warning">Tersembunyi</Badge>}
                                     </div>

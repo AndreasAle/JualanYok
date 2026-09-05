@@ -102,7 +102,7 @@ export default function ProductsIndex({
             render: (row) => (
                 <span className="font-semibold">
                     {formatNumber(row.type === 'EXTERNAL' ? row.external_clicks : row.sales_count)}
-                    <span className="ml-1 text-[10px] font-normal text-muted">{row.type === 'EXTERNAL' ? 'klik' : 'terjual'}</span>
+                    <span className="ml-1 text-[11px] font-normal text-muted">{row.type === 'EXTERNAL' ? 'klik' : 'terjual'}</span>
                 </span>
             ),
         },

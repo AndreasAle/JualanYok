@@ -1,26 +1,17 @@
-<svg width="430" height="104" viewBox="0 0 430 104" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">JualanYok</title>
-  <desc id="desc">Logo JualanYok dengan simbol tas belanja JY berwarna ungu dan koral.</desc>
+<svg width="280" height="72" viewBox="0 0 280 72" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="JualanYok">
   <defs>
-    <linearGradient id="brand" x1="10" y1="7" x2="117" y2="99" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C3AED"/>
-      <stop offset="0.46" stop-color="#B946D4"/>
-      <stop offset="1" stop-color="#FF6B5F"/>
-    </linearGradient>
-    <linearGradient id="word" x1="310" y1="31" x2="422" y2="82" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8B3CF5"/>
-      <stop offset="0.52" stop-color="#D547B4"/>
-      <stop offset="1" stop-color="#FF6258"/>
+    <linearGradient id="jy-tile" x1="4" y1="4" x2="68" y2="68" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B4DFF"/>
+      <stop offset="1" stop-color="#6023D6"/>
     </linearGradient>
   </defs>
-
-  <g aria-hidden="true">
-    <path d="M38 31V23C38 11 47 3 58 3C70 3 79 11 79 23V31" stroke="url(#brand)" stroke-width="9" stroke-linecap="round"/>
-    <path d="M22 40H50C67 40 78 48 85 61L99 40H113L86 88C82 96 74 101 64 101" stroke="url(#brand)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M22 40V75C22 88 14 96 2 96" stroke="url(#brand)" stroke-width="14" stroke-linecap="round"/>
-    <path d="M50 66V80C50 90 43 96 33 96C22 96 15 90 15 80" stroke="url(#brand)" stroke-width="14" stroke-linecap="round"/>
+  <g transform="translate(4 4) scale(0.9375)">
+    <rect width="64" height="64" rx="16" fill="url(#jy-tile)"/>
+    <path d="M24 27v-5a8 8 0 0 1 16 0v5" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M14 26h36a2 2 0 0 1 2 2v19a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9V28a2 2 0 0 1 2-2Z" fill="#fff"/>
+    <path d="M25 44.5 32 37l7 7.5" stroke="#6023D6" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-
-  <text x="133" y="75" fill="#10111B" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="56" font-weight="800" letter-spacing="-3">Jualan</text>
-  <text x="307" y="75" fill="url(#word)" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="56" font-weight="800" letter-spacing="-3">Yok</text>
+  <text x="80" y="47" font-family="Plus Jakarta Sans, Segoe UI, Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="-1.4">
+    <tspan fill="#171620">Jualan</tspan><tspan fill="#7C3AED">Yok</tspan>
+  </text>
 </svg>

@@ -239,22 +239,22 @@ export default function Builder({
                 <section className="mb-5 overflow-hidden rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-5 shadow-[0_18px_50px_rgba(16,185,129,.12)] dark:border-emerald-500/20 dark:bg-emerald-500/10 sm:p-6">
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
                         <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-white shadow-lg"><PartyPopper className="size-7" /></span>
-                        <div className="min-w-0 flex-1"><p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700 dark:text-emerald-300">Toko berhasil dipublikasikan</p><h2 className="mt-1 text-xl font-black tracking-tight">Tokomu sekarang bisa dikunjungi pembeli.</h2><p className="mt-1 text-sm text-muted">Buka toko untuk pemeriksaan terakhir, lalu bagikan alamatnya ke audiensmu.</p></div>
-                        <div className="flex shrink-0 gap-2"><Button variant="outline" onClick={() => navigator.clipboard.writeText(store.public_url)}><Copy className="size-4" /> Salin link</Button><a href={store.public_url} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-field)] bg-emerald-600 px-4 text-sm font-extrabold text-white"><ExternalLink className="size-4" /> Buka toko</a></div>
+                        <div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-[.06em] text-emerald-700 dark:text-emerald-300">Toko berhasil dipublikasikan</p><h2 className="mt-1 text-xl font-bold tracking-tight">Tokomu sekarang bisa dikunjungi pembeli.</h2><p className="mt-1 text-sm text-muted">Buka toko untuk pemeriksaan terakhir, lalu bagikan alamatnya ke audiensmu.</p></div>
+                        <div className="flex shrink-0 gap-2"><Button variant="outline" onClick={() => navigator.clipboard.writeText(store.public_url)}><Copy className="size-4" /> Salin link</Button><a href={store.public_url} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-field)] bg-emerald-600 px-4 text-sm font-semibold text-white"><ExternalLink className="size-4" /> Buka toko</a></div>
                     </div>
                 </section>
             )}
 
             {firstProductReady && !justPublished && (
                 <section className="mb-5 rounded-[1.4rem] border border-violet-200 bg-violet-50 p-4 dark:border-violet-500/20 dark:bg-violet-500/10 sm:p-5">
-                    <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-600 text-white"><CheckCircle2 className="size-5" /></span><div><p className="font-extrabold">Produk pertama sudah masuk ke pratinjau</p><p className="mt-1 text-sm text-muted">Langkah 3 dari 3 — cek tampilan mobile di kanan, lalu tekan <strong>Publikasikan toko</strong>.</p></div></div>
+                    <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-600 text-white"><CheckCircle2 className="size-5" /></span><div><p className="font-semibold">Produk pertama sudah masuk ke pratinjau</p><p className="mt-1 text-sm text-muted">Langkah 3 dari 3 — cek tampilan mobile di kanan, lalu tekan <strong>Publikasikan toko</strong>.</p></div></div>
                 </section>
             )}
 
             {/* Toolbar */}
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight">Atur Tampilan</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">Atur Tampilan</h1>
                     <p className="text-sm text-muted">
                         Susun block tokomu. Perubahan tersimpan otomatis sebagai draft.
                     </p>
@@ -389,12 +389,12 @@ export default function Builder({
                                                         </span>
                                                     )}
                                                     {!block.is_published && (
-                                                        <span className="rounded bg-surface-2 px-1.5 py-px text-[10px] font-bold text-muted">
+                                                        <span className="rounded bg-surface-2 px-1.5 py-px text-[11px] font-bold text-muted">
                                                             Disembunyikan
                                                         </span>
                                                     )}
                                                     {block.has_unpublished_changes && (
-                                                        <span className="rounded bg-amber-100 px-1.5 py-px text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                                        <span className="rounded bg-amber-100 px-1.5 py-px text-[11px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                                                             Draft
                                                         </span>
                                                     )}
@@ -437,7 +437,7 @@ export default function Builder({
                             <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 rounded-xl border border-white/60 bg-white/85 p-2 shadow-sm backdrop-blur-md">
                                 <span className="size-7 rounded-lg shadow-sm" style={{ background: themeDraft.primary_color }} />
                                 <span className="size-7 rounded-lg shadow-sm" style={{ background: themeDraft.accent_color }} />
-                                <span className="ml-auto text-[10px] font-black uppercase tracking-[.12em] text-slate-700">Gaya aktif</span>
+                                <span className="ml-auto text-[11px] font-semibold uppercase tracking-[.06em] text-slate-700">Gaya aktif</span>
                             </div>
                         </div>
                         <div className="p-4">
@@ -623,7 +623,7 @@ function AppearanceStudio({
                 <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-7 sm:py-5">
                     <div className="flex items-start gap-3">
                         <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><Sparkles className="size-5" /></span>
-                        <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-[var(--primary)]">JualanYok Style Studio</p><h2 id="appearance-title" className="mt-1 text-xl font-black tracking-tight">Buat tokomu punya karakter</h2><p className="mt-1 text-sm text-muted">Struktur template tetap aman. Kamu hanya mengubah identitas visualnya.</p></div>
+                        <div><p className="text-[11px] font-semibold uppercase tracking-[.06em] text-[var(--primary)]">JualanYok Style Studio</p><h2 id="appearance-title" className="mt-1 text-xl font-bold tracking-tight">Buat tokomu punya karakter</h2><p className="mt-1 text-sm text-muted">Struktur template tetap aman. Kamu hanya mengubah identitas visualnya.</p></div>
                     </div>
                     <Button variant="ghost" size="icon" onClick={onClose} aria-label="Tutup pengaturan tampilan"><X className="size-5" /></Button>
                 </div>
@@ -631,7 +631,7 @@ function AppearanceStudio({
                 <div className="grid lg:grid-cols-[1fr_340px]">
                     <div className="space-y-7 p-5 sm:p-7">
                         <section>
-                            <div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="font-extrabold">Background premium</h3><p className="mt-0.5 text-xs text-muted">Satu klik mengatur background, kartu, badge, tombol, dan ritme yang sudah dikurasi.</p></div><Badge tone="brand">12 pilihan</Badge></div>
+                            <div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="font-semibold">Background premium</h3><p className="mt-0.5 text-xs text-muted">Satu klik mengatur background, kartu, badge, tombol, dan ritme yang sudah dikurasi.</p></div><Badge tone="brand">12 pilihan</Badge></div>
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                 {STYLE_PRESETS.map((preset) => {
                                     const active = activePreset?.id === preset.id;
@@ -656,7 +656,7 @@ function AppearanceStudio({
                                             className={cn('overflow-hidden rounded-2xl border bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-lift', active ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/20' : 'border-line')}
                                         >
                                             <span className="relative block h-20" style={{ background: preset.background }}><span className="absolute bottom-2 left-2 size-5 rounded-full border-2 border-white shadow-sm" style={{ background: preset.primary }} /><span className="absolute bottom-2 left-6 size-5 rounded-full border-2 border-white shadow-sm" style={{ background: preset.accent }} />{active && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-slate-950 text-white"><CheckCircle2 className="size-4" /></span>}</span>
-                                            <span className="block p-3"><b className="block text-xs">{preset.name}</b><small className="mt-1 block text-[10px] leading-4 text-muted">{preset.description}</small></span>
+                                            <span className="block p-3"><b className="block text-xs">{preset.name}</b><small className="mt-1 block text-[11px] leading-4 text-muted">{preset.description}</small></span>
                                         </button>
                                     );
                                 })}
@@ -664,7 +664,7 @@ function AppearanceStudio({
                         </section>
 
                         <section className="border-t border-line pt-6">
-                            <div className="mb-4"><h3 className="font-extrabold">Buat gaya sendiri</h3><p className="mt-0.5 text-xs text-muted">Atur detail tanpa mengubah susunan block dari template.</p></div>
+                            <div className="mb-4"><h3 className="font-semibold">Buat gaya sendiri</h3><p className="mt-0.5 text-xs text-muted">Atur detail tanpa mengubah susunan block dari template.</p></div>
                             <div className="grid gap-5 sm:grid-cols-2">
                                 <div className="space-y-4">
                                     <div>
@@ -681,7 +681,7 @@ function AppearanceStudio({
                                     <div className="grid grid-cols-2 gap-3"><ColorControl label="Warna utama" value={value.primary_color} onChange={(primary_color) => onChange({ primary_color })} /><ColorControl label="Warna aksen" value={value.accent_color} onChange={(accent_color) => onChange({ accent_color })} /></div>
 
                                     <div className="rounded-2xl border border-line bg-surface-2 p-4">
-                                        <div className="mb-3"><p className="text-xs font-extrabold">Warna komponen</p><p className="mt-0.5 text-[10px] leading-4 text-muted">Ubah kartu putih, badge informasi, dan CTA tanpa mencari menu lain.</p></div>
+                                        <div className="mb-3"><p className="text-xs font-semibold">Warna komponen</p><p className="mt-0.5 text-[11px] leading-4 text-muted">Ubah kartu putih, badge informasi, dan CTA tanpa mencari menu lain.</p></div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <ColorControl label="Kartu profil" value={value.extras.surface_color} onChange={(surface_color) => onChange({ extras: { ...value.extras, surface_color } })} />
                                             <ColorControl label="Badge" value={value.extras.badge_background_color} onChange={(badge_background_color) => onChange({ extras: { ...value.extras, badge_background_color } })} />
@@ -693,7 +693,7 @@ function AppearanceStudio({
 
                                 <div className="space-y-4">
                                     <Field label="Font toko"><Select value={value.font_family} onChange={(event) => onChange({ font_family: event.target.value })}><optgroup label="Modern"><option value="jakarta">Plus Jakarta Sans</option><option value="inter">Inter</option><option value="manrope">Manrope</option><option value="dm-sans">DM Sans</option><option value="outfit">Outfit</option><option value="sora">Sora</option><option value="space">Space Grotesk</option><option value="poppins">Poppins</option><option value="nunito">Nunito</option></optgroup><optgroup label="Editorial"><option value="playfair">Playfair Display</option><option value="lora">Lora</option></optgroup><optgroup label="Cepat & universal"><option value="system">System UI</option></optgroup></Select></Field>
-                                    <div className="rounded-2xl border border-line bg-surface-2 p-4" style={{ fontFamily: FONT_PREVIEW_STACKS[value.font_family] ?? FONT_PREVIEW_STACKS.jakarta }}><p className="text-[10px] font-bold uppercase tracking-[.14em] text-muted">Contoh font</p><p className="mt-2 text-xl font-extrabold leading-tight">Tokomu, karaktermu.</p><p className="mt-1 text-xs text-muted">Produk terbaik layak tampil meyakinkan.</p></div>
+                                    <div className="rounded-2xl border border-line bg-surface-2 p-4" style={{ fontFamily: FONT_PREVIEW_STACKS[value.font_family] ?? FONT_PREVIEW_STACKS.jakarta }}><p className="text-[11px] font-bold uppercase tracking-[.06em] text-muted">Contoh font</p><p className="mt-2 text-xl font-semibold leading-tight">Tokomu, karaktermu.</p><p className="mt-1 text-xs text-muted">Produk terbaik layak tampil meyakinkan.</p></div>
                                     <ChoiceControl icon={<Paintbrush className="size-4" />} label="Bentuk tombol" value={value.button_style} options={[['rounded', 'Modern'], ['pill', 'Pill'], ['square', 'Tegas']]} onChange={(button_style) => onChange({ button_style: button_style as ThemeDraft['button_style'] })} />
                                     <ChoiceControl icon={<Type className="size-4" />} label="Gaya kartu" value={value.card_style} options={[['soft', 'Soft'], ['outline', 'Garis'], ['flat', 'Flat']]} onChange={(card_style) => onChange({ card_style: card_style as ThemeDraft['card_style'] })} />
                                     <ChoiceControl icon={<MoveVertical className="size-4" />} label="Jarak antarbagian" value={value.extras.spacing} options={[['compact', 'Rapat'], ['balanced', 'Nyaman'], ['airy', 'Lega']]} onChange={(spacing) => onChange({ extras: { ...value.extras, spacing: spacing as ThemeDraft['extras']['spacing'] } })} />
@@ -705,11 +705,11 @@ function AppearanceStudio({
 
                     <aside className="border-t border-line bg-surface-2 p-5 lg:border-l lg:border-t-0 lg:p-6">
                         <div className="lg:sticky lg:top-6">
-                            <p className="text-xs font-black uppercase tracking-[.16em] text-muted">Preview gaya</p>
+                            <p className="text-xs font-semibold uppercase tracking-[.06em] text-muted">Preview gaya</p>
                             <div className="mt-3 overflow-hidden rounded-[1.5rem] border-4 border-slate-900 shadow-lift" style={{ background: backgroundPreview || '#F6F7FB' }}>
                                 <div className="h-28 p-4" style={{ background: `linear-gradient(135deg, ${value.primary_color}, ${value.accent_color})` }}><div className="h-2 w-20 rounded-full bg-white/80" /><div className="mt-3 h-2 w-32 rounded-full bg-white/40" /></div>
                                 <div className="p-4">
-                                    <div className={cn('p-4', value.card_style === 'soft' ? 'rounded-2xl shadow-lg' : value.card_style === 'outline' ? 'rounded-2xl border border-slate-300' : 'rounded-2xl')} style={{ background: value.extras.surface_color }}><div className="h-3 w-28 rounded-full bg-slate-900" /><div className="mt-2 h-2 w-full rounded-full bg-slate-300" /><div className="mt-1.5 h-2 w-2/3 rounded-full bg-slate-200" /><div className="mt-3 flex gap-2"><span className="rounded-full px-2 py-1 text-[8px] font-bold" style={{ background: value.extras.badge_background_color, color: value.extras.badge_text_color }}>Terverifikasi</span><span className="rounded-full px-2 py-1 text-[8px] font-bold" style={{ background: value.extras.badge_background_color, color: value.extras.badge_text_color }}>3 produk</span></div><div className={cn('mt-4 grid h-9 place-items-center text-[9px] font-bold', value.button_style === 'pill' ? 'rounded-full' : value.button_style === 'square' ? 'rounded-lg' : 'rounded-xl')} style={{ background: value.extras.contact_button_color, color: readablePreview(value.extras.contact_button_color) }}>Hubungi Aku</div></div>
+                                    <div className={cn('p-4', value.card_style === 'soft' ? 'rounded-2xl shadow-lg' : value.card_style === 'outline' ? 'rounded-2xl border border-slate-300' : 'rounded-2xl')} style={{ background: value.extras.surface_color }}><div className="h-3 w-28 rounded-full bg-slate-900" /><div className="mt-2 h-2 w-full rounded-full bg-slate-300" /><div className="mt-1.5 h-2 w-2/3 rounded-full bg-slate-200" /><div className="mt-3 flex gap-2"><span className="rounded-full px-2 py-1 text-[8px] font-bold" style={{ background: value.extras.badge_background_color, color: value.extras.badge_text_color }}>Terverifikasi</span><span className="rounded-full px-2 py-1 text-[8px] font-bold" style={{ background: value.extras.badge_background_color, color: value.extras.badge_text_color }}>3 produk</span></div><div className={cn('mt-4 grid h-9 place-items-center text-[11px] font-bold', value.button_style === 'pill' ? 'rounded-full' : value.button_style === 'square' ? 'rounded-lg' : 'rounded-xl')} style={{ background: value.extras.contact_button_color, color: readablePreview(value.extras.contact_button_color) }}>Hubungi Aku</div></div>
                                     <div className={cn('grid grid-cols-2 gap-2', value.extras.spacing === 'compact' ? 'mt-2' : value.extras.spacing === 'airy' ? 'mt-6' : 'mt-4')}><div className="h-24 rounded-xl shadow-sm" style={{ background: `${value.extras.surface_color}E6` }} /><div className="h-24 rounded-xl shadow-sm" style={{ background: `${value.extras.surface_color}E6` }} /></div>
                                 </div>
                             </div>
@@ -1022,7 +1022,7 @@ function BlockPicker({
             <Card className="max-h-[88vh] w-full max-w-3xl animate-rise overflow-y-auto">
                 <div className="sticky top-0 z-10 border-b border-line bg-surface/95 p-5 backdrop-blur-xl sm:p-6">
                     <div className="flex items-start justify-between gap-4">
-                    <div><p className="text-[10px] font-black uppercase tracking-[.17em] text-violet-600">Koleksi block</p><h2 id="picker-title" className="mt-1 text-xl font-black tracking-tight">Tambahkan bagian baru</h2><p className="mt-1 text-sm text-muted">Pilih berdasarkan tujuan. Isinya bisa kamu ubah setelah ditambahkan.</p></div>
+                    <div><p className="text-[11px] font-semibold uppercase tracking-[.06em] text-violet-600">Koleksi block</p><h2 id="picker-title" className="mt-1 text-xl font-bold tracking-tight">Tambahkan bagian baru</h2><p className="mt-1 text-sm text-muted">Pilih berdasarkan tujuan. Isinya bisa kamu ubah setelah ditambahkan.</p></div>
                     <Button variant="ghost" size="icon" onClick={onClose} aria-label="Tutup">
                         <X className="size-5" />
                     </Button>
@@ -1035,7 +1035,7 @@ function BlockPicker({
                 <div className="space-y-7 p-5 sm:p-6">
                     {visibleGroups.map(([group, items]) => (
                         <div key={group}>
-                            <div className="mb-3 flex items-center justify-between"><p className="text-xs font-black uppercase tracking-[.15em] text-muted">{group}</p><span className="text-[10px] font-bold text-muted">{items.length} pilihan</span></div>
+                            <div className="mb-3 flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-[.06em] text-muted">{group}</p><span className="text-[11px] font-bold text-muted">{items.length} pilihan</span></div>
                             <div className="grid gap-2.5 sm:grid-cols-2">
                                 {items.map((item) => {
                                     const visual = BLOCK_VISUALS[item.value] ?? SHOWCASE_VISUALS[item.value] ?? { description: 'Tambahkan bagian baru ke tokomu.', icon: <Plus className="size-5" />, tone: 'slate' };
@@ -1334,7 +1334,7 @@ function ContentFields({
                     {slides.map((slide, index) => (
                         <div key={index} className="rounded-2xl border border-line bg-surface-2 p-4">
                             <div className="mb-3 flex items-center justify-between gap-2">
-                                <p className="text-sm font-extrabold">Slide {index + 1}</p>
+                                <p className="text-sm font-semibold">Slide {index + 1}</p>
                                 <div className="flex gap-1">
                                     <button type="button" onClick={() => moveSlide(index, -1)} disabled={index === 0} className="grid size-8 place-items-center rounded-lg border border-line bg-surface disabled:opacity-35" aria-label="Geser slide ke kiri"><ChevronUp className="size-4 -rotate-90" /></button>
                                     <button type="button" onClick={() => moveSlide(index, 1)} disabled={index === slides.length - 1} className="grid size-8 place-items-center rounded-lg border border-line bg-surface disabled:opacity-35" aria-label="Geser slide ke kanan"><ChevronDown className="size-4 -rotate-90" /></button>

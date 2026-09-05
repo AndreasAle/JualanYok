@@ -294,3 +294,72 @@
 @media (prefers-reduced-motion: reduce) {
     .jy-marquee-track { animation: none; }
 }
+
+/* ==========================================================================
+   Dashboard theme
+   --------------------------------------------------------------------------
+   The workspace is scoped to `.jy-dashboard-shell` so retuning it cannot
+   touch the marketing site or a creator's storefront, which are deliberately
+   louder surfaces.
+
+   The tuning is subtractive on purpose. A tool people keep open all day earns
+   attention by being quiet: one radius, hairline borders, shadows barely past
+   the threshold of visible, and colour reserved for the one thing on a screen
+   that is actually actionable.
+   ========================================================================== */
+.jy-dashboard-shell {
+    --bg: oklch(0.981 0.003 285);
+    --bg-subtle: oklch(0.968 0.004 285);
+    --surface: oklch(1 0 0);
+    --surface-2: oklch(0.975 0.004 285);
+    --border: oklch(0.912 0.005 285);
+    --fg: oklch(0.22 0.014 285);
+    --fg-muted: oklch(0.556 0.014 285);
+
+    /* One radius family. Cards, fields and pills stay visibly related. */
+    --radius-card: 0.875rem;
+    --radius-field: 0.5rem;
+
+    /* Elevation is a hint, not a drop shadow. */
+    --shadow-card: 0 1px 2px oklch(0.22 0.014 285 / 0.05);
+    --shadow-raised: 0 1px 2px oklch(0.22 0.014 285 / 0.06), 0 8px 20px oklch(0.22 0.014 285 / 0.06);
+
+    /* Navigation ink — a near-black with the brand hue in it, not pure grey. */
+    --nav: oklch(0.212 0.021 291);
+    --nav-fg: oklch(0.99 0 0);
+}
+
+.jy-dashboard-shell.dark,
+.dark .jy-dashboard-shell {
+    --bg: oklch(0.168 0.011 285);
+    --bg-subtle: oklch(0.194 0.012 285);
+    --surface: oklch(0.208 0.013 285);
+    --surface-2: oklch(0.238 0.014 285);
+    --border: oklch(0.288 0.014 285);
+    --fg: oklch(0.965 0.004 285);
+    --fg-muted: oklch(0.702 0.012 285);
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3);
+    --shadow-raised: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 20px oklch(0 0 0 / 0.28);
+    --nav: oklch(0.178 0.012 285);
+}
+
+@layer utilities {
+    /* A hairline that reads as one pixel on every display instead of
+       thickening on retina, which is what makes bordered panels look soft. */
+    .jy-hairline { border-color: var(--border); }
+
+    .shadow-card { box-shadow: var(--shadow-card, 0 1px 2px rgb(16 24 40 / 0.04)); }
+    .shadow-raised { box-shadow: var(--shadow-raised, 0 8px 20px rgb(16 24 40 / 0.07)); }
+
+    /* Section eyebrow. Sized and tracked to be read, not to decorate — the
+       9px black-weight micro-caps it replaces were pure ornament. */
+    .jy-eyebrow {
+        font-size: 0.6875rem;
+        line-height: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--fg-muted);
+    }
+
+    .jy-num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+}
