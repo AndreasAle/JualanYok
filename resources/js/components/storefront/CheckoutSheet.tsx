@@ -235,7 +235,7 @@ export function CheckoutSheet({
                     <span className="h-1.5 rounded-full bg-[var(--sf-primary)]" /><span className="h-1.5 rounded-full bg-[var(--sf-line)]" /><span className="h-1.5 rounded-full bg-[var(--sf-line)]" />
                 </div>
 
-                <form onSubmit={submit} className="space-y-4 p-5">
+                <form onSubmit={submit} className="space-y-3.5 p-4 sm:p-5">
                     {isPreview && (
                         <p className="rounded-xl bg-amber-100 px-4 py-3 text-sm text-amber-900">
                             Ini mode preview — checkout dinonaktifkan sampai toko dipublikasikan.
@@ -331,45 +331,37 @@ export function CheckoutSheet({
 
                     {hasPhysical && (
                         <section className={cn('space-y-4 rounded-2xl border p-4', theme.line)}>
-                            <div className="flex items-start gap-3">
-                                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_oklab,var(--sf-primary)_12%,transparent)] text-[var(--sf-primary)]"><MapPin className="size-4" /></span>
-                                <div><p className="text-sm font-extrabold">Alamat pengiriman</p><p className={cn('text-xs', theme.muted)}>Isi detail alamat, lalu pilih wilayah dari hasil pencarian.</p></div>
-                            </div>
-
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <Field label="Negara">
-                                    <input value="Indonesia" readOnly className={cn(field, 'cursor-not-allowed opacity-70')} />
-                                </Field>
-                                <Field label="Nama penerima">
-                                    <input value={data.name || 'Isi nama pembeli di atas'} readOnly className={cn(field, 'cursor-not-allowed opacity-70')} />
-                                </Field>
+                            <div className="flex items-center gap-2.5">
+                                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[color-mix(in_oklab,var(--sf-primary)_12%,transparent)] text-[var(--sf-primary)]"><MapPin className="size-4" /></span>
+                                <p className="text-sm font-semibold">Alamat pengiriman</p>
+                                <span className={cn('ml-auto text-[0.6875rem]', theme.muted)}>
+                                    Indonesia · {data.name || 'penerima di atas'}
+                                </span>
                             </div>
 
                             <Field
                                 label="Detail alamat"
                                 required
                                 error={(errors as Record<string, string>)['shipping_address.address_line']}
-                                hint="Tulis nama jalan, nomor rumah, RT/RW, dan patokan agar kurir mudah menemukan lokasi."
                             >
                                 <textarea
-                                    rows={3}
+                                    rows={2}
                                     value={data.shipping_address.address_line}
                                     onChange={(e) => {
                                         setData('shipping_address', { ...data.shipping_address, address_line: e.target.value });
                                         setQuotes([]); setData('shipping_quote_token', ''); setShippingError('');
                                     }}
                                     className={cn(field, 'resize-y')}
-                                    placeholder="Contoh: Jl. Merdeka No. 18, RT 02/RW 04, rumah pagar hitam"
+                                    placeholder="Jl. Merdeka No. 18, RT 02/RW 04, pagar hitam"
                                     autoComplete="street-address"
                                     required
                                 />
                             </Field>
 
                             <Field
-                                label="Kecamatan / Kota / Provinsi / Kode Pos"
+                                label="Kecamatan / kota"
                                 required
                                 error={(errors as Record<string, string>)['shipping_address.area_id']}
-                                hint="Ketik minimal 3 huruf, lalu wajib pilih salah satu hasil yang tersedia."
                             >
                                 <div className="relative">
                                     <div className="flex gap-2">
@@ -386,7 +378,7 @@ export function CheckoutSheet({
                                             }}
                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchAreas(); } }}
                                             className={field}
-                                            placeholder="Contoh: Ilir Barat I, Palembang atau 30137"
+                                            placeholder="Ketik 3 huruf, lalu pilih hasilnya"
                                             autoComplete="off"
                                         />
                                         <button type="button" onClick={() => void searchAreas()} disabled={shippingBusy} className={cn('grid size-12 shrink-0 place-items-center rounded-xl border transition hover:bg-black/5 disabled:opacity-50', theme.line)} aria-label="Cari wilayah pengiriman">
@@ -461,7 +453,7 @@ export function CheckoutSheet({
                     )}
 
                     <details className={cn('rounded-xl border p-4', theme.line)}>
-                        <summary className="cursor-pointer text-sm font-bold">Punya kupon atau catatan? <span className={cn('font-normal', theme.muted)}>(opsional)</span></summary>
+                        <summary className="cursor-pointer text-[0.8125rem] font-medium">Kupon atau catatan <span className={cn('font-normal', theme.muted)}>(opsional)</span></summary>
                         <div className="mt-4 space-y-4">
                             <Field label="Kode kupon" error={errors.coupon_code}><input value={data.coupon_code} onChange={(e) => setData('coupon_code', e.target.value.toUpperCase())} placeholder="Masukkan kode promo" className={cn(field, 'uppercase')} /></Field>
                             <Field label="Catatan untuk penjual" error={errors.note}><textarea rows={2} value={data.note} onChange={(e) => setData('note', e.target.value)} className={cn(field, 'resize-y')} /></Field>
@@ -479,31 +471,31 @@ export function CheckoutSheet({
                                 {formatIDR(checkoutTotal)}
                             </span>
                         </div>
-                        <p className={cn('mt-1.5 text-xs', theme.muted)}>
-                            Biaya layanan pembayaran dihitung setelah kamu pilih metode bayar.
-                        </p>
+                        <p className={cn('mt-1 text-xs', theme.muted)}>Biaya layanan dihitung di langkah pembayaran.</p>
                     </div>
 
-                    <label className={cn('flex items-start gap-2.5 text-xs leading-relaxed', theme.muted)}>
-                        <input
-                            type="checkbox"
-                            checked={data.marketing_consent}
-                            onChange={(e) => setData('marketing_consent', e.target.checked)}
-                            className="mt-0.5 size-4 shrink-0 accent-[var(--sf-primary)]"
-                        />
-                        Boleh kirim info promo ke emailku.
-                    </label>
+                    <div className="space-y-1.5">
+                        <label className={cn('flex items-start gap-2.5 text-xs leading-5', theme.muted)}>
+                            <input
+                                type="checkbox"
+                                checked={data.terms}
+                                onChange={(e) => setData('terms', e.target.checked)}
+                                className="mt-px size-4 shrink-0 accent-[var(--sf-primary)]"
+                                required
+                            />
+                            Setuju dengan syarat pembelian dan kebijakan refund.
+                        </label>
 
-                    <label className={cn('flex items-start gap-2.5 text-xs leading-relaxed', theme.muted)}>
-                        <input
-                            type="checkbox"
-                            checked={data.terms}
-                            onChange={(e) => setData('terms', e.target.checked)}
-                            className="mt-0.5 size-4 shrink-0 accent-[var(--sf-primary)]"
-                            required
-                        />
-                        Aku setuju dengan syarat pembelian dan kebijakan refund yang berlaku.
-                    </label>
+                        <label className={cn('flex items-start gap-2.5 text-xs leading-5', theme.muted)}>
+                            <input
+                                type="checkbox"
+                                checked={data.marketing_consent}
+                                onChange={(e) => setData('marketing_consent', e.target.checked)}
+                                className="mt-px size-4 shrink-0 accent-[var(--sf-primary)]"
+                            />
+                            Boleh kirim info promo ke emailku.
+                        </label>
+                    </div>
                     {errors.terms && <p className="text-xs text-rose-500">{errors.terms}</p>}
 
                     <button

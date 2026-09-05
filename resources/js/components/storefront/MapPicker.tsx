@@ -295,8 +295,15 @@ export function MapPicker({
 
     return (
         <div className={className}>
+            {/*
+                One line, not three. The map explains itself the moment it is
+                looked at; what it cannot say is why bothering is worth it, so
+                that is the only thing said.
+            */}
             <div className="flex items-center justify-between gap-2">
-                <p className="text-[0.8125rem] font-medium">Pin point alamat <span className="font-normal opacity-60">(opsional)</span></p>
+                <p className="text-[0.8125rem] font-medium">
+                    Pin lokasi <span className="font-normal opacity-60">— opsional, buka opsi kurir instan</span>
+                </p>
                 <button
                     type="button"
                     onClick={locateMe}
@@ -305,12 +312,6 @@ export function MapPicker({
                     <Crosshair className="size-3.5" /> Lokasi saya
                 </button>
             </div>
-
-            <p className="mt-0.5 text-xs opacity-60">
-                {hint
-                    ? 'Geser pin ke titik rumahmu. Kurir instan seperti GoSend dan GrabExpress butuh titik ini untuk bisa muncul.'
-                    : 'Pilih kecamatan dulu supaya peta langsung lompat ke wilayahmu — atau cari dan geser pin-nya sekarang.'}
-            </p>
 
             <div className="mt-2 flex gap-2">
                 <label className="relative flex-1">
@@ -324,7 +325,7 @@ export function MapPicker({
                                 void jump(query);
                             }
                         }}
-                        placeholder="Cari nama jalan atau patokan"
+                        placeholder="Cari jalan atau patokan"
                         className="h-9 w-full rounded-lg border border-[var(--sf-line)] pl-8 pr-3 text-[0.8125rem] outline-none"
                     />
                 </label>
@@ -342,7 +343,7 @@ export function MapPicker({
             <div className="relative mt-2">
                 <div
                     ref={container}
-                    className="h-52 w-full overflow-hidden rounded-lg border border-[var(--sf-line)]"
+                    className="h-44 w-full overflow-hidden rounded-lg border border-[var(--sf-line)]"
                 />
 
                 {!tilesDrawn && (
