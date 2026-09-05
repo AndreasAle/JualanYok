@@ -37,7 +37,8 @@
         @endif
     @endisset
 
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="/images/jualanyok-mark.png">
     <meta name="theme-color" content="#fcfbfe">
 
     <link rel="preconnect" href="https://fonts.bunny.net">

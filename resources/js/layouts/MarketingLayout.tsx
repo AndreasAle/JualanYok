@@ -16,8 +16,8 @@ const NAV = [
 export function Logo({ className }: { className?: string }) {
     return (
         <span className={cn('inline-flex', className)}>
-            <img src="/images/jualanyok-logo.svg" alt="JualanYok" className="h-8 w-auto select-none dark:hidden" />
-            <img src="/images/jualanyok-logo-light.svg" alt="JualanYok" className="hidden h-8 w-auto select-none dark:block" />
+            <img src="/images/jualanyok-logo.png" alt="JualanYok" className="h-8 w-auto select-none dark:hidden" />
+            <img src="/images/jualanyok-logo-light.png" alt="JualanYok" className="hidden h-8 w-auto select-none dark:block" />
         </span>
     );
 }

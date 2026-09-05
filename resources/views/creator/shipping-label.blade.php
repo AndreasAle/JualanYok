@@ -61,7 +61,7 @@
 
     <main class="sheet" aria-label="Label pengiriman {{ $shipment->waybill_id }}">
         <header class="header">
-            <img class="brand" src="{{ asset('images/jualanyok-logo.svg') }}" alt="JualanYok">
+            <img class="brand" src="{{ asset('images/jualanyok-logo.png') }}" alt="JualanYok">
             <div class="courier">
                 <strong>{{ $courier }}</strong>
                 <span>{{ $service }}</span>

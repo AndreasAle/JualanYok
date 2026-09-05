@@ -309,7 +309,7 @@ export default function DashboardLayout({
                         </Button>
 
                         <Link href="/" className="lg:hidden" aria-label="JualanYok beranda">
-                            <img src="/favicon.svg" alt="" className="size-7 rounded-md" />
+                            <img src="/images/jualanyok-mark.png" alt="" className="size-7 rounded-md" />
                         </Link>
 
                         {/* The page title lives here rather than being repeated in a
@@ -413,10 +413,10 @@ export default function DashboardLayout({
  */
 function Wordmark({ collapsed }: { collapsed?: boolean }) {
     if (collapsed) {
-        return <img src="/favicon.svg" alt="JualanYok" className="size-8 rounded-lg" />;
+        return <img src="/images/jualanyok-mark.png" alt="JualanYok" className="size-8 rounded-lg" />;
     }
 
-    return <img src="/images/jualanyok-logo-light.svg" alt="JualanYok" className="h-7 w-auto" />;
+    return <img src="/images/jualanyok-logo-light.png" alt="JualanYok" className="h-7 w-auto" />;
 }
 
 function NavLink({
