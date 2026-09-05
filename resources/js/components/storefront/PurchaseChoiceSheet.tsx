@@ -1,4 +1,6 @@
 import { ArrowRight, MessageCircle, ShieldCheck, ShoppingBag, X } from 'lucide-react';
+import { useState } from 'react';
+import { LeavingAppDialog } from '@/components/storefront/OutsideAppWarning';
 import type { StorefrontTheme } from '@/lib/storefront-theme';
 import { cn, formatIDR } from '@/lib/utils';
 import type { StorefrontProduct } from '@/types';
@@ -35,6 +37,11 @@ export function PurchaseChoiceSheet({
     onClose: () => void;
 }) {
     const hasWhatsapp = !!whatsapp?.replace(/\D/g, '');
+    /*
+     * Chosen WhatsApp, but not gone yet. Everything the platform can still do
+     * for this buyer happens in the one screen between the two.
+     */
+    const [leaving, setLeaving] = useState(false);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="purchase-choice-title">
@@ -54,6 +61,15 @@ export function PurchaseChoiceSheet({
                 </div>
 
                 <div className="my-5 border-t border-[var(--sf-line)]" />
+
+                {leaving && hasWhatsapp ? (
+                    <LeavingAppDialog
+                        href={whatsappUrl(whatsapp!, product)}
+                        theme={theme}
+                        onCancel={() => setLeaving(false)}
+                    />
+                ) : (
+                <>
                 <h3 className="text-xl font-black tracking-tight">Mau lanjut lewat mana?</h3>
                 <p className={cn('mt-1.5 text-sm leading-6', theme.muted)}>Kalau masih ada yang ingin dipastikan, ngobrol dulu. Kalau sudah cocok, pembayaran tetap aman diproses di JualanYok.</p>
 
@@ -63,15 +79,17 @@ export function PurchaseChoiceSheet({
                 </button>
 
                 {hasWhatsapp ? (
-                    <a href={whatsappUrl(whatsapp!, product)} target="_blank" rel="noopener noreferrer" className="mt-2.5 flex h-13 w-full items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50 px-5 text-base font-extrabold text-emerald-800 transition hover:bg-emerald-100">
+                    <button type="button" onClick={() => setLeaving(true)} className="mt-2.5 flex h-13 w-full items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50 px-5 text-base font-extrabold text-emerald-800 transition hover:bg-emerald-100">
                         <span className="inline-flex items-center gap-2"><MessageCircle className="size-5" /> Konsultasi via WhatsApp</span>
                         <ArrowRight className="size-4" />
-                    </a>
+                    </button>
                 ) : (
                     <p className={cn('mt-3 rounded-xl bg-[var(--sf-bg)] px-4 py-3 text-xs leading-5', theme.muted)}>Toko ini belum mengaktifkan konsultasi WhatsApp. Kamu tetap bisa lanjut membeli langsung.</p>
                 )}
 
-                <p className={cn('mt-4 flex items-center justify-center gap-1.5 text-[11px]', theme.muted)}><ShieldCheck className="size-3.5 text-emerald-500" /> Checkout dan pembayaran tetap dilakukan di JualanYok.</p>
+                <p className={cn('mt-4 flex items-center justify-center gap-1.5 text-center text-[11px] leading-4', theme.muted)}><ShieldCheck className="size-3.5 shrink-0 text-emerald-500" /> Perlindungan pesanan hanya berlaku untuk pembayaran di JualanYok.</p>
+                </>
+                )}
             </section>
         </div>
     );

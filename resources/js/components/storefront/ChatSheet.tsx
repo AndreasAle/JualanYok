@@ -1,5 +1,6 @@
 import { FileText, ImagePlus, MessageCircle, Paperclip, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { ChatSafetyNotice, LeavingAppDialog } from '@/components/storefront/OutsideAppWarning';
 import { cn, formatIDR } from '@/lib/utils';
 import type { buildStorefrontTheme } from '@/lib/storefront-theme';
 
@@ -93,6 +94,7 @@ export function ChatSheet({
     const [name, setName] = useState('');
     const [files, setFiles] = useState<File[]>([]);
     const [pinned, setPinned] = useState(Boolean(productId));
+    const [leaving, setLeaving] = useState(false);
     const [sending, setSending] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -228,6 +230,9 @@ export function ChatSheet({
                 </header>
 
                 <div className="flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
+                    {/* Said before the first word, and still there at the hundredth. */}
+                    <ChatSafetyNotice />
+
                     {!loaded ? (
                         <p className={cn('py-8 text-center text-xs', theme.muted)}>Memuat percakapan…</p>
                     ) : messages.length === 0 ? (
@@ -350,16 +355,28 @@ export function ChatSheet({
                     </div>
 
                     {whatsapp && (
-                        <a
-                            href={`https://wa.me/${whatsapp}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn('mt-2 block text-center text-[0.6875rem] underline', theme.muted)}
+                        <button
+                            type="button"
+                            onClick={() => setLeaving(true)}
+                            className={cn('mt-2 block w-full text-center text-[0.6875rem] underline', theme.muted)}
                         >
                             Atau hubungi lewat WhatsApp
-                        </a>
+                        </button>
                     )}
                 </form>
+
+                {/* The same warning as the product sheet: leaving is leaving. */}
+                {leaving && whatsapp && (
+                    <div className="absolute inset-0 z-10 flex items-end bg-slate-950/40 p-3 backdrop-blur-[2px]">
+                        <div className={cn('w-full rounded-2xl p-3 shadow-xl', theme.card)}>
+                            <LeavingAppDialog
+                                href={`https://wa.me/${whatsapp}`}
+                                theme={theme}
+                                onCancel={() => setLeaving(false)}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

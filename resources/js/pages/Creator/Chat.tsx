@@ -276,6 +276,20 @@ export default function CreatorChat({
                         </div>
 
                         <div className="flex-1 space-y-2.5 overflow-y-auto px-4 py-4">
+                            {/*
+                             * The buyer sees this warning at the top of their
+                             * side of the thread. The seller should know that,
+                             * and know where the line is.
+                             */}
+                            <div className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
+                                <p className="font-bold">Catatan JualanYok</p>
+                                <p className="mt-0.5">
+                                    Pembeli diberi tahu bahwa transaksi di luar aplikasi tidak dilindungi. Mengarahkan
+                                    pembeli membayar di luar JualanYok bisa berujung pembekuan toko, dan pesanannya tidak
+                                    bisa kami bantu jika bermasalah.
+                                </p>
+                            </div>
+
                             {messages.map((message) => (
                                 <div key={message.id} className={cn('flex', message.sender === 'seller' ? 'justify-end' : 'justify-start')}>
                                     <div
