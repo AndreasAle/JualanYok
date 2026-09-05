@@ -72,6 +72,8 @@ export function MapPicker({
     const container = useRef<HTMLDivElement | null>(null);
     const map = useRef<any>(null);
     const marker = useRef<any>(null);
+    const observer = useRef<ResizeObserver | null>(null);
+    const visibility = useRef<IntersectionObserver | null>(null);
     const hintApplied = useRef<string | null>(null);
 
     const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
@@ -116,12 +118,52 @@ export function MapPicker({
                     latitude !== null ? 16 : 11,
                 );
 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: '&copy; OpenStreetMap',
                 }).addTo(map.current);
 
+                // Tiles are the one part served from outside this app. If a
+                // network blocks them the map is a grey box, so say so instead
+                // of leaving the buyer staring at nothing.
+                tiles.on('tileerror', () => setNotice(
+                    'Peta nggak bisa dimuat dari jaringan ini. Lewati aja — ongkir reguler tetap jalan.',
+                ));
+
                 marker.current = L.marker(start, { draggable: true }).addTo(map.current);
+
+                /*
+                 * Leaflet measures its container once, at creation, and only
+                 * requests the tiles that fit what it measured. Inside a sheet
+                 * that is still animating open the container is briefly zero
+                 * or half width, so the map "loads" and then sits there empty —
+                 * controls and attribution drawn, not a single tile fetched.
+                 *
+                 * Re-measuring on the next frame fixes the common case, and the
+                 * observer covers the rest: the sheet finishing its animation,
+                 * the address section growing when a district is chosen, or the
+                 * phone being turned.
+                 */
+                const remeasure = () => map.current?.invalidateSize({ animate: false });
+
+                requestAnimationFrame(remeasure);
+                window.setTimeout(remeasure, 350);
+
+                if ('ResizeObserver' in window) {
+                    observer.current = new ResizeObserver(remeasure);
+                    observer.current.observe(container.current);
+                }
+
+                // A sheet can mount its content below the fold, or while it is
+                // still transparent. Neither changes the container's size, so
+                // the resize observer never fires — but the map is just as
+                // blank, and it stays blank until something re-measures it.
+                if ('IntersectionObserver' in window) {
+                    visibility.current = new IntersectionObserver((entries) => {
+                        if (entries.some((entry) => entry.isIntersecting)) remeasure();
+                    });
+                    visibility.current.observe(container.current);
+                }
 
                 marker.current.on('dragend', () => {
                     const { lat, lng } = marker.current.getLatLng();
@@ -138,6 +180,8 @@ export function MapPicker({
 
         return () => {
             cancelled = true;
+            observer.current?.disconnect();
+            visibility.current?.disconnect();
         };
     }, []);
 
