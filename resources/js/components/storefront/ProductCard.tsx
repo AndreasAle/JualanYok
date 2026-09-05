@@ -38,6 +38,8 @@ export function ProductCard({
     const primaryAction = external ? onBuy : needsOptions && onOpen ? onOpen : onBuy;
     const primaryLabel = external ? (product.external_cta || `Beli di ${provider}`) : soldOut ? 'Habis' : needsOptions ? 'Pilih' : 'Beli';
     const sold = product.sales_count ?? 0;
+    // Only a real average counts. Zero reviews is unknown, not a zero score.
+    const rated = (product.rating_count ?? 0) > 0 && product.rating_avg != null;
 
     const price = external
         ? product.price > 0 ? formatIDR(product.price) : 'Cek harga terbaru'
@@ -66,6 +68,13 @@ export function ProductCard({
                 <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex flex-wrap items-center gap-1.5">
                         {external ? <MarketplacePill provider={provider} /> : <TypePill label={product.type_label} />}
+                        {rated && (
+                            <span className="inline-flex items-center gap-0.5 text-[11px] font-medium">
+                                <Star className="size-3 fill-amber-400 text-amber-400" aria-hidden="true" />
+                                {product.rating_avg!.toFixed(1)}
+                                <span className={cn('font-normal', theme.muted)}>({formatNumber(product.rating_count ?? 0)})</span>
+                            </span>
+                        )}
                         {!external && sold > 0 && <span className={cn('text-[11px]', theme.muted)}>{formatNumber(sold)} terjual</span>}
                     </div>
 
@@ -174,7 +183,15 @@ export function ProductCard({
 
                 <div className={cn('mt-1.5 flex min-h-4 items-center gap-1 text-[10px] @sm:text-[11px]', theme.muted)}>
                     <Star className="size-3 fill-amber-400 text-amber-400" />
-                    <span>{external ? `Buka di ${provider}` : sold > 0 ? `${formatNumber(sold)} terjual` : 'Produk baru'}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                        {rated && (
+                            <span className="inline-flex items-center gap-0.5 font-medium">
+                                <Star className="size-3 fill-amber-400 text-amber-400" aria-hidden="true" />
+                                {product.rating_avg!.toFixed(1)}
+                            </span>
+                        )}
+                        {external ? `Buka di ${provider}` : sold > 0 ? `${formatNumber(sold)} terjual` : 'Produk baru'}
+                    </span>
                 </div>
 
                 <div className="mt-3 flex items-center gap-1.5">

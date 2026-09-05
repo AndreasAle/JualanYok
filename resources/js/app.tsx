@@ -20,15 +20,23 @@ try {
 createInertiaApp({
     title: (title) => (title ? `${title} — ${appName}` : appName),
 
-    resolve: (name) => {
-        const pages = import.meta.glob('./pages/**/*.tsx', { eager: true });
-        const page = pages[`./pages/${name}.tsx`] as { default: any } | undefined;
+    /*
+     * Pages are loaded on demand.
+     *
+     * `eager: true` pulled every screen in the app into the first download —
+     * the builder, the admin ledger, the whole dashboard — for a shopper who
+     * only ever opens one product page. Lazily, Vite splits each page into its
+     * own chunk and the visitor pays for the one they asked for.
+     */
+    resolve: async (name) => {
+        const pages = import.meta.glob('./pages/**/*.tsx');
+        const page = pages[`./pages/${name}.tsx`];
 
         if (!page) {
             throw new Error(`Halaman "${name}" tidak ditemukan di resources/js/pages.`);
         }
 
-        return page.default;
+        return ((await page()) as { default: unknown }).default;
     },
 
     setup({ el, App, props }) {

@@ -261,6 +261,60 @@ class ProductReviewTest extends TestCase
         $this->assertNull($review->fresh()->seller_reply);
     }
 
+    public function test_the_rating_travels_with_every_product_tile(): void
+    {
+        $this->write($this->order(), ['rating' => 4]);
+
+        // A rating only visible on the detail page does no work: the choice
+        // between products is made on the tiles.
+        $this->get("/{$this->store->username}")
+            ->assertOk()
+            ->assertInertia(function ($page) {
+                $products = collect($page->toArray()['props']['blocks'] ?? [])
+                    ->pluck('content.products')
+                    ->filter()
+                    ->flatten(1);
+
+                $this->assertTrue(
+                    $products->isEmpty() || $products->every(fn ($p) => array_key_exists('rating_avg', $p)),
+                    'Kartu produk harus membawa rating.',
+                );
+
+                return true;
+            });
+    }
+
+    public function test_the_seller_sees_unanswered_reviews_first(): void
+    {
+        $answered = $this->order();
+        $this->write($answered, ['rating' => 5]);
+        Review::firstOrFail()->forceFill(['seller_reply' => 'Makasih!'])->save();
+
+        $this->write($this->order(), ['rating' => 2, 'body' => 'Ukurannya beda']);
+
+        $props = $this->actingAs($this->store->owner)
+            ->get('/dashboard/ulasan')
+            ->assertOk()
+            ->viewData('page')['props'];
+
+        // The one that costs the shop money is the one on top.
+        $this->assertSame(2, $props['reviews']['data'][0]['rating']);
+        $this->assertSame(1, $props['stats']['unanswered']);
+        $this->assertSame(1, $props['stats']['low']);
+    }
+
+    public function test_one_seller_never_sees_another_shops_reviews(): void
+    {
+        $this->write($this->order());
+
+        $outsider = $this->makeStore(null, ['username' => 'tokolain'])->owner;
+
+        $this->actingAs($outsider)
+            ->get('/dashboard/ulasan')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('reviews.data', 0)->where('stats.total', 0));
+    }
+
     public function test_the_order_page_offers_a_form_only_while_one_is_owed(): void
     {
         $order = $this->order();

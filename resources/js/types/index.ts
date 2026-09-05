@@ -155,6 +155,8 @@ export interface StorefrontProduct {
     is_cartable?: boolean;
     requires_variant?: boolean;
     sales_count?: number;
+    rating_avg?: number | null;
+    rating_count?: number;
 }
 
 export interface CartLine {

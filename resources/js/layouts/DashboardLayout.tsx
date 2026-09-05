@@ -3,7 +3,7 @@ import {
     AlertTriangle, BarChart3, Blocks, Boxes, ChevronLeft, CircleHelp, CreditCard, ExternalLink, Eye, Gauge, Gift,
     MessageCircle,
     Handshake, IdCard, LayoutGrid, LifeBuoy, LogOut, Menu, Package, PieChart, Plug, QrCode, Receipt, Settings,
-    Search, ShieldCheck, ShoppingBag, Store, Ticket, TrendingUp, Truck, UserCircle, Users, Wallet, X,
+    Search, ShieldCheck, ShoppingBag, Star, Store, Ticket, TrendingUp, Truck, UserCircle, Users, Wallet, X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Badge, Button } from '@/components/ui';
@@ -39,6 +39,7 @@ const CREATOR_NAV: { group: string; items: NavItem[] }[] = [
             { label: 'Pesanan', href: '/dashboard/pesanan', icon: <ShoppingBag className="size-4.5" />, primary: true },
             { label: 'Chat', href: '/dashboard/chat', icon: <MessageCircle className="size-4.5" />, primary: true, badge: 'chat' },
             { label: 'Pengiriman', href: '/dashboard/pengiriman', icon: <Truck className="size-4.5" /> },
+            { label: 'Ulasan', href: '/dashboard/ulasan', icon: <Star className="size-4.5" /> },
             { label: 'Pelanggan', href: '/dashboard/pelanggan', icon: <Users className="size-4.5" /> },
             { label: 'Leads', href: '/dashboard/leads', icon: <Gift className="size-4.5" /> },
         ],

@@ -634,6 +634,11 @@ class StorefrontController extends Controller
             // Options have to be picked on the product page, not from a tile.
             'requires_variant' => $product->requiresVariant(),
             'sales_count' => (int) $product->sales_count,
+            // Carried on every tile, not just the detail page: a rating that is
+            // invisible while someone is choosing between products is a rating
+            // that does no work.
+            'rating_avg' => $product->rating_avg !== null ? (float) $product->rating_avg : null,
+            'rating_count' => (int) $product->rating_count,
         ];
 
         if (! $detailed) {

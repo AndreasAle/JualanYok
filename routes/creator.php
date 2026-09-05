@@ -16,6 +16,7 @@ use App\Http\Controllers\Creator\PayoutMethodController;
 use App\Http\Controllers\Creator\PlanPaymentController;
 use App\Http\Controllers\Creator\ProductController;
 use App\Http\Controllers\Creator\ProductFileController;
+use App\Http\Controllers\Creator\ReviewController;
 use App\Http\Controllers\Creator\ReviewReplyController;
 use App\Http\Controllers\Creator\ShippingController;
 use App\Http\Controllers\Creator\ShippingLabelController;
@@ -40,6 +41,8 @@ Route::middleware(['auth', 'creator'])
             ->middleware('throttle:60,1')
             ->name('chat.store');
 
+        /* Reviews. Reading them, and replying — which is all a seller may do. */
+        Route::get('/ulasan', [ReviewController::class, 'index'])->name('reviews');
         /* Answering a review. Replying is all a seller may do to one. */
         Route::post('/ulasan/{review}/balas', [ReviewReplyController::class, 'store'])
             ->middleware('throttle:60,1')

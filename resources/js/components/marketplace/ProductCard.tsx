@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ArrowUpRight, BadgeCheck, BookOpen, CalendarDays, Heart, Package, ShoppingBag, Sparkles, Users } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, BookOpen, CalendarDays, Heart, Package, ShoppingBag, Sparkles, Star, Users } from 'lucide-react';
 import { useState } from 'react';
 import { cn, formatIDR } from '@/lib/utils';
 
@@ -18,6 +18,8 @@ export interface MarketplaceProduct {
     stock: number | null;
     affiliate_enabled: boolean;
     external_provider: string | null;
+    rating_avg?: number | null;
+    rating_count?: number;
     is_cartable: boolean;
     url: string;
     store: {
@@ -83,7 +85,15 @@ export default function ProductCard({ product, compact = false }: { product: Mar
                             {product.compare_at_price && <p className="text-[9px] text-neutral-400 line-through">{formatIDR(product.compare_at_price)}</p>}
                             <p className="text-[15px] font-black tracking-tight text-[#171722]">{product.type === 'EXTERNAL' ? 'Cek harga' : product.price === 0 ? 'Gratis' : formatIDR(product.price)}</p>
                         </div>
-                        {product.sales_count > 0 && <p className="shrink-0 text-[9px] font-semibold text-neutral-400">{product.sales_count.toLocaleString('id-ID')} terjual</p>}
+                        <p className="flex shrink-0 items-center gap-1.5 text-[9px] font-semibold text-neutral-400">
+                            {(product.rating_count ?? 0) > 0 && product.rating_avg != null && (
+                                <span className="inline-flex items-center gap-0.5 text-neutral-700">
+                                    <Star className="size-3 fill-amber-400 text-amber-400" aria-hidden="true" />
+                                    {product.rating_avg.toFixed(1)}
+                                </span>
+                            )}
+                            {product.sales_count > 0 && <span>{product.sales_count.toLocaleString('id-ID')} terjual</span>}
+                        </p>
                     </div>
                     <Link href={product.url} className="mt-3 flex h-9 items-center justify-center gap-2 rounded-full bg-[#171722] px-4 text-[10px] font-extrabold text-white transition hover:bg-violet-700">
                         {product.type === 'EXTERNAL' ? `Buka ${product.external_provider ?? 'marketplace'}` : 'Lihat produk'}

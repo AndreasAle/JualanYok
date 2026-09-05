@@ -194,6 +194,8 @@ class MarketplaceService
             'compare_at_price' => $product->compare_at_price ? (float) $product->compare_at_price : null,
             'discount_percent' => $product->discountPercent(),
             'sales_count' => (int) $product->sales_count,
+            'rating_avg' => $product->rating_avg !== null ? (float) $product->rating_avg : null,
+            'rating_count' => (int) $product->rating_count,
             'stock' => $stock,
             'affiliate_enabled' => (bool) $product->affiliate_enabled,
             'external_provider' => $product->externalProvider(),
@@ -222,6 +224,13 @@ class MarketplaceService
                 ->where(fn (Builder $q) => $q->whereNull('featured_until')->orWhere('featured_until', '>=', now()))
                 ->orderByDesc('featured_at'),
             'popular', 'bestselling' => $query->orderByDesc('sales_count')->orderByDesc('view_count'),
+            /*
+             * Rated products first, unrated last rather than treated as zero:
+             * a product nobody has reviewed yet is unknown, not bad.
+             */
+            'rating' => $query->orderByRaw('rating_avg IS NULL')
+                ->orderByDesc('rating_avg')
+                ->orderByDesc('rating_count'),
             'digital' => $query->where('type', ProductType::Digital->value)->orderByDesc('sales_count'),
             'learning' => $query->whereIn('type', [ProductType::Course->value, ProductType::Event->value])->latest(),
             'services' => $query->where('type', ProductType::Service->value)->latest(),
