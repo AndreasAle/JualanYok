@@ -547,10 +547,19 @@ export function BlockRenderer({ block, ctx }: { block: StorefrontBlock; ctx: Ren
             {showHeading && (
                 <div className="mb-5 flex items-end justify-between gap-4 sm:mb-6">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[.16em] text-[var(--sf-primary)]">
-                            {PRODUCT_BLOCKS.has(block.type) ? (ctx.affiliateMode ? 'Etalase pilihan' : 'Pilihan untuk kamu') : 'Dari toko ini'}
-                        </p>
-                        <h2 className="mt-1 text-xl font-black tracking-[-.025em] sm:text-2xl">{block.title}</h2>
+                        {/*
+                            An eyebrow only where it says something. "Dari toko
+                            ini" above every section on a page that is entirely
+                            this shop's is a label repeated four times to no
+                            effect — and four small caps lines are exactly what
+                            makes a page feel padded.
+                        */}
+                        {PRODUCT_BLOCKS.has(block.type) && (
+                            <p className="text-[11px] font-semibold uppercase tracking-[.1em] text-[var(--sf-primary)]">
+                                {ctx.affiliateMode ? 'Etalase pilihan' : 'Pilihan untuk kamu'}
+                            </p>
+                        )}
+                        <h2 className={cn('text-xl font-black tracking-[-.025em] sm:text-2xl', PRODUCT_BLOCKS.has(block.type) && 'mt-1')}>{block.title}</h2>
                         {PRODUCT_BLOCKS.has(block.type) && (
                             <p className={cn('mt-1 text-xs leading-5 sm:text-sm', t.muted)}>{ctx.affiliateMode ? `Klik produk untuk melihat harga terbaru di marketplace.` : `Kurasi terbaik dari ${ctx.storeName ?? `@${ctx.storeUsername}`}.`}</p>
                         )}

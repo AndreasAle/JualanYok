@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\StorefrontTemplate;
 use App\Models\StoreTheme;
 use App\Models\User;
+use App\Support\BlockStyle;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -81,7 +82,12 @@ class StoreProvisionService
                     'title' => $definition['title'] ?? null,
                     'content' => $definition['content'] ?? [],
                     'draft_content' => $definition['content'] ?? [],
-                    'style' => $definition['style'] ?? null,
+                    // Sanitised even though the blueprint is ours: templates are
+                    // data, and data that reaches a rendered page should never
+                    // be trusted just because of where it happens to live today.
+                    'style' => isset($definition['style'])
+                        ? BlockStyle::sanitise($definition['style'])
+                        : null,
                     'position' => $position++,
                     'is_published' => true,
                 ]);
